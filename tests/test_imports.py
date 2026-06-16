@@ -12,6 +12,7 @@ MODULES = (
     "ow_sim.state",
     "ow_sim.geometry",
     "ow_sim.forecast",
+    "ow_sim.collision",
     "ow_sim.combat",
     "ow_sim.timeline",
     "ow_sim.whatif",
