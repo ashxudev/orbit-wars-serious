@@ -130,6 +130,8 @@ class PlannerEnumerationTests(unittest.TestCase):
             source_ships=5,
             target_ships=2,
             target_production=3,
+            source_position=(0.0, 0.0),
+            target_position=(3.0, 4.0),
             distance=5.0,
             rough_travel_ticks=5,
             source_affordable_ships=5,
@@ -198,6 +200,8 @@ class PlannerEnumerationTests(unittest.TestCase):
         self.assertEqual(by_target[4].target_ships, 1)
         self.assertEqual(by_target[4].target_production, 4)
         self.assertTrue(by_target[4].target_is_comet)
+        self.assertEqual(by_target[4].source_position, (0.0, 0.0))
+        self.assertEqual(by_target[4].target_position, (6.0, 8.0))
 
     def test_distance_values_are_inherited_from_features(self) -> None:
         state = enumeration_state()

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ow_sim.forecast import fleet_ticks_to_reach_distance
-from ow_sim.state import GameState
+from ow_sim.state import GameState, Point2D
 
 from .candidates import CandidateGenerationConfig
 from .features import BoardFeatures, NEUTRAL_OWNER, PlanetDistance, extract_board_features
@@ -39,6 +39,8 @@ class SourceTargetPair:
     source_ships: int
     target_ships: int
     target_production: int
+    source_position: Point2D
+    target_position: Point2D
     distance: float
     rough_travel_ticks: int
     source_affordable_ships: int
@@ -82,7 +84,7 @@ def enumerate_source_target_pairs_from_features(
         return ()
 
     pairs = [
-        _pair_from_distance(distance_fact, source_ships_by_id)
+        _pair_from_distance(distance_fact, features, source_ships_by_id)
         for distance_fact in features.source_target_distances
         if distance_fact.source_planet_id in source_ships_by_id
     ]
@@ -100,9 +102,12 @@ def enumerate_source_target_pairs_from_features(
 
 def _pair_from_distance(
     distance_fact: PlanetDistance,
+    features: BoardFeatures,
     source_ships_by_id: dict[int, int],
 ) -> SourceTargetPair:
     source_ships = source_ships_by_id[distance_fact.source_planet_id]
+    source_facts = features.planet_facts_by_id[distance_fact.source_planet_id]
+    target_facts = features.planet_facts_by_id[distance_fact.target_planet_id]
     return SourceTargetPair(
         source_planet_id=distance_fact.source_planet_id,
         target_planet_id=distance_fact.target_planet_id,
@@ -111,6 +116,8 @@ def _pair_from_distance(
         source_ships=source_ships,
         target_ships=distance_fact.target_ships,
         target_production=distance_fact.target_production,
+        source_position=source_facts.position,
+        target_position=target_facts.position,
         distance=distance_fact.distance,
         rough_travel_ticks=fleet_ticks_to_reach_distance(
             distance_fact.distance,
