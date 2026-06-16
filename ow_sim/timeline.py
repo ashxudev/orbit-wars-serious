@@ -1,8 +1,11 @@
-"""Pure one-tick event summaries for Orbit Wars.
+"""Pure one-tick timeline facts for Orbit Wars.
 
 Cycle 9 integrates collision/removal queries with combat resolution facts for
 existing fleets only. It does not mutate game state, remove fleets, update
 planet rows, apply production, expire comets, or insert hypothetical launches.
+
+Cycle 10 adds immutable one-tick delta facts built from the same event summary
+and existing movement helpers. These deltas still do not apply a next state.
 """
 
 from __future__ import annotations
@@ -15,7 +18,8 @@ from .collision import (
     FleetRemovalReason,
     fleet_removal_event_for_tick,
 )
-from .state import Fleet, GameState
+from .forecast import fleet_path_for_tick, planet_path_for_tick
+from .state import Fleet, GameState, Point2D
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +40,37 @@ class OneTickEventSummary:
     planet_arrivals: tuple[PlanetArrivalCombatEvent, ...]
     bounds_fleet_ids: tuple[int, ...]
     sun_fleet_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FleetTickDelta:
+    """Pure one-tick movement/removal facts for one existing fleet."""
+
+    fleet_id: int
+    old_position: Point2D
+    new_position: Point2D
+    removed: bool
+    removal_event: FleetRemovalEvent | None
+
+
+@dataclass(frozen=True, slots=True)
+class PlanetTickDelta:
+    """Pure one-tick movement/combat facts for one existing planet."""
+
+    planet_id: int
+    old_position: Point2D
+    new_position: Point2D | None
+    combat_result: PlanetCombatResult | None
+    has_arrivals: bool
+
+
+@dataclass(frozen=True, slots=True)
+class OneTickStateDelta:
+    """Pure one-tick state-delta facts without applying a next state."""
+
+    fleet_deltas: tuple[FleetTickDelta, ...]
+    planet_deltas: tuple[PlanetTickDelta, ...]
+    event_summary: OneTickEventSummary
 
 
 def fleet_removal_events_for_tick(
@@ -94,6 +129,40 @@ def one_tick_event_summary(
     )
 
 
+def fleet_tick_deltas(
+    state: GameState,
+    dt: int = 1,
+) -> tuple[FleetTickDelta, ...]:
+    """Return movement/removal deltas for existing fleets in fleet order."""
+
+    summary = one_tick_event_summary(state, dt)
+    return _fleet_tick_deltas_from_summary(state, dt, summary)
+
+
+def planet_tick_deltas(
+    state: GameState,
+    dt: int = 1,
+) -> tuple[PlanetTickDelta, ...]:
+    """Return movement/combat deltas for existing planets in planet order."""
+
+    summary = one_tick_event_summary(state, dt)
+    return _planet_tick_deltas_from_summary(state, dt, summary)
+
+
+def one_tick_state_delta(
+    state: GameState,
+    dt: int = 1,
+) -> OneTickStateDelta:
+    """Return pure one-tick fleet, planet, and event-summary facts."""
+
+    summary = one_tick_event_summary(state, dt)
+    return OneTickStateDelta(
+        fleet_deltas=_fleet_tick_deltas_from_summary(state, dt, summary),
+        planet_deltas=_planet_tick_deltas_from_summary(state, dt, summary),
+        event_summary=summary,
+    )
+
+
 def _removal_events_and_arrivals(
     state: GameState,
     dt: int,
@@ -139,16 +208,83 @@ def _planet_arrival_combat_events_from_arrivals(
     return tuple(events)
 
 
+def _fleet_tick_deltas_from_summary(
+    state: GameState,
+    dt: int,
+    summary: OneTickEventSummary,
+) -> tuple[FleetTickDelta, ...]:
+    removal_by_fleet_id = {
+        event.fleet_id: event
+        for event in summary.removal_events
+    }
+
+    deltas: list[FleetTickDelta] = []
+    for fleet in state.fleets:
+        old_position, new_position = fleet_path_for_tick(fleet, dt)
+        removal_event = removal_by_fleet_id.get(fleet.fleet_id)
+        deltas.append(
+            FleetTickDelta(
+                fleet_id=fleet.fleet_id,
+                old_position=old_position,
+                new_position=new_position,
+                removed=removal_event is not None,
+                removal_event=removal_event,
+            )
+        )
+
+    return tuple(deltas)
+
+
+def _planet_tick_deltas_from_summary(
+    state: GameState,
+    dt: int,
+    summary: OneTickEventSummary,
+) -> tuple[PlanetTickDelta, ...]:
+    combat_by_planet_id = {
+        event.planet_id: event.combat_result
+        for event in summary.planet_arrivals
+    }
+
+    deltas: list[PlanetTickDelta] = []
+    for planet in state.planets:
+        path = planet_path_for_tick(state, planet.planet_id, dt)
+        if path is None:
+            old_position = planet.position
+            new_position = None
+        else:
+            old_position = path[0]
+            new_position = path[1]
+
+        combat_result = combat_by_planet_id.get(planet.planet_id)
+        deltas.append(
+            PlanetTickDelta(
+                planet_id=planet.planet_id,
+                old_position=old_position,
+                new_position=new_position,
+                combat_result=combat_result,
+                has_arrivals=combat_result is not None,
+            )
+        )
+
+    return tuple(deltas)
+
+
 def _validate_tick_count(dt: int) -> None:
     if isinstance(dt, bool) or not isinstance(dt, int) or dt < 1:
         raise ValueError("dt must be an integer >= 1")
 
 
 __all__ = (
+    "FleetTickDelta",
     "OneTickEventSummary",
+    "OneTickStateDelta",
+    "PlanetTickDelta",
     "PlanetArrivalCombatEvent",
+    "fleet_tick_deltas",
     "fleet_removal_events_for_tick",
     "one_tick_event_summary",
+    "one_tick_state_delta",
+    "planet_tick_deltas",
     "planet_arrival_combat_events_for_tick",
     "planet_arrival_fleets_for_tick",
 )
