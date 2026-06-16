@@ -3,6 +3,9 @@
 Cycle 13 adds typed hypothetical launch insertion. It does not advance time,
 process Kaggle action payloads, choose targets, score missions, branch
 timelines, or add planner logic.
+
+Cycle 14 adds a mechanical composition helper for launch insertion plus idle
+rollout. It still does not rank, compare, or branch scenarios.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from typing import Sequence
 
 from .forecast import launch_fleet
 from .state import Fleet, GameState, Planet
+from .timeline import simulate_ticks
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +81,19 @@ def apply_launch_orders(
     )
 
 
+def simulate_launch_orders(
+    state: GameState,
+    orders: Sequence[LaunchOrder],
+    ticks: int,
+    player_id: int | None = None,
+) -> GameState:
+    """Return the state after inserting launches and rolling out idle ticks."""
+
+    _validate_rollout_ticks(ticks)
+    launched_state = apply_launch_orders(state, orders, player_id=player_id)
+    return simulate_ticks(launched_state, ticks)
+
+
 def _effective_player_id(
     state: GameState,
     order: LaunchOrder,
@@ -121,7 +138,13 @@ def _planet_with_ships(planet: Planet, ships: int) -> Planet:
     )
 
 
+def _validate_rollout_ticks(ticks: int) -> None:
+    if isinstance(ticks, bool) or not isinstance(ticks, int) or ticks < 0:
+        raise ValueError("ticks must be an integer >= 0")
+
+
 __all__ = (
     "LaunchOrder",
     "apply_launch_orders",
+    "simulate_launch_orders",
 )
