@@ -10,6 +10,9 @@ and existing movement helpers. These deltas still do not apply a next state.
 Cycle 11 adds a pure one-tick next-state constructor for existing parsed state.
 It applies production, movement, removals, comet expiry, and combat, but still
 does not process actions, insert launches, or simulate multiple ticks.
+
+Cycle 12 adds a narrow idle rollout wrapper that repeatedly applies the Cycle
+11 one-tick constructor without adding what-if branching or actions.
 """
 
 from __future__ import annotations
@@ -288,6 +291,16 @@ def next_game_state_after_tick(
     )
 
 
+def simulate_ticks(state: GameState, ticks: int) -> GameState:
+    """Return ``state`` advanced by ``ticks`` idle existing-state ticks."""
+
+    _validate_rollout_ticks(ticks)
+    current_state = state
+    for _ in range(ticks):
+        current_state = next_game_state_after_tick(current_state)
+    return current_state
+
+
 def _removal_events_and_arrivals(
     state: GameState,
     dt: int,
@@ -507,6 +520,11 @@ def _validate_single_tick(dt: int) -> None:
         raise ValueError("next_game_state_after_tick supports only dt=1")
 
 
+def _validate_rollout_ticks(ticks: int) -> None:
+    if isinstance(ticks, bool) or not isinstance(ticks, int) or ticks < 0:
+        raise ValueError("ticks must be an integer >= 0")
+
+
 __all__ = (
     "FleetTickDelta",
     "OneTickEventSummary",
@@ -525,4 +543,5 @@ __all__ = (
     "planet_arrival_combat_events_for_tick",
     "planet_arrival_fleets_for_tick",
     "produce_planet",
+    "simulate_ticks",
 )
