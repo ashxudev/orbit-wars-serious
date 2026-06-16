@@ -6,6 +6,10 @@ planet rows, apply production, expire comets, or insert hypothetical launches.
 
 Cycle 10 adds immutable one-tick delta facts built from the same event summary
 and existing movement helpers. These deltas still do not apply a next state.
+
+Cycle 11 adds a pure one-tick next-state constructor for existing parsed state.
+It applies production, movement, removals, comet expiry, and combat, but still
+does not process actions, insert launches, or simulate multiple ticks.
 """
 
 from __future__ import annotations
@@ -19,7 +23,7 @@ from .collision import (
     fleet_removal_event_for_tick,
 )
 from .forecast import fleet_path_for_tick, planet_path_for_tick
-from .state import Fleet, GameState, Point2D
+from .state import CometGroup, Fleet, GameState, Planet, Point2D
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +167,127 @@ def one_tick_state_delta(
     )
 
 
+def produce_planet(planet: Planet) -> Planet:
+    """Return ``planet`` after official owned-planet production."""
+
+    if planet.owner == -1:
+        return planet
+    return _planet_with(planet, ships=planet.ships + planet.production)
+
+
+def apply_planet_position(planet: Planet, position: Point2D) -> Planet:
+    """Return ``planet`` with an updated x/y position."""
+
+    return _planet_with(planet, x=position[0], y=position[1])
+
+
+def apply_planet_combat_result(
+    planet: Planet,
+    result: PlanetCombatResult,
+) -> Planet:
+    """Return ``planet`` with owner and ships from a combat result."""
+
+    return _planet_with(planet, owner=result.owner, ships=result.ships)
+
+
+def advance_comet_groups(
+    state: GameState,
+    expired_planet_ids: frozenset[int],
+) -> tuple[CometGroup, ...]:
+    """Return comet groups after one path-index advance and expiry filtering."""
+
+    advanced_groups: list[CometGroup] = []
+
+    for group in state.comets:
+        next_path_index = (
+            None
+            if group.path_index is None
+            else group.path_index + 1
+        )
+        planet_ids: list[int] = []
+        paths: list[tuple[Point2D, ...]] = []
+
+        for slot, planet_id in enumerate(group.planet_ids):
+            if planet_id in expired_planet_ids:
+                continue
+            planet_ids.append(planet_id)
+            if slot < len(group.paths):
+                paths.append(group.paths[slot])
+
+        if not planet_ids:
+            continue
+
+        advanced_groups.append(
+            CometGroup(
+                planet_ids=tuple(planet_ids),
+                paths=tuple(paths),
+                path_index=next_path_index,
+                raw={
+                    "planet_ids": tuple(planet_ids),
+                    "paths": tuple(paths),
+                    "path_index": next_path_index,
+                },
+            )
+        )
+
+    return tuple(advanced_groups)
+
+
+def next_game_state_after_tick(
+    state: GameState,
+    dt: int = 1,
+) -> GameState:
+    """Return a new ``GameState`` after applying one official movement tick.
+
+    This helper applies only existing parsed state. It does not process actions,
+    insert launched fleets, spawn new comets, or support multi-tick mutation.
+    """
+
+    _validate_single_tick(dt)
+
+    removal_events, arrivals = _removal_events_and_arrivals(state, dt)
+    expired_planet_ids = _expired_comet_planet_ids_after_tick(state)
+    moved_planets = _produced_and_moved_planets(state)
+    planets_after_expiry = tuple(
+        planet
+        for planet in moved_planets
+        if planet.planet_id not in expired_planet_ids
+    )
+    planets_after_combat = _apply_arrival_combat_to_planets(
+        planets_after_expiry,
+        arrivals,
+    )
+
+    removed_fleet_ids = frozenset(event.fleet_id for event in removal_events)
+    moved_remaining_fleets = tuple(
+        _move_fleet_one_tick(fleet)
+        for fleet in state.fleets
+        if fleet.fleet_id not in removed_fleet_ids
+    )
+
+    return GameState(
+        tick=None if state.tick is None else state.tick + 1,
+        player_id=state.player_id,
+        planets=planets_after_combat,
+        fleets=moved_remaining_fleets,
+        angular_velocity=state.angular_velocity,
+        initial_planets=tuple(
+            planet
+            for planet in state.initial_planets
+            if planet.planet_id not in expired_planet_ids
+        ),
+        next_fleet_id=state.next_fleet_id,
+        comet_planet_ids=frozenset(
+            planet_id
+            for planet_id in state.comet_planet_ids
+            if planet_id not in expired_planet_ids
+        ),
+        comets=advance_comet_groups(state, expired_planet_ids),
+        remaining_overage_time=state.remaining_overage_time,
+        raw_observation=None,
+    )
+
+
 def _removal_events_and_arrivals(
     state: GameState,
     dt: int,
@@ -269,9 +394,117 @@ def _planet_tick_deltas_from_summary(
     return tuple(deltas)
 
 
+def _produced_and_moved_planets(state: GameState) -> tuple[Planet, ...]:
+    planets: list[Planet] = []
+
+    for planet in state.planets:
+        moved_planet = produce_planet(planet)
+        path = planet_path_for_tick(state, planet.planet_id)
+        if path is not None:
+            moved_planet = apply_planet_position(moved_planet, path[1])
+        planets.append(moved_planet)
+
+    return tuple(planets)
+
+
+def _apply_arrival_combat_to_planets(
+    planets: tuple[Planet, ...],
+    arrivals: dict[int, list[Fleet]],
+) -> tuple[Planet, ...]:
+    resolved_planets: list[Planet] = []
+
+    for planet in planets:
+        arriving_fleets = arrivals.get(planet.planet_id)
+        if not arriving_fleets:
+            resolved_planets.append(planet)
+            continue
+
+        combat_result = resolve_planet_combat(planet, tuple(arriving_fleets))
+        resolved_planets.append(apply_planet_combat_result(planet, combat_result))
+
+    return tuple(resolved_planets)
+
+
+def _expired_comet_planet_ids_after_tick(state: GameState) -> frozenset[int]:
+    expired_planet_ids: set[int] = set()
+
+    for group in state.comets:
+        if group.path_index is None:
+            continue
+        next_path_index = group.path_index + 1
+        for slot, planet_id in enumerate(group.planet_ids):
+            if slot >= len(group.paths):
+                continue
+            if next_path_index >= len(group.paths[slot]):
+                expired_planet_ids.add(planet_id)
+
+    return frozenset(expired_planet_ids)
+
+
+def _move_fleet_one_tick(fleet: Fleet) -> Fleet:
+    new_x, new_y = fleet_path_for_tick(fleet)[1]
+    return Fleet(
+        fleet_id=fleet.fleet_id,
+        owner=fleet.owner,
+        x=new_x,
+        y=new_y,
+        angle=fleet.angle,
+        from_planet_id=fleet.from_planet_id,
+        ships=fleet.ships,
+        raw=(
+            fleet.fleet_id,
+            fleet.owner,
+            new_x,
+            new_y,
+            fleet.angle,
+            fleet.from_planet_id,
+            fleet.ships,
+        ),
+    )
+
+
+def _planet_with(
+    planet: Planet,
+    *,
+    owner: int | None = None,
+    x: float | None = None,
+    y: float | None = None,
+    ships: int | None = None,
+) -> Planet:
+    next_owner = planet.owner if owner is None else owner
+    next_x = planet.x if x is None else x
+    next_y = planet.y if y is None else y
+    next_ships = planet.ships if ships is None else ships
+    return Planet(
+        planet_id=planet.planet_id,
+        owner=next_owner,
+        x=next_x,
+        y=next_y,
+        radius=planet.radius,
+        ships=next_ships,
+        production=planet.production,
+        is_comet=planet.is_comet,
+        initial_position=planet.initial_position,
+        raw=(
+            planet.planet_id,
+            next_owner,
+            next_x,
+            next_y,
+            planet.radius,
+            next_ships,
+            planet.production,
+        ),
+    )
+
+
 def _validate_tick_count(dt: int) -> None:
     if isinstance(dt, bool) or not isinstance(dt, int) or dt < 1:
         raise ValueError("dt must be an integer >= 1")
+
+
+def _validate_single_tick(dt: int) -> None:
+    if isinstance(dt, bool) or not isinstance(dt, int) or dt != 1:
+        raise ValueError("next_game_state_after_tick supports only dt=1")
 
 
 __all__ = (
@@ -280,11 +513,16 @@ __all__ = (
     "OneTickStateDelta",
     "PlanetTickDelta",
     "PlanetArrivalCombatEvent",
+    "advance_comet_groups",
+    "apply_planet_combat_result",
+    "apply_planet_position",
     "fleet_tick_deltas",
     "fleet_removal_events_for_tick",
+    "next_game_state_after_tick",
     "one_tick_event_summary",
     "one_tick_state_delta",
     "planet_tick_deltas",
     "planet_arrival_combat_events_for_tick",
     "planet_arrival_fleets_for_tick",
+    "produce_planet",
 )
