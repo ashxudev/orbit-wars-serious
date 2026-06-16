@@ -2,7 +2,8 @@
 
 Mission Generation Cycle 0 defines typed candidate containers and an explicit
 empty generation boundary. Mission Generation Cycle 1 adds legal action
-conversion helpers. Strategy and scoring are intentionally deferred.
+conversion helpers. Mission Generation Cycle 2 adds board feature extraction.
+Strategy and scoring are intentionally deferred.
 """
 
 from .actions import (
@@ -19,13 +20,27 @@ from .candidates import (
     MissionType,
     generate_candidates,
 )
+from .features import (
+    BoardFeatures,
+    NearestTarget,
+    OwnerTotals,
+    PlanetDistance,
+    PlanetFacts,
+    extract_board_features,
+)
 
 __all__ = (
+    "BoardFeatures",
     "CandidateGenerationConfig",
     "CandidateOutcome",
     "LaunchCandidate",
     "MissionCandidate",
     "MissionType",
+    "NearestTarget",
+    "OwnerTotals",
+    "PlanetDistance",
+    "PlanetFacts",
+    "extract_board_features",
     "generate_candidates",
     "launch_candidate_to_action",
     "launch_candidate_to_order",
