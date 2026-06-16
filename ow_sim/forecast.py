@@ -1,21 +1,22 @@
-"""Planet position forecasting.
+"""Position forecasting.
 
-Cycle 4 covers non-comet planet motion and comet path-index motion only. Fleet
-movement, production, combat, timelines, and what-if behavior are intentionally
-deferred.
+Cycle 5 covers planet/comet position projection plus existing-fleet straight-line
+movement only. Launch planning, collision handling, production, combat,
+timelines, and what-if behavior are intentionally deferred.
 """
 
 from __future__ import annotations
 
 import math
 
-from .constants import SUN_CENTER
+from .constants import DEFAULT_MAX_FLEET_SPEED, SUN_CENTER
 from .geometry import distance, is_orbiting_position
-from .state import CometGroup, GameState, Planet, Point2D
+from .state import CometGroup, Fleet, GameState, Planet, Point2D
 
 
 PlanetPath = tuple[Point2D, Point2D]
 CometPath = tuple[Point2D, Point2D, bool]
+FleetPath = tuple[Point2D, Point2D]
 
 
 def is_orbiting_planet(planet: Planet) -> bool:
@@ -245,6 +246,56 @@ def comet_path_for_tick(
     return None
 
 
+def fleet_speed(
+    ships: int,
+    max_speed: float = DEFAULT_MAX_FLEET_SPEED,
+) -> float:
+    """Return the official fleet speed for a positive ship count."""
+
+    _validate_positive_ship_count(ships)
+    speed = 1.0 + (max_speed - 1.0) * (
+        math.log(ships) / math.log(1000)
+    ) ** 1.5
+    return min(speed, max_speed)
+
+
+def fleet_step_delta(
+    angle: float,
+    ships: int,
+    max_speed: float = DEFAULT_MAX_FLEET_SPEED,
+) -> Point2D:
+    """Return the official one-tick x/y delta for a fleet heading."""
+
+    speed = fleet_speed(ships, max_speed)
+    return (math.cos(angle) * speed, math.sin(angle) * speed)
+
+
+def fleet_position_after_ticks(
+    fleet: Fleet,
+    dt: int,
+    max_speed: float = DEFAULT_MAX_FLEET_SPEED,
+) -> Point2D:
+    """Return straight-line fleet position after ``dt`` movement ticks."""
+
+    _validate_tick_count(dt, minimum=0, field_name="dt")
+    dx, dy = fleet_step_delta(fleet.angle, fleet.ships, max_speed)
+    return (fleet.x + dx * dt, fleet.y + dy * dt)
+
+
+def fleet_path_for_tick(
+    fleet: Fleet,
+    dt: int = 1,
+    max_speed: float = DEFAULT_MAX_FLEET_SPEED,
+) -> FleetPath:
+    """Return old/new fleet positions for the tick interval ``dt - 1`` to ``dt``."""
+
+    _validate_tick_count(dt, minimum=1, field_name="dt")
+    return (
+        fleet_position_after_ticks(fleet, dt - 1, max_speed),
+        fleet_position_after_ticks(fleet, dt, max_speed),
+    )
+
+
 def _planet_by_id(state: GameState, planet_id: int) -> Planet | None:
     for planet in state.planets:
         if planet.planet_id == planet_id:
@@ -259,11 +310,25 @@ def _initial_planet_by_id(state: GameState, planet_id: int) -> Planet | None:
     return None
 
 
+def _validate_positive_ship_count(ships: int) -> None:
+    if isinstance(ships, bool) or not isinstance(ships, int) or ships <= 0:
+        raise ValueError("ships must be a positive integer")
+
+
+def _validate_tick_count(dt: int, *, minimum: int, field_name: str) -> None:
+    if isinstance(dt, bool) or not isinstance(dt, int) or dt < minimum:
+        raise ValueError(f"{field_name} must be an integer >= {minimum}")
+
+
 __all__ = (
     "comet_group_for_planet",
     "comet_path_for_tick",
     "comet_position_after_ticks",
     "comet_position_at_path_index",
+    "fleet_path_for_tick",
+    "fleet_position_after_ticks",
+    "fleet_speed",
+    "fleet_step_delta",
     "is_orbiting_planet",
     "planet_initial_angle",
     "planet_orbit_radius",
