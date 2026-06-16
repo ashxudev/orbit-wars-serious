@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ow_sim.constants import GEOMETRY_ABS_TOL, ROTATION_RADIUS_LIMIT, SUN_CENTER
 from ow_sim.forecast import (
+    comet_position_after_ticks,
     is_orbiting_planet,
     planet_initial_angle,
     planet_orbit_radius,
@@ -168,12 +169,19 @@ class ForecastPlanetMotionTests(unittest.TestCase):
         self.assertPointAlmostEqual(old_position, observed.position)
         self.assertPointAlmostEqual(new_position, expected_new)
 
-    def test_comet_planets_are_deferred(self) -> None:
+    def test_comet_planets_use_path_projection(self) -> None:
         state = load_state("kaggle_seed7_2p_step50_comet.json")
+        comet_position = comet_position_after_ticks(state, COMET_PLANET_ID, 0)
 
-        self.assertIsNone(planet_position_at_step(state, COMET_PLANET_ID, state.step))
-        self.assertIsNone(planet_position_after_ticks(state, COMET_PLANET_ID, 1))
-        self.assertIsNone(planet_path_for_tick(state, COMET_PLANET_ID))
+        self.assertIsNotNone(comet_position)
+        self.assertPointAlmostEqual(
+            planet_position_at_step(state, COMET_PLANET_ID, state.step),
+            comet_position,
+        )
+        self.assertPointAlmostEqual(
+            planet_position_after_ticks(state, COMET_PLANET_ID, 0),
+            comet_position,
+        )
 
     def test_missing_initial_planets_does_not_crash(self) -> None:
         with (FIXTURE_DIR / "kaggle_seed7_2p_step0.json").open(encoding="utf-8") as fh:
