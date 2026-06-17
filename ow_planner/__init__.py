@@ -15,6 +15,7 @@ Mission Evaluation Cycle 4 adds mechanical candidate future lookup facts.
 Mission Evaluation Cycle 5 adds deterministic mission-vs-baseline deltas.
 Mission Evaluation Cycle 6 adds deterministic mission value feature facts.
 Mission Evaluation Cycle 7 adds an isolated first-pass scoring policy.
+Mission Evaluation Cycle 8 adds evaluated-and-scored composition.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -74,6 +75,7 @@ from .evaluation import (
     ScoreComponent,
     baseline_state_after_horizon,
     candidate_state_after_horizon,
+    evaluate_and_score_candidates,
     evaluate_candidates,
     extract_candidate_facts,
     mission_future_delta_facts,
@@ -124,6 +126,7 @@ __all__ = (
     "enumerate_source_target_pairs_from_features",
     "estimate_required_ships_for_pair",
     "estimate_source_target_pairs",
+    "evaluate_and_score_candidates",
     "evaluate_candidates",
     "extract_candidate_facts",
     "generate_candidates",

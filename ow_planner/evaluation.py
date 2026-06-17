@@ -1,16 +1,17 @@
 """Planner mission evaluation contracts.
 
-Mission Evaluation Cycle 6 extracts deterministic candidate facts, before-state
+Mission Evaluation Cycle 8 extracts deterministic candidate facts, before-state
 source/target lookups, idle baseline future lookups, mechanical candidate
 future lookups, mission-vs-baseline delta facts, and deterministic value
-feature facts. It does not score, rank, prune, or select missions.
+feature facts. It also exposes an opt-in evaluated-and-scored composition
+helper. It does not rank, prune, or select missions.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from ow_sim.state import GameState, Planet
 from ow_sim.timeline import simulate_ticks
@@ -18,6 +19,9 @@ from ow_sim.whatif import simulate_launch_orders
 
 from .actions import mission_candidate_to_orders
 from .candidates import CandidateOutcome, MissionCandidate, MissionType
+
+if TYPE_CHECKING:
+    from .scoring import MissionScoringConfig
 
 
 class MissionEvaluationStatus(str, Enum):
@@ -207,6 +211,31 @@ def evaluate_candidates(
             ),
         )
     return tuple(evaluations)
+
+
+def evaluate_and_score_candidates(
+    state: GameState,
+    candidates: Sequence[MissionCandidate],
+    evaluation_config: EvaluationConfig | None = None,
+    scoring_config: MissionScoringConfig | None = None,
+) -> tuple[MissionEvaluation, ...]:
+    """Return evaluated candidates with score components populated.
+
+    This is a composition wrapper only: deterministic facts are produced by
+    ``evaluate_candidates(...)`` and score fields are populated by the isolated
+    scoring policy.
+    """
+
+    if not candidates:
+        return ()
+    from .scoring import score_evaluations
+
+    evaluations = evaluate_candidates(
+        state,
+        candidates,
+        config=evaluation_config,
+    )
+    return score_evaluations(evaluations, config=scoring_config)
 
 
 def extract_candidate_facts(
@@ -640,6 +669,7 @@ __all__ = (
     "ScoreComponent",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
+    "evaluate_and_score_candidates",
     "evaluate_candidates",
     "extract_candidate_facts",
     "mission_future_delta_facts",

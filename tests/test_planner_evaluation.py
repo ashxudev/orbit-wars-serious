@@ -17,6 +17,7 @@ from ow_planner import (
     MissionEvaluationFacts,
     MissionEvaluationStatus,
     MissionFutureDeltaFacts,
+    MissionScoringConfig,
     MissionValueFacts,
     MissionType,
     PlanetEvaluationFacts,
@@ -24,6 +25,7 @@ from ow_planner import (
     ScoreComponent,
     baseline_state_after_horizon,
     candidate_state_after_horizon,
+    evaluate_and_score_candidates,
     evaluate_candidates,
     extract_candidate_facts,
     mission_future_delta_facts,
@@ -152,6 +154,7 @@ class PlannerEvaluationTests(unittest.TestCase):
         importlib.import_module("ow_planner.evaluation")
 
         self.assertIsNotNone(evaluate_candidates)
+        self.assertIsNotNone(evaluate_and_score_candidates)
         self.assertIs(MissionEvaluation, MissionEvaluation)
         self.assertIs(MissionEvaluationFacts, MissionEvaluationFacts)
         self.assertIs(MissionFutureDeltaFacts, MissionFutureDeltaFacts)
@@ -1150,6 +1153,119 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(evaluation.score_components, ())
         self.assertIsNone(evaluation.total_score)
         self.assertIsNone(evaluation.note)
+
+    def test_evaluate_and_score_candidates_returns_scored_evaluations(self) -> None:
+        state = launch_test_state(target_owner=-1, target_ships=0, target_production=3)
+        mission = candidate(
+            2,
+            launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),),
+        )
+
+        (evaluation,) = evaluate_and_score_candidates(
+            state,
+            (mission,),
+            evaluation_config=EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertIs(evaluation.candidate, mission)
+        self.assertEqual(
+            tuple(component.name for component in evaluation.score_components),
+            (
+                "production_delta_vs_baseline",
+                "target_ship_delta_vs_baseline",
+                "source_ship_delta_vs_baseline",
+                "ships_spent",
+            ),
+        )
+        self.assertEqual(evaluation.total_score, 29.75)
+
+    def test_evaluate_and_score_candidates_applies_custom_scoring_config(self) -> None:
+        state = launch_test_state(target_owner=-1, target_ships=0, target_production=3)
+        mission = candidate(
+            2,
+            launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),),
+        )
+
+        (evaluation,) = evaluate_and_score_candidates(
+            state,
+            (mission,),
+            evaluation_config=EvaluationConfig(horizon_ticks=1),
+            scoring_config=MissionScoringConfig(
+                production_delta_weight=1.0,
+                ships_spent_weight=-1.0,
+            ),
+        )
+
+        self.assertEqual(evaluation.total_score, 2.0)
+
+    def test_evaluate_and_score_candidates_propagates_invalid_penalty(self) -> None:
+        state = launch_test_state(source_ships=1)
+        mission = candidate(
+            2,
+            launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=2),),
+        )
+
+        (evaluation,) = evaluate_and_score_candidates(
+            state,
+            (mission,),
+            evaluation_config=EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertIn("enough ships", evaluation.facts.mission_simulation_error)
+        self.assertEqual(
+            evaluation.score_components,
+            (ScoreComponent("invalid_mission_penalty", 1.0, -1000.0),),
+        )
+        self.assertEqual(evaluation.total_score, -1000.0)
+
+    def test_evaluate_and_score_candidates_returns_empty_tuple_for_empty_input(self) -> None:
+        self.assertEqual(evaluate_and_score_candidates(state_with_planet(), ()), ())
+
+    def test_evaluate_candidates_remains_unscored_by_default(self) -> None:
+        mission = candidate(2, launches=())
+
+        (evaluation,) = evaluate_candidates(state_with_planet(), (mission,))
+
+        self.assertEqual(evaluation.score_components, ())
+        self.assertIsNone(evaluation.total_score)
+
+    def test_evaluate_and_score_candidates_does_not_mutate_state_or_candidates(self) -> None:
+        state = launch_test_state(target_owner=-1, target_ships=0, target_production=3)
+        mission = candidate(
+            2,
+            launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),),
+        )
+        state_before = copy.deepcopy(state)
+        mission_before = copy.deepcopy(mission)
+
+        evaluate_and_score_candidates(
+            state,
+            (mission,),
+            evaluation_config=EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertEqual(state, state_before)
+        self.assertEqual(mission, mission_before)
+
+    def test_evaluate_and_score_candidates_does_not_call_generation(self) -> None:
+        with patch("ow_planner.candidates.generate_candidates") as generate:
+            evaluate_and_score_candidates(
+                launch_test_state(target_owner=-1, target_ships=0, target_production=3),
+                (candidate(2),),
+                evaluation_config=EvaluationConfig(horizon_ticks=1),
+            )
+
+        generate.assert_not_called()
+
+    def test_evaluate_and_score_candidates_adds_no_ranking_or_selection_fields(self) -> None:
+        (evaluation,) = evaluate_and_score_candidates(
+            launch_test_state(target_owner=-1, target_ships=0, target_production=3),
+            (candidate(2),),
+            evaluation_config=EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertFalse(hasattr(evaluation, "rank"))
+        self.assertFalse(hasattr(evaluation, "selected"))
 
     def test_config_rejects_invalid_horizon_ticks(self) -> None:
         for horizon_ticks in (-1, True, 1.5, "3"):
