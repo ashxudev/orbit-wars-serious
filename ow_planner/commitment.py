@@ -4,8 +4,9 @@ Commitment Policy Cycle 0 defines immutable containers for future ship-sizing
 decisions. Cycle 1 adds an explicit no-attack option. Cycle 2 adds a
 minimum-capture option that mirrors existing candidate launches. Cycle 3 adds a
 first-pass capture-and-hold option with a deterministic buffer. Cycle 4 adds a
-reserve-preserving option. Cycle 5 adds a full-source option. It does not
-evaluate, score, rank, prune, select, or convert commitment options.
+reserve-preserving option. Cycle 5 adds a full-source option. Cycle 6 adds a
+coordinated multi-source option. It does not evaluate, score, rank, prune,
+select, or convert commitment options.
 """
 
 from __future__ import annotations
@@ -88,9 +89,9 @@ def commitment_options_for_candidates(
 ) -> tuple[CandidateCommitmentOptions, ...]:
     """Return structural commitment option wrappers in candidate order.
 
-    Cycle 5 returns no-attack, minimum-capture, capture-and-hold,
-    reserve-preserving, and full-source options when the option limit allows
-    them.
+    Cycle 6 returns no-attack, minimum-capture, capture-and-hold,
+    reserve-preserving, full-source, and coordinated multi-source options when
+    the option limit allows them.
     """
 
     effective_config = CommitmentPolicyConfig() if config is None else config
@@ -325,6 +326,102 @@ def full_source_commitment_option(
     )
 
 
+def coordinated_multi_source_commitment_option(
+    state: GameState,
+    candidate: MissionCandidate,
+    config: CommitmentPolicyConfig | None = None,
+) -> CommitmentOption:
+    """Return a reserve-preserving coordinated send across candidate sources."""
+
+    effective_config = CommitmentPolicyConfig() if config is None else config
+    if not candidate.launches:
+        return _rejected_coordinated_multi_source(
+            candidate,
+            "candidate has no launches",
+        )
+
+    first_launch_by_source: dict[int, LaunchCandidate] = {}
+    source_ids = []
+    for launch in candidate.launches:
+        if launch.source_planet_id not in first_launch_by_source:
+            first_launch_by_source[launch.source_planet_id] = launch
+            source_ids.append(launch.source_planet_id)
+
+    if len(source_ids) < 2:
+        return _rejected_coordinated_multi_source(
+            candidate,
+            "candidate has fewer than two unique sources",
+        )
+
+    planets_by_id = {planet.planet_id: planet for planet in state.planets}
+    capacities: dict[int, int] = {}
+    for source_id in source_ids:
+        launch = first_launch_by_source[source_id]
+        planet = planets_by_id.get(source_id)
+        if planet is None:
+            return _rejected_coordinated_multi_source(
+                candidate,
+                "missing source planet",
+            )
+        player_id = launch.player_id if launch.player_id is not None else state.player_id
+        if player_id is None:
+            return _rejected_coordinated_multi_source(candidate, "missing player id")
+        if planet.owner != player_id:
+            return _rejected_coordinated_multi_source(
+                candidate,
+                "source planet not owned by player",
+            )
+        capacities[source_id] = max(
+            0,
+            planet.ships - effective_config.reserve_ships_per_source,
+        )
+
+    target_ships = sum(launch.ships for launch in candidate.launches)
+    if sum(capacities.values()) < target_ships:
+        return _rejected_coordinated_multi_source(
+            candidate,
+            "insufficient coordinated source capacity",
+        )
+
+    contributions = {source_id: 0 for source_id in source_ids}
+    ships_remaining = target_ships
+    while ships_remaining > 0:
+        made_progress = False
+        for source_id in source_ids:
+            if ships_remaining == 0:
+                break
+            if contributions[source_id] >= capacities[source_id]:
+                continue
+            contributions[source_id] += 1
+            ships_remaining -= 1
+            made_progress = True
+        if not made_progress:
+            return _rejected_coordinated_multi_source(
+                candidate,
+                "insufficient coordinated source capacity",
+            )
+
+    launches = tuple(
+        LaunchCandidate(
+            source_planet_id=source_id,
+            angle=first_launch_by_source[source_id].angle,
+            ships=contributions[source_id],
+            player_id=first_launch_by_source[source_id].player_id,
+        )
+        for source_id in source_ids
+        if contributions[source_id] > 0
+    )
+    return CommitmentOption(
+        option_type=CommitmentOptionType.COORDINATED_MULTI_SOURCE,
+        candidate=candidate,
+        launches=launches,
+        source_planet_ids=tuple(launch.source_planet_id for launch in launches),
+        ships_committed=sum(launch.ships for launch in launches),
+        status=CommitmentOptionStatus.VALIDATED,
+        note="coordinated multi-source",
+    )
+
+
 def _options_for_candidate(
     state: GameState,
     candidate: MissionCandidate,
@@ -350,6 +447,10 @@ def _options_for_candidate(
         return tuple(options)
 
     options.append(full_source_commitment_option(state, candidate))
+    if config.max_options_per_candidate == 5:
+        return tuple(options)
+
+    options.append(coordinated_multi_source_commitment_option(state, candidate, config))
     return tuple(options)
 
 
@@ -389,6 +490,18 @@ def _rejected_full_source(
     )
 
 
+def _rejected_coordinated_multi_source(
+    candidate: MissionCandidate,
+    note: str,
+) -> CommitmentOption:
+    return CommitmentOption(
+        option_type=CommitmentOptionType.COORDINATED_MULTI_SOURCE,
+        candidate=candidate,
+        status=CommitmentOptionStatus.REJECTED,
+        note=note,
+    )
+
+
 def _invalid_nonnegative_int(value: object) -> bool:
     return isinstance(value, bool) or not isinstance(value, int) or value < 0
 
@@ -400,6 +513,7 @@ __all__ = (
     "CommitmentOptionType",
     "CommitmentPolicyConfig",
     "capture_and_hold_commitment_option",
+    "coordinated_multi_source_commitment_option",
     "commitment_options_for_candidates",
     "full_source_commitment_option",
     "minimum_capture_commitment_option",

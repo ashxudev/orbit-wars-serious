@@ -34,6 +34,7 @@ Commitment Policy Cycle 2 adds minimum-capture options.
 Commitment Policy Cycle 3 adds capture-and-hold options.
 Commitment Policy Cycle 4 adds reserve-preserving options.
 Commitment Policy Cycle 5 adds full-source options.
+Commitment Policy Cycle 6 adds coordinated multi-source options.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -58,6 +59,7 @@ from .commitment import (
     CommitmentOptionType,
     CommitmentPolicyConfig,
     capture_and_hold_commitment_option,
+    coordinated_multi_source_commitment_option,
     commitment_options_for_candidates,
     full_source_commitment_option,
     minimum_capture_commitment_option,
@@ -209,6 +211,7 @@ __all__ = (
     "candidate_state_after_horizon",
     "classify_response_facts",
     "capture_and_hold_commitment_option",
+    "coordinated_multi_source_commitment_option",
     "commitment_options_for_candidates",
     "extract_board_features",
     "enumerate_source_target_pairs",
