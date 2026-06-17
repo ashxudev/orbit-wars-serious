@@ -20,8 +20,8 @@ This thread maintains this file and does not perform implementation work.
 
 - [x] Simulator segment complete for current planner needs.
 - [x] Mission generation segment complete.
-- [ ] Mission evaluator segment in progress.
-- [ ] Opponent-response segment not started.
+- [x] Mission evaluator segment complete.
+- [x] Opponent-response segment complete.
 - [ ] Commitment-policy segment not started.
 - [ ] 2p/4p strategy segment not started.
 - [ ] Runtime/submission segment not started.
@@ -187,7 +187,7 @@ Status: complete and committed.
 
 ## Segment 3: Mission Evaluator
 
-Status: in progress.
+Status: complete.
 
 Purpose: score candidate missions by comparing future board value with and without the mission.
 
@@ -298,42 +298,157 @@ Status: complete and committed.
 
 ### Mission Evaluation Cycle 10: Timing-Aware Scoring Components
 
-Status: in progress in implementation thread.
+Status: complete and committed.
 
-- [ ] Add first-pass scoring support for `MissionTimingFacts`.
-- [ ] Add timing scoring helper, likely `score_mission_timing_facts(...)`.
-- [ ] Add timing scoring config fields such as `arrival_tick_weight` and `incomplete_timing_penalty`.
-- [ ] Keep `score_mission_value_facts(...)` backward-compatible and value-only.
-- [ ] Update `score_evaluations(...)` to append timing components after value components.
-- [ ] Use deterministic timing summary, preferably `max_arrival_ticks`, for launch timing.
-- [ ] Avoid timing penalty for complete no-launch timing with no arrival ticks.
-- [ ] Add explicit incomplete timing penalty for otherwise valid evaluations.
-- [ ] Avoid ranking, sorting, pruning, selection, opponent modeling, strategy, runtime, and bundling.
+- [x] Added first-pass scoring support for `MissionTimingFacts`.
+- [x] Added timing scoring helper.
+- [x] Added timing scoring config fields.
+- [x] Kept `score_mission_value_facts(...)` backward-compatible and value-only.
+- [x] Updated `score_evaluations(...)` to append timing components after value components.
+- [x] Used deterministic timing facts rather than recomputing geometry in scoring.
+- [x] Avoided ranking, sorting, pruning, selection, opponent modeling, strategy, runtime, and bundling.
+- [x] Commit: `67eb079 Add planner timing-aware scoring`.
 
-### Later Mission Evaluation Cycles
+### Mission Evaluation Cycle 11: Capture Outcome Scoring
 
-- [ ] Score production gained.
-- [ ] Score production denied.
-- [ ] Score ships spent.
-- [ ] Score capture survival.
-- [ ] Score opportunity cost of draining source.
-- [ ] Define concrete mission outcome scoring data model beyond structural contracts.
-- [ ] Add tests for obviously good/bad candidate ordering.
-- [ ] Document scoring assumptions and known blind spots.
+Status: complete and committed.
+
+- [x] Added first-pass capture/retain/loss outcome scoring.
+- [x] Kept outcome scoring isolated from value and timing scoring.
+- [x] Composed outcome components into evaluated scoring.
+- [x] Avoided ranking, sorting, pruning, selection, opponent modeling, strategy, runtime, and bundling.
+- [x] Commit: `d2ebcf1 Add planner capture outcome scoring`.
+
+### Mission Evaluation Cycle 12: Source-Drain Opportunity-Cost Scoring
+
+Status: complete and committed.
+
+- [x] Added source-drain opportunity-cost scoring.
+- [x] Added source drain fraction and depleted source count components.
+- [x] Added incomplete source opportunity penalty.
+- [x] Composed source opportunity components after value, timing, and outcome components.
+- [x] Kept deeper source danger and enemy punishment deferred to Opponent Response.
+- [x] Avoided ranking, sorting, pruning, selection, opponent modeling, strategy, runtime, and bundling.
+- [x] Commit: `3c3e792 Add planner source opportunity scoring`.
+
+### Mission Evaluation Cycle 13: Scoring Sanity Scenarios And Assumptions Documentation
+
+Status: complete and committed.
+
+- [x] Added obvious good/bad scoring scenario tests.
+- [x] Added one end-to-end `evaluate_and_score_candidates(...)` sanity comparison.
+- [x] Documented current score component families.
+- [x] Documented assumptions and blind spots.
+- [x] Kept tests as score comparisons without adding ranking or selection APIs.
+- [x] Avoided opponent modeling, strategy, runtime, and bundling.
+- [x] Commit: `08cb1d2 Add planner scoring sanity docs`.
+
+### Mission Evaluation Segment Deferrals
+
+- [ ] Opponent reinforcement modeling.
+- [ ] Neutral race/tie modeling.
+- [ ] Enemy counterattack/source-threat modeling.
+- [ ] Four-player rank/swing modeling.
+- [ ] Runtime candidate pruning/selection policy.
+- [ ] Autoresearch/tuning loop for first-pass weights.
 
 ## Segment 4: Opponent Response Model
 
-Status: not started.
+Status: complete.
 
 Purpose: estimate punishment, defense, races, and third-party effects.
 
-- [ ] Detect whether opponent can reinforce target before arrival.
-- [ ] Detect neutral-planet race or tie risk.
-- [ ] Detect counterattack risk on emptied source.
-- [ ] Detect whether responding sources are pinned or threatened.
-- [ ] Add four-player third-party benefit checks.
-- [ ] Classify candidates as undefendable, defendable-profitable, donation, race-risk, or source-drain bait.
-- [ ] Add focused response-model tests.
+### Opponent Response Model Cycle 0: API Boundary
+
+Status: complete and committed.
+
+- [x] Defined the stable opponent-response model package/API boundary.
+- [x] Kept the first cycle structural and deterministic.
+- [x] Avoided strategic response scoring.
+- [x] Preserved separation from mission evaluation scoring, commitment policy, 2p/4p strategy, runtime, and bundling.
+- [x] Commit: `e54d108 Add planner response model boundary`.
+
+### Opponent Response Model Cycle 1: Target Reinforcement Response Facts
+
+Status: complete and committed.
+
+- [x] Added deterministic target reinforcement response facts.
+- [x] Exposed whether opponents can reinforce the target before/around mission arrival.
+- [x] Kept facts conservative and non-scoring.
+- [x] Avoided ranking, pruning, selection, strategy, runtime, and bundling.
+- [x] Commit: `ea8c092 Add planner reinforcement response facts`.
+
+### Opponent Response Model Cycle 2: Target Race Response Facts
+
+Status: complete and committed.
+
+- [x] Added deterministic target race response facts.
+- [x] Exposed neutral/enemy race-risk facts without deciding mission quality.
+- [x] Kept response facts separate from scoring and policy.
+- [x] Avoided ranking, pruning, selection, strategy, runtime, and bundling.
+- [x] Commit: `0898870 Add planner target race response facts`.
+
+### Opponent Response Model Cycle 3: Source Counterattack Response Facts
+
+Status: complete and committed.
+
+- [x] Added deterministic source counterattack response facts.
+- [x] Exposed whether drained sources are vulnerable to enemy counterattack facts.
+- [x] Kept deeper source danger as factual response data, not strategy.
+- [x] Avoided ranking, pruning, selection, strategy, runtime, and bundling.
+- [x] Commit: `7b5900b Add planner source counterattack response facts`.
+
+### Opponent Response Model Cycle 4: FFA Third-Party Benefit Facts
+
+Status: complete and committed.
+
+- [x] Added deterministic FFA third-party benefit facts.
+- [x] Added `ThirdPartyOwnerFacts` and `ThirdPartyBenefitFacts`.
+- [x] Attached third-party facts to `MissionResponseFacts`.
+- [x] Exposed `third_party_benefit_facts(...)`.
+- [x] Summarized unaffected non-player owners in four-player/free-for-all settings.
+- [x] Treated two-player/no-third-party cases conservatively.
+- [x] Kept the FFA model factual and conservative.
+- [x] Avoided response scoring, ranking, pruning, selection, strategy, runtime, and bundling.
+- [x] Commit: `6ef77f4 Add planner third-party response facts`.
+
+### Opponent Response Model Cycle 5: Response Summary Labels
+
+Status: complete and committed.
+
+- [x] Added deterministic response summary labels.
+- [x] Added `ResponseSummaryFacts`.
+- [x] Populated `MissionResponseFacts.response_labels` from summary labels.
+- [x] Kept labels factual and stable.
+- [x] Avoided response scoring, ranking, pruning, selection, strategy, runtime, and bundling.
+- [x] Commit: `2ad4648 Add planner response summary labels`.
+
+### Opponent Response Model Cycle 6: Responding Source Pressure Facts
+
+Status: complete and committed.
+
+- [x] Added deterministic pinned/threatened responding-source facts.
+- [x] Added `RespondingSourcePressureFacts` and `ResponseSourcePressureFacts`.
+- [x] Attached source pressure facts to `MissionResponseFacts`.
+- [x] Kept source pressure factual and separate from classification.
+- [x] Avoided response scoring, ranking, pruning, selection, strategy, runtime, and bundling.
+- [x] Commit: `603569f Add planner response source pressure facts`.
+
+### Opponent Response Model Cycle 7: Response Classification Labels
+
+Status: complete and committed.
+
+- [x] Added isolated first-pass response classification labels.
+- [x] Added `ResponseClassificationFacts` and `classify_response_facts(...)`.
+- [x] Kept classification separate from deterministic response fact extraction.
+- [x] Covered undefendable, defendable-profitable, donation, race-risk, and source-drain bait labels.
+- [x] Avoided ranking, pruning, selection, commitment policy, strategy, runtime, and bundling.
+- [x] Commit: `bfa50c3 Add planner response classification labels`.
+
+### Opponent Response Model Segment Deferrals
+
+- [ ] Tune first-pass classification rules through evaluation/autoresearch.
+- [ ] Integrate response classifications into downstream commitment and strategy policy.
 
 ## Segment 5: Commitment Policy
 
@@ -412,3 +527,6 @@ Purpose: convert planner components into a reliable Kaggle agent with strict run
 - 2026-06-17: Poll found Mission Evaluation Cycle 0 complete and committed as `7f81926 Add planner evaluation contracts`.
 - 2026-06-17: Poll found Mission Evaluation Cycles 1-4 complete and committed. Mission Evaluation Cycle 5 delta facts is in progress.
 - 2026-06-17: Poll found Mission Evaluation Cycles 5-9 complete and committed. Mission Evaluation Cycle 10 timing-aware scoring is in progress.
+- 2026-06-17: Poll found Mission Evaluation Cycles 10-13 complete and committed. Planner confirmed `MISSION_EVALUATION_SEGMENT_COMPLETE`; Opponent Response is next.
+- 2026-06-17: Poll found planner/reviewer actively preparing Opponent Response Model Cycle 0 as the API boundary cycle.
+- 2026-06-17: Poll found Opponent Response Cycles 0-3 complete and committed. Cycle 4 FFA third-party benefit facts is implemented in the implementation thread and pending review/commit.
