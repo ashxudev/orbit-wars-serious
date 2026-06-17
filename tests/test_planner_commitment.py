@@ -989,6 +989,118 @@ class PlannerCommitmentTests(unittest.TestCase):
             ),
         )
 
+    def test_full_source_is_available_but_not_forced_for_single_source(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planet(ships=20),
+            (mission_candidate(),),
+        )
+
+        option_types = tuple(option.option_type for option in wrapper.options)
+        self.assertEqual(
+            option_types,
+            (
+                CommitmentOptionType.NO_ATTACK,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+                CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.FULL_SOURCE,
+                CommitmentOptionType.COORDINATED_MULTI_SOURCE,
+            ),
+        )
+        self.assertEqual(
+            wrapper.options[4].option_type,
+            CommitmentOptionType.FULL_SOURCE,
+        )
+        self.assertEqual(wrapper.options[4].status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(wrapper.options[4].ships_committed, 20)
+        self.assertEqual(wrapper.options[0].option_type, CommitmentOptionType.NO_ATTACK)
+        self.assertEqual(wrapper.options[0].status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(wrapper.options[1].status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(wrapper.options[2].status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(wrapper.options[3].status, CommitmentOptionStatus.VALIDATED)
+
+    def test_full_source_and_coordinated_are_distinct_multi_source_options(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planets(planet(1, ships=20), planet(2, ships=18)),
+            (multi_launch_mission_candidate(),),
+        )
+
+        full_source = wrapper.options[4]
+        coordinated = wrapper.options[5]
+
+        self.assertEqual(full_source.option_type, CommitmentOptionType.FULL_SOURCE)
+        self.assertEqual(
+            coordinated.option_type,
+            CommitmentOptionType.COORDINATED_MULTI_SOURCE,
+        )
+        self.assertEqual(full_source.status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(coordinated.status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(full_source.source_planet_ids, (2, 1))
+        self.assertEqual(coordinated.source_planet_ids, (2, 1))
+        self.assertEqual(tuple(launch.ships for launch in full_source.launches), (18, 20))
+        self.assertEqual(tuple(launch.ships for launch in coordinated.launches), (5, 5))
+        self.assertEqual(full_source.ships_committed, 38)
+        self.assertEqual(coordinated.ships_committed, 10)
+
+    def test_full_source_can_be_suppressed_by_option_limit(self) -> None:
+        state = state_with_planet(ships=20)
+        candidates = (mission_candidate(),)
+
+        (limited_wrapper,) = commitment_options_for_candidates(
+            state,
+            candidates,
+            CommitmentPolicyConfig(max_options_per_candidate=4),
+        )
+        (full_wrapper,) = commitment_options_for_candidates(
+            state,
+            candidates,
+            CommitmentPolicyConfig(max_options_per_candidate=5),
+        )
+
+        self.assertEqual(
+            tuple(option.option_type for option in limited_wrapper.options),
+            (
+                CommitmentOptionType.NO_ATTACK,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+                CommitmentOptionType.RESERVE_PRESERVING,
+            ),
+        )
+        self.assertNotIn(
+            CommitmentOptionType.FULL_SOURCE,
+            tuple(option.option_type for option in limited_wrapper.options),
+        )
+        self.assertEqual(
+            tuple(option.option_type for option in full_wrapper.options),
+            (
+                CommitmentOptionType.NO_ATTACK,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+                CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.FULL_SOURCE,
+            ),
+        )
+
+    def test_commitment_options_do_not_mark_any_option_as_selected_or_ranked(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planets(planet(1, ships=20), planet(2, ships=18)),
+            (multi_launch_mission_candidate(),),
+        )
+
+        forbidden_fields = (
+            "selected",
+            "chosen",
+            "best",
+            "rank",
+            "ranked",
+            "pruned",
+            "preferred",
+        )
+        for option in wrapper.options:
+            for field_name in forbidden_fields:
+                with self.subTest(option=option.option_type, field_name=field_name):
+                    self.assertFalse(hasattr(option, field_name))
+
     def test_commitment_options_attaches_rejected_minimum_capture_for_no_launch_candidate(
         self,
     ) -> None:
@@ -1029,6 +1141,23 @@ class PlannerCommitmentTests(unittest.TestCase):
     def test_commitment_options_does_not_mutate_state_or_candidates(self) -> None:
         state = state_with_planet()
         candidates = (mission_candidate(),)
+        state_before = copy.deepcopy(state)
+        candidates_before = copy.deepcopy(candidates)
+
+        commitment_options_for_candidates(
+            state,
+            candidates,
+            CommitmentPolicyConfig(max_options_per_candidate=6),
+        )
+
+        self.assertEqual(state, state_before)
+        self.assertEqual(candidates, candidates_before)
+
+    def test_commitment_options_does_not_mutate_multi_source_state_or_candidates(
+        self,
+    ) -> None:
+        state = state_with_planets(planet(1, ships=20), planet(2, ships=18))
+        candidates = (multi_launch_mission_candidate(),)
         state_before = copy.deepcopy(state)
         candidates_before = copy.deepcopy(candidates)
 
