@@ -24,6 +24,7 @@ Opponent Response Model Cycle 0 adds structural response-evaluation contracts.
 Opponent Response Model Cycle 1 adds reinforcement feasibility facts.
 Opponent Response Model Cycle 2 adds target race-risk facts.
 Opponent Response Model Cycle 3 adds source counterattack-risk facts.
+Opponent Response Model Cycle 4 adds FFA third-party benefit facts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -112,10 +113,13 @@ from .response import (
     SourceCounterattackFacts,
     TargetRaceFacts,
     TargetReinforcementFacts,
+    ThirdPartyBenefitFacts,
+    ThirdPartyOwnerFacts,
     evaluate_responses,
     source_counterattack_facts,
     target_race_facts,
     target_reinforcement_facts,
+    third_party_benefit_facts,
 )
 
 __all__ = (
@@ -159,6 +163,8 @@ __all__ = (
     "TargetCategory",
     "TargetRaceFacts",
     "TargetReinforcementFacts",
+    "ThirdPartyBenefitFacts",
+    "ThirdPartyOwnerFacts",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "extract_board_features",
@@ -189,6 +195,7 @@ __all__ = (
     "source_counterattack_facts",
     "target_race_facts",
     "target_reinforcement_facts",
+    "third_party_benefit_facts",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",
 )

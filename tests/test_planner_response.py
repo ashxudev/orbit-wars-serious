@@ -29,10 +29,13 @@ from ow_planner import (
     SourceCounterattackFacts,
     TargetRaceFacts,
     TargetReinforcementFacts,
+    ThirdPartyBenefitFacts,
+    ThirdPartyOwnerFacts,
     evaluate_responses,
     source_counterattack_facts,
     target_race_facts,
     target_reinforcement_facts,
+    third_party_benefit_facts,
 )
 from ow_sim.state import GameState, Planet
 
@@ -52,6 +55,7 @@ def planet(
     y: float,
     ships: int,
     *,
+    production: int = 0,
     is_comet: bool = False,
 ) -> Planet:
     return Planet(
@@ -61,9 +65,9 @@ def planet(
         y=y,
         radius=1.0,
         ships=ships,
-        production=0,
+        production=production,
         is_comet=is_comet,
-        raw=(planet_id, owner, x, y, 1.0, ships, 0),
+        raw=(planet_id, owner, x, y, 1.0, ships, production),
     )
 
 
@@ -126,6 +130,37 @@ def no_counterattack_state() -> GameState:
             planet(5, -1, 1.0, 1.0, 10),
             planet(6, 0, 2.0, 2.0, 10),
             planet(7, 2, 2.0, 0.0, 10, is_comet=True),
+        ),
+        raw_observation={"step": 7, "player": 0},
+    )
+
+
+def ffa_state() -> GameState:
+    return GameState(
+        tick=7,
+        player_id=0,
+        planets=(
+            planet(1, 0, 0.0, 0.0, 10, production=2),
+            planet(2, 1, 8.0, 0.0, 5, production=5),
+            planet(3, 1, 9.0, 0.0, 6, production=1),
+            planet(4, 2, 10.0, 0.0, 4, production=3),
+            planet(5, 2, 11.0, 0.0, 7, production=2),
+            planet(6, 3, 12.0, 0.0, 8, production=4),
+            planet(7, -1, 13.0, 0.0, 9, production=5),
+            planet(8, 3, 14.0, 0.0, 9, production=6, is_comet=True),
+        ),
+        raw_observation={"step": 7, "player": 0},
+    )
+
+
+def two_player_state() -> GameState:
+    return GameState(
+        tick=7,
+        player_id=0,
+        planets=(
+            planet(1, 0, 0.0, 0.0, 10, production=2),
+            planet(2, 1, 8.0, 0.0, 5, production=5),
+            planet(3, 1, 9.0, 0.0, 6, production=1),
         ),
         raw_observation={"step": 7, "player": 0},
     )
@@ -257,6 +292,72 @@ def source_mission_evaluation(
     )
 
 
+def third_party_mission_evaluation(
+    *,
+    target_planet_id: int = 2,
+    target_before_owner: int | None = 1,
+    target_baseline_owner: int | None = 1,
+    target_mission_owner: int | None = 0,
+    include_target_before: bool = True,
+    include_target_baseline: bool = True,
+    include_target_mission: bool = True,
+) -> MissionEvaluation:
+    candidate = mission_candidate(target_planet_id)
+    target_before = (
+        PlanetEvaluationFacts(
+            planet_id=target_planet_id,
+            owner=target_before_owner,
+            ships=5,
+            production=5,
+        )
+        if include_target_before and target_before_owner is not None
+        else None
+    )
+    target_baseline = (
+        PlanetEvaluationFacts(
+            planet_id=target_planet_id,
+            owner=target_baseline_owner,
+            ships=6,
+            production=5,
+        )
+        if include_target_baseline and target_baseline_owner is not None
+        else None
+    )
+    target_mission = (
+        PlanetEvaluationFacts(
+            planet_id=target_planet_id,
+            owner=target_mission_owner,
+            ships=3,
+            production=5,
+        )
+        if include_target_mission and target_mission_owner is not None
+        else None
+    )
+    facts = MissionEvaluationFacts(
+        mission_type=candidate.mission_type,
+        target_planet_id=candidate.target_planet_id,
+        source_planet_ids=candidate.source_planet_ids,
+        launch_count=0,
+        ships_spent=0,
+        launch_angles=(),
+        candidate_outcome=candidate.outcome,
+        target_before=target_before,
+        target_baseline=target_baseline,
+        target_mission=target_mission,
+        timing_facts=MissionTimingFacts(
+            launch_arrival_ticks=(5,),
+            min_arrival_ticks=5,
+            max_arrival_ticks=5,
+            timing_complete=True,
+        ),
+    )
+    return MissionEvaluation(
+        candidate=candidate,
+        status=MissionEvaluationStatus.EVALUATED,
+        facts=facts,
+    )
+
+
 class PlannerResponseTests(unittest.TestCase):
     def test_response_module_imports_and_exports_are_available(self) -> None:
         importlib.import_module("ow_planner.response")
@@ -271,10 +372,13 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIs(SourceCounterattackFacts, SourceCounterattackFacts)
         self.assertIs(TargetRaceFacts, TargetRaceFacts)
         self.assertIs(TargetReinforcementFacts, TargetReinforcementFacts)
+        self.assertIs(ThirdPartyBenefitFacts, ThirdPartyBenefitFacts)
+        self.assertIs(ThirdPartyOwnerFacts, ThirdPartyOwnerFacts)
         self.assertIsNotNone(evaluate_responses)
         self.assertIsNotNone(source_counterattack_facts)
         self.assertIsNotNone(target_race_facts)
         self.assertIsNotNone(target_reinforcement_facts)
+        self.assertIsNotNone(third_party_benefit_facts)
 
     def test_response_status_enum_values_are_stable(self) -> None:
         self.assertEqual(ResponseEvaluationStatus.UNEVALUATED.value, "unevaluated")
@@ -347,6 +451,27 @@ class PlannerResponseTests(unittest.TestCase):
                     ),
                 ),
             ),
+            third_party_benefit=ThirdPartyBenefitFacts(
+                player_id=0,
+                target_planet_id=2,
+                target_owner_before=1,
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=5,
+                target_owner_is_non_player=True,
+                target_owner_damaged_by_mission=True,
+                target_owner_loses_control_by_mission=True,
+                third_party_owner_facts=(
+                    ThirdPartyOwnerFacts(
+                        owner=2,
+                        current_planet_count=1,
+                        current_production=3,
+                        current_ships=4,
+                        unaffected_by_target_ownership_change=True,
+                    ),
+                ),
+                unaffected_non_player_owner_count=1,
+            ),
             notes=("structural",),
         )
         response = MissionResponseEvaluation(
@@ -361,6 +486,7 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts.target_reinforcement.feasible_source_count, 1)
         self.assertEqual(facts.target_race.target_ships_before, 1)
         self.assertEqual(facts.source_counterattacks[0].ships_drained, 6)
+        self.assertEqual(facts.third_party_benefit.unaffected_non_player_owner_count, 1)
         self.assertIs(response.evaluation, evaluation)
         with self.assertRaises(FrozenInstanceError):
             config.response_window_ticks = 1
@@ -372,6 +498,8 @@ class PlannerResponseTests(unittest.TestCase):
             facts.target_race.target_ships_before = 2
         with self.assertRaises(FrozenInstanceError):
             facts.source_counterattacks[0].ships_drained = 7
+        with self.assertRaises(FrozenInstanceError):
+            facts.third_party_benefit.unaffected_non_player_owner_count = 2
         with self.assertRaises(FrozenInstanceError):
             response.note = None
 
@@ -766,6 +894,156 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts[0].source_planet_id, 99)
         self.assertEqual(facts[0].counterattack_sources, ())
         self.assertIn("source planet is missing", facts[0].notes)
+
+    def test_third_party_owner_summary_construction(self) -> None:
+        facts = third_party_benefit_facts(
+            ffa_state(),
+            third_party_mission_evaluation(),
+        )
+
+        self.assertEqual(facts.player_id, 0)
+        self.assertEqual(facts.target_planet_id, 2)
+        self.assertEqual(facts.target_owner_before, 1)
+        self.assertEqual(facts.target_owner_baseline, 1)
+        self.assertEqual(facts.target_owner_mission, 0)
+        self.assertEqual(facts.target_production_before, 5)
+        self.assertEqual(
+            facts.third_party_owner_facts,
+            (
+                ThirdPartyOwnerFacts(
+                    owner=2,
+                    current_planet_count=2,
+                    current_production=5,
+                    current_ships=11,
+                    unaffected_by_target_ownership_change=True,
+                ),
+                ThirdPartyOwnerFacts(
+                    owner=3,
+                    current_planet_count=1,
+                    current_production=4,
+                    current_ships=8,
+                    unaffected_by_target_ownership_change=True,
+                ),
+            ),
+        )
+        self.assertEqual(facts.unaffected_non_player_owner_count, 2)
+        self.assertEqual(facts.notes, ())
+
+    def test_third_party_benefit_facts_identify_ffa_unaffected_owners(self) -> None:
+        facts = third_party_benefit_facts(
+            ffa_state(),
+            third_party_mission_evaluation(),
+        )
+
+        self.assertEqual(
+            tuple(owner.owner for owner in facts.third_party_owner_facts),
+            (2, 3),
+        )
+        self.assertEqual(
+            tuple(
+                owner.unaffected_by_target_ownership_change
+                for owner in facts.third_party_owner_facts
+            ),
+            (True, True),
+        )
+
+    def test_third_party_benefit_facts_note_two_player_case(self) -> None:
+        facts = third_party_benefit_facts(
+            two_player_state(),
+            third_party_mission_evaluation(),
+        )
+
+        self.assertEqual(facts.third_party_owner_facts, ())
+        self.assertEqual(facts.unaffected_non_player_owner_count, 0)
+        self.assertEqual(facts.notes, ("no third-party owners",))
+
+    def test_third_party_benefit_facts_identify_target_owner_damage(self) -> None:
+        facts = third_party_benefit_facts(
+            ffa_state(),
+            third_party_mission_evaluation(),
+        )
+
+        self.assertIs(facts.target_owner_is_non_player, True)
+        self.assertIs(facts.target_owner_damaged_by_mission, True)
+
+    def test_third_party_benefit_facts_identify_target_owner_control_loss(self) -> None:
+        facts = third_party_benefit_facts(
+            ffa_state(),
+            third_party_mission_evaluation(),
+        )
+
+        self.assertIs(facts.target_owner_loses_control_by_mission, True)
+
+    def test_evaluate_responses_attaches_third_party_benefit_facts(self) -> None:
+        (response,) = evaluate_responses(
+            ffa_state(),
+            (third_party_mission_evaluation(),),
+        )
+
+        self.assertEqual(response.status, ResponseEvaluationStatus.EVALUATED)
+        self.assertEqual(response.facts.third_party_benefit.target_planet_id, 2)
+        self.assertEqual(
+            tuple(
+                owner.owner
+                for owner in response.facts.third_party_benefit.third_party_owner_facts
+            ),
+            (2, 3),
+        )
+
+    def test_third_party_benefit_facts_handle_missing_mission_facts(self) -> None:
+        evaluation = MissionEvaluation(candidate=mission_candidate(), facts=None)
+
+        facts = third_party_benefit_facts(ffa_state(), evaluation)
+
+        self.assertIsNone(facts.target_planet_id)
+        self.assertEqual(facts.notes, ("mission facts are missing",))
+
+    def test_third_party_benefit_facts_note_missing_player_id(self) -> None:
+        state = GameState(
+            tick=7,
+            player_id=None,
+            planets=ffa_state().planets,
+            raw_observation={"step": 7},
+        )
+
+        facts = third_party_benefit_facts(
+            state,
+            third_party_mission_evaluation(),
+        )
+
+        self.assertIsNone(facts.player_id)
+        self.assertEqual(facts.third_party_owner_facts, ())
+        self.assertIn("player id is missing", facts.notes)
+
+    def test_third_party_benefit_facts_note_missing_target_before(self) -> None:
+        facts = third_party_benefit_facts(
+            ffa_state(),
+            third_party_mission_evaluation(include_target_before=False),
+        )
+
+        self.assertIsNone(facts.target_owner_before)
+        self.assertIsNone(facts.target_owner_is_non_player)
+        self.assertIn("target before facts are missing", facts.notes)
+
+    def test_third_party_benefit_facts_note_missing_target_baseline(self) -> None:
+        facts = third_party_benefit_facts(
+            ffa_state(),
+            third_party_mission_evaluation(include_target_baseline=False),
+        )
+
+        self.assertIsNone(facts.target_owner_baseline)
+        self.assertIsNone(facts.target_owner_damaged_by_mission)
+        self.assertIn("target baseline facts are missing", facts.notes)
+
+    def test_third_party_benefit_facts_note_missing_target_mission(self) -> None:
+        facts = third_party_benefit_facts(
+            ffa_state(),
+            third_party_mission_evaluation(include_target_mission=False),
+        )
+
+        self.assertIsNone(facts.target_owner_mission)
+        self.assertIsNone(facts.target_owner_loses_control_by_mission)
+        self.assertIn("target mission facts are missing", facts.notes)
 
     def test_reinforcement_facts_are_unavailable_when_timing_is_incomplete(self) -> None:
         evaluation = mission_evaluation(

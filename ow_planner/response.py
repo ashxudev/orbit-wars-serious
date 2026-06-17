@@ -3,8 +3,9 @@
 Opponent Response Model Cycle 0 defines immutable response-evaluation
 containers and a structural public API. Cycle 1 adds deterministic opponent
 reinforcement feasibility facts. Cycle 2 adds deterministic target race-risk
-facts. Cycle 3 adds deterministic source counterattack-risk facts. It does not
-model third-party effects, scoring, ranking, pruning, or selection.
+facts. Cycle 3 adds deterministic source counterattack-risk facts. Cycle 4 adds
+deterministic FFA third-party benefit facts. It does not model scoring,
+ranking, pruning, or selection.
 """
 
 from __future__ import annotations
@@ -131,6 +132,35 @@ class SourceCounterattackFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class ThirdPartyOwnerFacts:
+    """Current-state summary for one non-player owner outside the target owner."""
+
+    owner: int
+    current_planet_count: int
+    current_production: int
+    current_ships: int
+    unaffected_by_target_ownership_change: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ThirdPartyBenefitFacts:
+    """Deterministic FFA third-party benefit facts for one mission target."""
+
+    player_id: int | None = None
+    target_planet_id: int | None = None
+    target_owner_before: int | None = None
+    target_owner_baseline: int | None = None
+    target_owner_mission: int | None = None
+    target_production_before: int | None = None
+    target_owner_is_non_player: bool | None = None
+    target_owner_damaged_by_mission: bool | None = None
+    target_owner_loses_control_by_mission: bool | None = None
+    third_party_owner_facts: tuple[ThirdPartyOwnerFacts, ...] = ()
+    unaffected_non_player_owner_count: int = 0
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class MissionResponseFacts:
     """Deterministic response facts for one mission evaluation."""
 
@@ -140,6 +170,9 @@ class MissionResponseFacts:
     )
     target_race: TargetRaceFacts = field(default_factory=TargetRaceFacts)
     source_counterattacks: tuple[SourceCounterattackFacts, ...] = ()
+    third_party_benefit: ThirdPartyBenefitFacts = field(
+        default_factory=ThirdPartyBenefitFacts
+    )
     notes: tuple[str, ...] = ()
 
 
@@ -193,6 +226,11 @@ def evaluate_responses(
             evaluation,
             effective_config,
         )
+        third_party_benefit = third_party_benefit_facts(
+            state,
+            evaluation,
+            effective_config,
+        )
         response_evaluations.append(
             MissionResponseEvaluation(
                 evaluation=evaluation,
@@ -201,6 +239,7 @@ def evaluate_responses(
                     target_reinforcement=target_reinforcement,
                     target_race=target_race,
                     source_counterattacks=source_counterattacks,
+                    third_party_benefit=third_party_benefit,
                 ),
             )
         )
@@ -363,6 +402,82 @@ def source_counterattack_facts(
     )
 
 
+def third_party_benefit_facts(
+    state: GameState,
+    evaluation: MissionEvaluation,
+    config: ResponseConfig | None = None,
+) -> ThirdPartyBenefitFacts:
+    """Return deterministic FFA third-party benefit facts."""
+
+    ResponseConfig() if config is None else config
+    facts = evaluation.facts
+    if facts is None:
+        return ThirdPartyBenefitFacts(notes=("mission facts are missing",))
+
+    notes: list[str] = []
+    player_id = state.player_id
+    if player_id is None:
+        notes.append("player id is missing")
+
+    target_before = facts.target_before
+    target_baseline = facts.target_baseline
+    target_mission = facts.target_mission
+    if target_before is None:
+        notes.append("target before facts are missing")
+    if target_baseline is None:
+        notes.append("target baseline facts are missing")
+    if target_mission is None:
+        notes.append("target mission facts are missing")
+
+    target_owner_before = None if target_before is None else target_before.owner
+    target_owner_baseline = None if target_baseline is None else target_baseline.owner
+    target_owner_mission = None if target_mission is None else target_mission.owner
+    target_production_before = None if target_before is None else target_before.production
+
+    target_owner_is_non_player = _target_owner_is_non_player(
+        target_owner_before,
+        player_id,
+    )
+    target_owner_loses_control = _target_owner_loses_control_by_mission(
+        target_owner_before,
+        target_owner_mission,
+        player_id,
+    )
+    target_owner_damaged = _target_owner_damaged_by_mission(
+        target_owner_before,
+        target_owner_baseline,
+        target_owner_mission,
+        player_id,
+    )
+
+    third_party_owner_facts = _third_party_owner_facts(
+        state,
+        player_id,
+        target_owner_before,
+    )
+    if player_id is not None and target_owner_before is not None and not third_party_owner_facts:
+        notes.append("no third-party owners")
+
+    return ThirdPartyBenefitFacts(
+        player_id=player_id,
+        target_planet_id=facts.target_planet_id,
+        target_owner_before=target_owner_before,
+        target_owner_baseline=target_owner_baseline,
+        target_owner_mission=target_owner_mission,
+        target_production_before=target_production_before,
+        target_owner_is_non_player=target_owner_is_non_player,
+        target_owner_damaged_by_mission=target_owner_damaged,
+        target_owner_loses_control_by_mission=target_owner_loses_control,
+        third_party_owner_facts=third_party_owner_facts,
+        unaffected_non_player_owner_count=sum(
+            1
+            for owner_facts in third_party_owner_facts
+            if owner_facts.unaffected_by_target_ownership_change
+        ),
+        notes=tuple(notes),
+    )
+
+
 def _reinforcement_source_facts(
     source: Planet,
     target: Planet,
@@ -502,6 +617,81 @@ def _counterattack_source_facts(
     )
 
 
+def _third_party_owner_facts(
+    state: GameState,
+    player_id: int | None,
+    target_owner_before: int | None,
+) -> tuple[ThirdPartyOwnerFacts, ...]:
+    if player_id is None or target_owner_before is None:
+        return ()
+
+    owner_totals: dict[int, tuple[int, int, int]] = {}
+    for planet in state.planets:
+        if (
+            planet.owner < 0
+            or planet.owner == player_id
+            or planet.owner == target_owner_before
+            or planet.is_comet
+        ):
+            continue
+        planet_count, production, ships = owner_totals.get(planet.owner, (0, 0, 0))
+        owner_totals[planet.owner] = (
+            planet_count + 1,
+            production + planet.production,
+            ships + planet.ships,
+        )
+
+    return tuple(
+        ThirdPartyOwnerFacts(
+            owner=owner,
+            current_planet_count=planet_count,
+            current_production=production,
+            current_ships=ships,
+            unaffected_by_target_ownership_change=True,
+        )
+        for owner, (planet_count, production, ships) in sorted(owner_totals.items())
+    )
+
+
+def _target_owner_is_non_player(
+    target_owner_before: int | None,
+    player_id: int | None,
+) -> bool | None:
+    if target_owner_before is None or player_id is None:
+        return None
+    return target_owner_before >= 0 and target_owner_before != player_id
+
+
+def _target_owner_loses_control_by_mission(
+    target_owner_before: int | None,
+    target_owner_mission: int | None,
+    player_id: int | None,
+) -> bool | None:
+    target_owner_is_non_player = _target_owner_is_non_player(
+        target_owner_before,
+        player_id,
+    )
+    if target_owner_is_non_player is None or target_owner_mission is None:
+        return None
+    return target_owner_is_non_player and target_owner_mission != target_owner_before
+
+
+def _target_owner_damaged_by_mission(
+    target_owner_before: int | None,
+    target_owner_baseline: int | None,
+    target_owner_mission: int | None,
+    player_id: int | None,
+) -> bool | None:
+    target_owner_loses_control = _target_owner_loses_control_by_mission(
+        target_owner_before,
+        target_owner_mission,
+        player_id,
+    )
+    if target_owner_loses_control is None or target_owner_baseline is None:
+        return None
+    return target_owner_loses_control and target_owner_baseline == target_owner_before
+
+
 def _is_candidate_reinforcement_source(
     source: Planet,
     target: Planet,
@@ -558,8 +748,11 @@ __all__ = (
     "SourceCounterattackFacts",
     "TargetRaceFacts",
     "TargetReinforcementFacts",
+    "ThirdPartyBenefitFacts",
+    "ThirdPartyOwnerFacts",
     "evaluate_responses",
     "source_counterattack_facts",
     "target_race_facts",
     "target_reinforcement_facts",
+    "third_party_benefit_facts",
 )
