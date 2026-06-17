@@ -1,13 +1,14 @@
 """Planner mission evaluation contracts.
 
-Mission Evaluation Cycle 4 extracts deterministic candidate facts, before-state
-source/target lookups, idle baseline future lookups, and mechanical candidate
-future lookups. It does not score, rank, prune, or select missions.
+Mission Evaluation Cycle 5 extracts deterministic candidate facts, before-state
+source/target lookups, idle baseline future lookups, mechanical candidate
+future lookups, and mission-vs-baseline delta facts. It does not score, rank,
+prune, or select missions.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Sequence
 
@@ -65,6 +66,33 @@ class PlanetEvaluationFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class PlanetFutureDeltaFacts:
+    """Deterministic before/baseline/mission comparison for one planet."""
+
+    planet_id: int | None = None
+    before_owner: int | None = None
+    baseline_owner: int | None = None
+    mission_owner: int | None = None
+    before_ships: int | None = None
+    baseline_ships: int | None = None
+    mission_ships: int | None = None
+    mission_ship_delta_vs_baseline: int | None = None
+    mission_ship_delta_vs_before: int | None = None
+    mission_owner_changed_vs_baseline: bool | None = None
+    mission_owner_changed_vs_before: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MissionFutureDeltaFacts:
+    """Deterministic future comparison facts for one mission candidate."""
+
+    target: PlanetFutureDeltaFacts | None = None
+    sources: tuple[PlanetFutureDeltaFacts, ...] = ()
+    total_source_ship_delta_vs_baseline: int | None = None
+    total_source_ship_delta_vs_before: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class MissionEvaluationFacts:
     """Deterministic candidate facts plus before-state planet lookups."""
 
@@ -90,6 +118,7 @@ class MissionEvaluationFacts:
     missing_mission_target_planet_id: int | None = None
     missing_mission_source_planet_ids: tuple[int, ...] = ()
     mission_simulation_error: str | None = None
+    future_delta: MissionFutureDeltaFacts = field(default_factory=MissionFutureDeltaFacts)
     notes: tuple[str, ...] = ()
 
 
@@ -112,8 +141,8 @@ def evaluate_candidates(
 ) -> tuple[MissionEvaluation, ...]:
     """Return candidate-fact evaluations for ``candidates``.
 
-    Cycle 4 adds shared idle baseline facts and per-candidate mechanical mission
-    future source/target planet facts. Input order is preserved.
+    Cycle 5 adds shared idle baseline facts, per-candidate mechanical mission
+    future facts, and mission-vs-baseline delta facts. Input order is preserved.
     """
 
     effective_config = config or EvaluationConfig()
@@ -181,6 +210,16 @@ def extract_candidate_facts(
     ):
         mission_state = baseline_state
     mission_lookup = _lookup_candidate_planets(candidate, mission_state)
+    future_delta = mission_future_delta_facts(
+        target_planet_id=candidate.target_planet_id,
+        source_planet_ids=candidate.source_planet_ids,
+        target_before=before_lookup.target,
+        target_baseline=baseline_lookup.target,
+        target_mission=mission_lookup.target,
+        sources_before=before_lookup.sources,
+        sources_baseline=baseline_lookup.sources,
+        sources_mission=mission_lookup.sources,
+    )
 
     return MissionEvaluationFacts(
         mission_type=candidate.mission_type,
@@ -205,6 +244,7 @@ def extract_candidate_facts(
         missing_mission_target_planet_id=mission_lookup.missing_target_planet_id,
         missing_mission_source_planet_ids=mission_lookup.missing_source_planet_ids,
         mission_simulation_error=mission_simulation_error,
+        future_delta=future_delta,
     )
 
 
@@ -249,6 +289,89 @@ def planet_evaluation_facts(planet: Planet) -> PlanetEvaluationFacts:
         ships=planet.ships,
         production=planet.production,
         is_comet=planet.is_comet,
+    )
+
+
+def planet_future_delta_facts(
+    before: PlanetEvaluationFacts | None,
+    baseline: PlanetEvaluationFacts | None,
+    mission: PlanetEvaluationFacts | None,
+    planet_id: int | None = None,
+) -> PlanetFutureDeltaFacts:
+    """Return deterministic deltas for one planet snapshot triple."""
+
+    resolved_planet_id = _first_non_none(
+        planet_id,
+        None if before is None else before.planet_id,
+        None if baseline is None else baseline.planet_id,
+        None if mission is None else mission.planet_id,
+    )
+    return PlanetFutureDeltaFacts(
+        planet_id=resolved_planet_id,
+        before_owner=None if before is None else before.owner,
+        baseline_owner=None if baseline is None else baseline.owner,
+        mission_owner=None if mission is None else mission.owner,
+        before_ships=None if before is None else before.ships,
+        baseline_ships=None if baseline is None else baseline.ships,
+        mission_ships=None if mission is None else mission.ships,
+        mission_ship_delta_vs_baseline=_ship_delta(mission, baseline),
+        mission_ship_delta_vs_before=_ship_delta(mission, before),
+        mission_owner_changed_vs_baseline=_owner_changed(mission, baseline),
+        mission_owner_changed_vs_before=_owner_changed(mission, before),
+    )
+
+
+def mission_future_delta_facts(
+    *,
+    target_planet_id: int | None,
+    source_planet_ids: tuple[int, ...],
+    target_before: PlanetEvaluationFacts | None,
+    target_baseline: PlanetEvaluationFacts | None,
+    target_mission: PlanetEvaluationFacts | None,
+    sources_before: tuple[PlanetEvaluationFacts, ...],
+    sources_baseline: tuple[PlanetEvaluationFacts, ...],
+    sources_mission: tuple[PlanetEvaluationFacts, ...],
+) -> MissionFutureDeltaFacts:
+    """Return deterministic mission-vs-baseline delta facts."""
+
+    target = None
+    if target_planet_id is not None:
+        target = planet_future_delta_facts(
+            target_before,
+            target_baseline,
+            target_mission,
+            target_planet_id,
+        )
+
+    aligned_before = _align_planet_facts(source_planet_ids, sources_before)
+    aligned_baseline = _align_planet_facts(source_planet_ids, sources_baseline)
+    aligned_mission = _align_planet_facts(source_planet_ids, sources_mission)
+    sources = tuple(
+        planet_future_delta_facts(
+            before,
+            baseline,
+            mission,
+            source_planet_id,
+        )
+        for source_planet_id, before, baseline, mission in zip(
+            source_planet_ids,
+            aligned_before,
+            aligned_baseline,
+            aligned_mission,
+        )
+    )
+
+    return MissionFutureDeltaFacts(
+        target=target,
+        sources=sources,
+        total_source_ship_delta_vs_baseline=_sum_known_deltas(
+            source.mission_ship_delta_vs_baseline
+            for source in sources
+        ),
+        total_source_ship_delta_vs_before=_sum_known_deltas(
+            source.mission_ship_delta_vs_before
+            for source in sources
+        ),
     )
 
 
@@ -301,16 +424,67 @@ def _planets_by_id(state: GameState | None) -> dict[int, Planet]:
     }
 
 
+def _align_planet_facts(
+    planet_ids: tuple[int, ...],
+    facts: tuple[PlanetEvaluationFacts, ...],
+) -> tuple[PlanetEvaluationFacts | None, ...]:
+    aligned: list[PlanetEvaluationFacts | None] = []
+    cursor = 0
+    for planet_id in planet_ids:
+        if cursor < len(facts) and facts[cursor].planet_id == planet_id:
+            aligned.append(facts[cursor])
+            cursor += 1
+        else:
+            aligned.append(None)
+    return tuple(aligned)
+
+
+def _ship_delta(
+    mission: PlanetEvaluationFacts | None,
+    comparison: PlanetEvaluationFacts | None,
+) -> int | None:
+    if mission is None or comparison is None:
+        return None
+    return mission.ships - comparison.ships
+
+
+def _owner_changed(
+    mission: PlanetEvaluationFacts | None,
+    comparison: PlanetEvaluationFacts | None,
+) -> bool | None:
+    if mission is None or comparison is None:
+        return None
+    return mission.owner != comparison.owner
+
+
+def _sum_known_deltas(deltas: Sequence[int | None]) -> int | None:
+    values = tuple(deltas)
+    if any(value is None for value in values):
+        return None
+    return sum(value for value in values if value is not None)
+
+
+def _first_non_none(*values: int | None) -> int | None:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
 __all__ = (
     "EvaluationConfig",
     "MissionEvaluation",
     "MissionEvaluationFacts",
     "MissionEvaluationStatus",
+    "MissionFutureDeltaFacts",
     "PlanetEvaluationFacts",
+    "PlanetFutureDeltaFacts",
     "ScoreComponent",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "evaluate_candidates",
     "extract_candidate_facts",
+    "mission_future_delta_facts",
     "planet_evaluation_facts",
+    "planet_future_delta_facts",
 )

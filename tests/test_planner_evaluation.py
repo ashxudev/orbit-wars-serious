@@ -16,14 +16,18 @@ from ow_planner import (
     MissionEvaluation,
     MissionEvaluationFacts,
     MissionEvaluationStatus,
+    MissionFutureDeltaFacts,
     MissionType,
     PlanetEvaluationFacts,
+    PlanetFutureDeltaFacts,
     ScoreComponent,
     baseline_state_after_horizon,
     candidate_state_after_horizon,
     evaluate_candidates,
     extract_candidate_facts,
+    mission_future_delta_facts,
     planet_evaluation_facts,
+    planet_future_delta_facts,
 )
 from ow_sim.state import GameState, Planet
 from ow_sim.timeline import simulate_ticks as idle_simulate_ticks
@@ -148,13 +152,17 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertIsNotNone(evaluate_candidates)
         self.assertIs(MissionEvaluation, MissionEvaluation)
         self.assertIs(MissionEvaluationFacts, MissionEvaluationFacts)
+        self.assertIs(MissionFutureDeltaFacts, MissionFutureDeltaFacts)
         self.assertIs(PlanetEvaluationFacts, PlanetEvaluationFacts)
+        self.assertIs(PlanetFutureDeltaFacts, PlanetFutureDeltaFacts)
         self.assertIs(ScoreComponent, ScoreComponent)
         self.assertIs(EvaluationConfig, EvaluationConfig)
         self.assertIsNotNone(baseline_state_after_horizon)
         self.assertIsNotNone(candidate_state_after_horizon)
         self.assertIsNotNone(extract_candidate_facts)
+        self.assertIsNotNone(mission_future_delta_facts)
         self.assertIsNotNone(planet_evaluation_facts)
+        self.assertIsNotNone(planet_future_delta_facts)
 
     def test_enum_string_values_are_stable(self) -> None:
         self.assertEqual(MissionEvaluationStatus.UNEVALUATED.value, "unevaluated")
@@ -165,6 +173,39 @@ class PlannerEvaluationTests(unittest.TestCase):
         mission = candidate(2)
         config = EvaluationConfig(horizon_ticks=12)
         component = ScoreComponent(name="placeholder", value=2.5, weight=0.75)
+        planet_delta = PlanetFutureDeltaFacts(
+            planet_id=2,
+            before_owner=-1,
+            baseline_owner=-1,
+            mission_owner=0,
+            before_ships=3,
+            baseline_ships=3,
+            mission_ships=1,
+            mission_ship_delta_vs_baseline=-2,
+            mission_ship_delta_vs_before=-2,
+            mission_owner_changed_vs_baseline=True,
+            mission_owner_changed_vs_before=True,
+        )
+        future_delta = MissionFutureDeltaFacts(
+            target=planet_delta,
+            sources=(
+                PlanetFutureDeltaFacts(
+                    planet_id=1,
+                    before_owner=0,
+                    baseline_owner=0,
+                    mission_owner=0,
+                    before_ships=5,
+                    baseline_ships=5,
+                    mission_ships=4,
+                    mission_ship_delta_vs_baseline=-1,
+                    mission_ship_delta_vs_before=-1,
+                    mission_owner_changed_vs_baseline=False,
+                    mission_owner_changed_vs_before=False,
+                ),
+            ),
+            total_source_ship_delta_vs_baseline=-1,
+            total_source_ship_delta_vs_before=-1,
+        )
         facts = MissionEvaluationFacts(
             mission_type=MissionType.CAPTURE_NEUTRAL,
             target_planet_id=2,
@@ -181,6 +222,7 @@ class PlannerEvaluationTests(unittest.TestCase):
             mission_horizon_ticks=0,
             target_mission=PlanetEvaluationFacts(2, -1, 3, 2, True),
             sources_mission=(PlanetEvaluationFacts(1, 0, 4, 1),),
+            future_delta=future_delta,
             notes=("structural",),
         )
         evaluation = MissionEvaluation(
@@ -192,12 +234,18 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertEqual(config.horizon_ticks, 12)
         self.assertEqual(component.name, "placeholder")
+        self.assertEqual(planet_delta.mission_ship_delta_vs_baseline, -2)
+        self.assertEqual(future_delta.total_source_ship_delta_vs_baseline, -1)
         self.assertEqual(facts.notes, ("structural",))
         self.assertIs(evaluation.candidate, mission)
         with self.assertRaises(FrozenInstanceError):
             config.horizon_ticks = 1
         with self.assertRaises(FrozenInstanceError):
             component.value = 3.0
+        with self.assertRaises(FrozenInstanceError):
+            planet_delta.mission_ships = 2
+        with self.assertRaises(FrozenInstanceError):
+            future_delta.sources = ()
         with self.assertRaises(FrozenInstanceError):
             facts.notes = ()
         with self.assertRaises(FrozenInstanceError):
@@ -215,6 +263,100 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(planet_facts, PlanetEvaluationFacts(7, 2, 11, 3, True))
         with self.assertRaises(FrozenInstanceError):
             planet_facts.ships = 12
+
+    def test_planet_future_delta_facts_compare_mission_to_baseline_and_before(self) -> None:
+        delta = planet_future_delta_facts(
+            before=PlanetEvaluationFacts(2, -1, 3, 0),
+            baseline=PlanetEvaluationFacts(2, -1, 3, 0),
+            mission=PlanetEvaluationFacts(2, 0, 1, 0),
+        )
+
+        self.assertEqual(delta.planet_id, 2)
+        self.assertEqual(delta.before_owner, -1)
+        self.assertEqual(delta.baseline_owner, -1)
+        self.assertEqual(delta.mission_owner, 0)
+        self.assertEqual(delta.before_ships, 3)
+        self.assertEqual(delta.baseline_ships, 3)
+        self.assertEqual(delta.mission_ships, 1)
+        self.assertEqual(delta.mission_ship_delta_vs_baseline, -2)
+        self.assertEqual(delta.mission_ship_delta_vs_before, -2)
+        self.assertIs(delta.mission_owner_changed_vs_baseline, True)
+        self.assertIs(delta.mission_owner_changed_vs_before, True)
+
+    def test_planet_future_delta_facts_handles_missing_snapshots(self) -> None:
+        delta = planet_future_delta_facts(
+            before=None,
+            baseline=PlanetEvaluationFacts(9, 1, 4, 2),
+            mission=None,
+            planet_id=9,
+        )
+
+        self.assertEqual(delta.planet_id, 9)
+        self.assertIsNone(delta.before_owner)
+        self.assertEqual(delta.baseline_owner, 1)
+        self.assertIsNone(delta.mission_owner)
+        self.assertIsNone(delta.mission_ship_delta_vs_baseline)
+        self.assertIsNone(delta.mission_ship_delta_vs_before)
+        self.assertIsNone(delta.mission_owner_changed_vs_baseline)
+        self.assertIsNone(delta.mission_owner_changed_vs_before)
+
+    def test_mission_future_delta_facts_preserve_source_order_and_aggregate_known_deltas(self) -> None:
+        delta = mission_future_delta_facts(
+            target_planet_id=2,
+            source_planet_ids=(3, 1, 1),
+            target_before=PlanetEvaluationFacts(2, -1, 0, 0),
+            target_baseline=PlanetEvaluationFacts(2, -1, 0, 0),
+            target_mission=PlanetEvaluationFacts(2, 0, 1, 0),
+            sources_before=(
+                PlanetEvaluationFacts(3, 0, 8, 0),
+                PlanetEvaluationFacts(1, 0, 5, 0),
+                PlanetEvaluationFacts(1, 0, 5, 0),
+            ),
+            sources_baseline=(
+                PlanetEvaluationFacts(3, 0, 8, 0),
+                PlanetEvaluationFacts(1, 0, 5, 0),
+                PlanetEvaluationFacts(1, 0, 5, 0),
+            ),
+            sources_mission=(
+                PlanetEvaluationFacts(3, 0, 6, 0),
+                PlanetEvaluationFacts(1, 0, 4, 0),
+                PlanetEvaluationFacts(1, 0, 5, 0),
+            ),
+        )
+
+        self.assertEqual(delta.target.planet_id, 2)
+        self.assertIs(delta.target.mission_owner_changed_vs_baseline, True)
+        self.assertEqual(
+            tuple(source.planet_id for source in delta.sources),
+            (3, 1, 1),
+        )
+        self.assertEqual(
+            tuple(source.mission_ship_delta_vs_baseline for source in delta.sources),
+            (-2, -1, 0),
+        )
+        self.assertEqual(delta.total_source_ship_delta_vs_baseline, -3)
+        self.assertEqual(delta.total_source_ship_delta_vs_before, -3)
+
+    def test_mission_future_delta_facts_uses_none_aggregate_when_any_source_delta_missing(self) -> None:
+        delta = mission_future_delta_facts(
+            target_planet_id=2,
+            source_planet_ids=(1, 99),
+            target_before=PlanetEvaluationFacts(2, -1, 0, 0),
+            target_baseline=PlanetEvaluationFacts(2, -1, 0, 0),
+            target_mission=None,
+            sources_before=(PlanetEvaluationFacts(1, 0, 5, 0),),
+            sources_baseline=(PlanetEvaluationFacts(1, 0, 5, 0),),
+            sources_mission=(PlanetEvaluationFacts(1, 0, 4, 0),),
+        )
+
+        self.assertIsNone(delta.target.mission_ship_delta_vs_baseline)
+        self.assertEqual(
+            tuple(source.planet_id for source in delta.sources),
+            (1, 99),
+        )
+        self.assertEqual(delta.sources[0].mission_ship_delta_vs_baseline, -1)
+        self.assertIsNone(delta.sources[1].mission_ship_delta_vs_baseline)
+        self.assertIsNone(delta.total_source_ship_delta_vs_baseline)
 
     def test_evaluate_candidates_returns_empty_tuple_for_empty_input(self) -> None:
         self.assertEqual(evaluate_candidates(state_with_planet(), ()), ())
@@ -259,6 +401,13 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertIsNone(facts.missing_mission_target_planet_id)
         self.assertEqual(facts.missing_mission_source_planet_ids, ())
         self.assertIsNone(facts.mission_simulation_error)
+        self.assertEqual(facts.future_delta.target.planet_id, 2)
+        self.assertIsNone(facts.future_delta.target.mission_ship_delta_vs_baseline)
+        self.assertEqual(
+            tuple(source.planet_id for source in facts.future_delta.sources),
+            (1,),
+        )
+        self.assertIsNone(facts.future_delta.total_source_ship_delta_vs_baseline)
 
     def test_extract_candidate_facts_for_enemy_attack_candidate(self) -> None:
         mission = candidate(
@@ -564,6 +713,21 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(evaluation.facts.sources_mission, evaluation.facts.sources_before)
         self.assertEqual(evaluation.facts.sources_mission, evaluation.facts.sources_baseline)
         self.assertIsNone(evaluation.facts.mission_simulation_error)
+        self.assertEqual(
+            evaluation.facts.future_delta.target.mission_ship_delta_vs_baseline,
+            0,
+        )
+        self.assertIs(
+            evaluation.facts.future_delta.target.mission_owner_changed_vs_baseline,
+            False,
+        )
+        self.assertEqual(
+            tuple(
+                source.mission_ship_delta_vs_baseline
+                for source in evaluation.facts.future_delta.sources
+            ),
+            (0,),
+        )
 
     def test_no_launch_positive_horizon_candidate_future_matches_idle_baseline(self) -> None:
         state = launch_test_state(next_fleet_id=None)
@@ -579,6 +743,14 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(evaluation.facts.target_mission, evaluation.facts.target_baseline)
         self.assertEqual(evaluation.facts.sources_mission, evaluation.facts.sources_baseline)
         self.assertIsNone(evaluation.facts.mission_simulation_error)
+        self.assertEqual(
+            evaluation.facts.future_delta.target.mission_ship_delta_vs_baseline,
+            0,
+        )
+        self.assertEqual(
+            evaluation.facts.future_delta.total_source_ship_delta_vs_baseline,
+            0,
+        )
 
     def test_candidate_state_after_horizon_launch_reduces_source_at_zero_horizon(self) -> None:
         state = launch_test_state(source_ships=10)
@@ -612,6 +784,28 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(evaluation.facts.target_mission, PlanetEvaluationFacts(2, 0, 1, 0))
         self.assertEqual(evaluation.facts.sources_mission, (PlanetEvaluationFacts(1, 0, 9, 0),))
         self.assertIsNone(evaluation.facts.mission_simulation_error)
+        self.assertEqual(evaluation.facts.future_delta.target.baseline_owner, -1)
+        self.assertEqual(evaluation.facts.future_delta.target.mission_owner, 0)
+        self.assertEqual(
+            evaluation.facts.future_delta.target.mission_ship_delta_vs_baseline,
+            1,
+        )
+        self.assertIs(
+            evaluation.facts.future_delta.target.mission_owner_changed_vs_baseline,
+            True,
+        )
+        self.assertEqual(
+            evaluation.facts.future_delta.sources[0].mission_ship_delta_vs_baseline,
+            -1,
+        )
+        self.assertEqual(
+            evaluation.facts.future_delta.sources[0].mission_ship_delta_vs_before,
+            -1,
+        )
+        self.assertEqual(
+            evaluation.facts.future_delta.total_source_ship_delta_vs_baseline,
+            -1,
+        )
 
     def test_enemy_attack_candidate_populates_target_mission_facts(self) -> None:
         state = launch_test_state(target_owner=1, target_ships=0)
@@ -629,6 +823,12 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertEqual(evaluation.facts.target_mission, PlanetEvaluationFacts(2, 0, 1, 0))
         self.assertIsNone(evaluation.facts.mission_simulation_error)
+        self.assertEqual(evaluation.facts.future_delta.target.baseline_owner, 1)
+        self.assertEqual(evaluation.facts.future_delta.target.mission_owner, 0)
+        self.assertIs(
+            evaluation.facts.future_delta.target.mission_owner_changed_vs_baseline,
+            True,
+        )
 
     def test_candidate_conversion_rejection_records_mission_simulation_error(self) -> None:
         state = launch_test_state(source_ships=1)
@@ -646,6 +846,13 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertIn("enough ships", evaluation.facts.mission_simulation_error)
         self.assertIsNone(evaluation.facts.target_mission)
         self.assertEqual(evaluation.facts.sources_mission, ())
+        self.assertIsNone(
+            evaluation.facts.future_delta.target.mission_ship_delta_vs_baseline
+        )
+        self.assertIsNone(
+            evaluation.facts.future_delta.sources[0].mission_ship_delta_vs_baseline
+        )
+        self.assertIsNone(evaluation.facts.future_delta.total_source_ship_delta_vs_baseline)
 
     def test_missing_mission_target_id_is_reported_without_crashing(self) -> None:
         state = launch_test_state()
@@ -670,6 +877,9 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertIsNone(evaluation.facts.target_mission)
         self.assertEqual(evaluation.facts.missing_mission_target_planet_id, 2)
+        self.assertIsNone(
+            evaluation.facts.future_delta.target.mission_ship_delta_vs_baseline
+        )
 
     def test_missing_mission_source_ids_are_reported_without_crashing(self) -> None:
         state = launch_test_state()
@@ -694,6 +904,12 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertEqual(evaluation.facts.sources_mission, ())
         self.assertEqual(evaluation.facts.missing_mission_source_planet_ids, (1, 99))
+        self.assertIsNone(
+            evaluation.facts.future_delta.sources[0].mission_ship_delta_vs_baseline
+        )
+        self.assertIsNone(
+            evaluation.facts.future_delta.sources[1].mission_ship_delta_vs_baseline
+        )
 
     def test_none_target_id_is_not_reported_missing_for_mission(self) -> None:
         mission = MissionCandidate(
@@ -749,6 +965,12 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertEqual(evaluation.facts.target_baseline, PlanetEvaluationFacts(2, -1, 0, 0))
         self.assertEqual(evaluation.facts.target_mission, PlanetEvaluationFacts(2, 0, 1, 0))
+        self.assertEqual(evaluation.facts.future_delta.target.baseline_owner, -1)
+        self.assertEqual(evaluation.facts.future_delta.target.mission_owner, 0)
+        self.assertIs(
+            evaluation.facts.future_delta.target.mission_owner_changed_vs_baseline,
+            True,
+        )
 
     def test_evaluate_candidates_returns_evaluated_wrappers_with_facts(self) -> None:
         mission = candidate(2)
