@@ -36,6 +36,7 @@ Commitment Policy Cycle 4 adds reserve-preserving options.
 Commitment Policy Cycle 5 adds full-source options.
 Commitment Policy Cycle 6 adds coordinated multi-source options.
 Strategy Modes Cycle 0 adds deterministic 2p / 4p mode facts.
+Strategy Modes Cycle 1 adds planner decision bundle composition.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -161,6 +162,10 @@ from .strategy_modes import (
     detect_strategy_mode,
     strategy_mode_facts,
 )
+from .strategy_decisions import (
+    PlannerDecisionBundle,
+    planner_decision_bundles,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -195,6 +200,7 @@ __all__ = (
     "PlanetEvaluationFacts",
     "PlanetFutureDeltaFacts",
     "PlanetFacts",
+    "PlannerDecisionBundle",
     "ROUGH_TRAVEL_SHIPS",
     "RaceSourceFacts",
     "ReinforcementSourceFacts",
@@ -246,6 +252,7 @@ __all__ = (
     "no_attack_commitment_option",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
+    "planner_decision_bundles",
     "score_evaluations",
     "score_mission_outcome_facts",
     "score_mission_timing_facts",
