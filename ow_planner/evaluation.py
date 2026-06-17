@@ -1,8 +1,8 @@
 """Planner mission evaluation contracts.
 
-Mission Evaluation Cycle 2 extracts deterministic facts available directly
-from mission candidates and before-state source/target planet lookups. It does
-not run simulator comparisons, score, rank, prune, or select missions.
+Mission Evaluation Cycle 3 extracts deterministic candidate facts, before-state
+source/target lookups, and idle baseline future lookups. It does not simulate
+candidate launches, score, rank, prune, or select missions.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Sequence
 
 from ow_sim.state import GameState, Planet
+from ow_sim.timeline import simulate_ticks
 
 from .candidates import CandidateOutcome, MissionCandidate, MissionType
 
@@ -76,6 +77,11 @@ class MissionEvaluationFacts:
     sources_before: tuple[PlanetEvaluationFacts, ...] = ()
     missing_target_planet_id: int | None = None
     missing_source_planet_ids: tuple[int, ...] = ()
+    baseline_horizon_ticks: int = 0
+    target_baseline: PlanetEvaluationFacts | None = None
+    sources_baseline: tuple[PlanetEvaluationFacts, ...] = ()
+    missing_baseline_target_planet_id: int | None = None
+    missing_baseline_source_planet_ids: tuple[int, ...] = ()
     notes: tuple[str, ...] = ()
 
 
@@ -98,16 +104,29 @@ def evaluate_candidates(
 ) -> tuple[MissionEvaluation, ...]:
     """Return candidate-fact evaluations for ``candidates``.
 
-    Cycle 2 adds current-state source/target planet facts only. Input order is
-    preserved.
+    Cycle 3 adds shared idle baseline future source/target planet facts. Input
+    order is preserved.
     """
 
-    _ = config or EvaluationConfig()
+    effective_config = config or EvaluationConfig()
+    horizon_ticks = (
+        0
+        if effective_config.horizon_ticks is None
+        else effective_config.horizon_ticks
+    )
+    if not candidates:
+        return ()
+    baseline_state = baseline_state_after_horizon(state, horizon_ticks)
     return tuple(
         MissionEvaluation(
             candidate=candidate,
             status=MissionEvaluationStatus.EVALUATED,
-            facts=extract_candidate_facts(candidate, state),
+            facts=extract_candidate_facts(
+                candidate,
+                state,
+                baseline_state=baseline_state,
+                baseline_horizon_ticks=horizon_ticks,
+            ),
         )
         for candidate in candidates
     )
@@ -116,28 +135,17 @@ def evaluate_candidates(
 def extract_candidate_facts(
     candidate: MissionCandidate,
     state: GameState | None = None,
+    *,
+    baseline_state: GameState | None = None,
+    baseline_horizon_ticks: int = 0,
 ) -> MissionEvaluationFacts:
     """Return deterministic candidate facts and optional state lookups."""
 
-    planets_by_id = _planets_by_id(state)
-    target_before = None
-    missing_target_planet_id = None
-    if state is not None and candidate.target_planet_id is not None:
-        target = planets_by_id.get(candidate.target_planet_id)
-        if target is None:
-            missing_target_planet_id = candidate.target_planet_id
-        else:
-            target_before = planet_evaluation_facts(target)
-
-    sources_before: list[PlanetEvaluationFacts] = []
-    missing_source_planet_ids: list[int] = []
-    if state is not None:
-        for source_planet_id in candidate.source_planet_ids:
-            source = planets_by_id.get(source_planet_id)
-            if source is None:
-                missing_source_planet_ids.append(source_planet_id)
-            else:
-                sources_before.append(planet_evaluation_facts(source))
+    EvaluationConfig(horizon_ticks=baseline_horizon_ticks)
+    before_lookup = _lookup_candidate_planets(candidate, state)
+    if baseline_state is None and state is not None:
+        baseline_state = state
+    baseline_lookup = _lookup_candidate_planets(candidate, baseline_state)
 
     return MissionEvaluationFacts(
         mission_type=candidate.mission_type,
@@ -147,11 +155,28 @@ def extract_candidate_facts(
         ships_spent=sum(launch.ships for launch in candidate.launches),
         launch_angles=tuple(launch.angle for launch in candidate.launches),
         candidate_outcome=candidate.outcome,
-        target_before=target_before,
-        sources_before=tuple(sources_before),
-        missing_target_planet_id=missing_target_planet_id,
-        missing_source_planet_ids=tuple(missing_source_planet_ids),
+        target_before=before_lookup.target,
+        sources_before=before_lookup.sources,
+        missing_target_planet_id=before_lookup.missing_target_planet_id,
+        missing_source_planet_ids=before_lookup.missing_source_planet_ids,
+        baseline_horizon_ticks=baseline_horizon_ticks,
+        target_baseline=baseline_lookup.target,
+        sources_baseline=baseline_lookup.sources,
+        missing_baseline_target_planet_id=baseline_lookup.missing_target_planet_id,
+        missing_baseline_source_planet_ids=baseline_lookup.missing_source_planet_ids,
     )
+
+
+def baseline_state_after_horizon(
+    state: GameState,
+    horizon_ticks: int,
+) -> GameState:
+    """Return idle baseline state after ``horizon_ticks`` ticks."""
+
+    EvaluationConfig(horizon_ticks=horizon_ticks)
+    if horizon_ticks == 0:
+        return state
+    return simulate_ticks(state, horizon_ticks)
 
 
 def planet_evaluation_facts(planet: Planet) -> PlanetEvaluationFacts:
@@ -163,6 +188,46 @@ def planet_evaluation_facts(planet: Planet) -> PlanetEvaluationFacts:
         ships=planet.ships,
         production=planet.production,
         is_comet=planet.is_comet,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _CandidatePlanetLookup:
+    target: PlanetEvaluationFacts | None
+    sources: tuple[PlanetEvaluationFacts, ...]
+    missing_target_planet_id: int | None
+    missing_source_planet_ids: tuple[int, ...]
+
+
+def _lookup_candidate_planets(
+    candidate: MissionCandidate,
+    state: GameState | None,
+) -> _CandidatePlanetLookup:
+    planets_by_id = _planets_by_id(state)
+    target = None
+    missing_target_planet_id = None
+    if state is not None and candidate.target_planet_id is not None:
+        target_planet = planets_by_id.get(candidate.target_planet_id)
+        if target_planet is None:
+            missing_target_planet_id = candidate.target_planet_id
+        else:
+            target = planet_evaluation_facts(target_planet)
+
+    sources: list[PlanetEvaluationFacts] = []
+    missing_source_planet_ids: list[int] = []
+    if state is not None:
+        for source_planet_id in candidate.source_planet_ids:
+            source = planets_by_id.get(source_planet_id)
+            if source is None:
+                missing_source_planet_ids.append(source_planet_id)
+            else:
+                sources.append(planet_evaluation_facts(source))
+
+    return _CandidatePlanetLookup(
+        target=target,
+        sources=tuple(sources),
+        missing_target_planet_id=missing_target_planet_id,
+        missing_source_planet_ids=tuple(missing_source_planet_ids),
     )
 
 
@@ -182,6 +247,7 @@ __all__ = (
     "MissionEvaluationStatus",
     "PlanetEvaluationFacts",
     "ScoreComponent",
+    "baseline_state_after_horizon",
     "evaluate_candidates",
     "extract_candidate_facts",
     "planet_evaluation_facts",

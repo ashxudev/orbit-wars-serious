@@ -19,11 +19,13 @@ from ow_planner import (
     MissionType,
     PlanetEvaluationFacts,
     ScoreComponent,
+    baseline_state_after_horizon,
     evaluate_candidates,
     extract_candidate_facts,
     planet_evaluation_facts,
 )
 from ow_sim.state import GameState, Planet
+from ow_sim.timeline import simulate_ticks as idle_simulate_ticks
 
 
 def planet(
@@ -93,6 +95,7 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertIs(PlanetEvaluationFacts, PlanetEvaluationFacts)
         self.assertIs(ScoreComponent, ScoreComponent)
         self.assertIs(EvaluationConfig, EvaluationConfig)
+        self.assertIsNotNone(baseline_state_after_horizon)
         self.assertIsNotNone(extract_candidate_facts)
         self.assertIsNotNone(planet_evaluation_facts)
 
@@ -115,6 +118,9 @@ class PlannerEvaluationTests(unittest.TestCase):
             candidate_outcome=CandidateOutcome.UNTESTED,
             target_before=PlanetEvaluationFacts(2, -1, 3, 2, True),
             sources_before=(PlanetEvaluationFacts(1, 0, 5, 1),),
+            baseline_horizon_ticks=0,
+            target_baseline=PlanetEvaluationFacts(2, -1, 3, 2, True),
+            sources_baseline=(PlanetEvaluationFacts(1, 0, 5, 1),),
             notes=("structural",),
         )
         evaluation = MissionEvaluation(
@@ -136,6 +142,8 @@ class PlannerEvaluationTests(unittest.TestCase):
             facts.notes = ()
         with self.assertRaises(FrozenInstanceError):
             facts.target_before = None
+        with self.assertRaises(FrozenInstanceError):
+            facts.target_baseline = None
         with self.assertRaises(FrozenInstanceError):
             evaluation.total_score = 1.0
 
@@ -178,6 +186,11 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(facts.sources_before, ())
         self.assertIsNone(facts.missing_target_planet_id)
         self.assertEqual(facts.missing_source_planet_ids, ())
+        self.assertEqual(facts.baseline_horizon_ticks, 0)
+        self.assertIsNone(facts.target_baseline)
+        self.assertEqual(facts.sources_baseline, ())
+        self.assertIsNone(facts.missing_baseline_target_planet_id)
+        self.assertEqual(facts.missing_baseline_source_planet_ids, ())
 
     def test_extract_candidate_facts_for_enemy_attack_candidate(self) -> None:
         mission = candidate(
@@ -306,6 +319,167 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertIsNone(facts.target_before)
         self.assertIsNone(facts.missing_target_planet_id)
+        self.assertIsNone(facts.target_baseline)
+        self.assertIsNone(facts.missing_baseline_target_planet_id)
+
+    def test_horizon_none_uses_zero_baseline(self) -> None:
+        mission = candidate(2)
+
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (mission,),
+            EvaluationConfig(horizon_ticks=None),
+        )
+
+        self.assertEqual(evaluation.facts.baseline_horizon_ticks, 0)
+        self.assertEqual(evaluation.facts.target_baseline, evaluation.facts.target_before)
+        self.assertEqual(evaluation.facts.sources_baseline, evaluation.facts.sources_before)
+
+    def test_horizon_zero_baseline_matches_current_state_facts(self) -> None:
+        mission = candidate(2)
+
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (mission,),
+            EvaluationConfig(horizon_ticks=0),
+        )
+
+        self.assertEqual(evaluation.facts.baseline_horizon_ticks, 0)
+        self.assertEqual(evaluation.facts.target_baseline, PlanetEvaluationFacts(2, -1, 3, 2, True))
+        self.assertEqual(evaluation.facts.sources_baseline, (PlanetEvaluationFacts(1, 0, 5, 1),))
+
+    def test_baseline_state_after_horizon_zero_returns_input_state(self) -> None:
+        state = state_with_planet()
+
+        self.assertIs(baseline_state_after_horizon(state, 0), state)
+
+    def test_positive_baseline_horizon_uses_idle_simulation(self) -> None:
+        mission = candidate(3, mission_type=MissionType.ATTACK_ENEMY)
+
+        with patch("ow_planner.evaluation.simulate_ticks", wraps=idle_simulate_ticks) as simulate:
+            (evaluation,) = evaluate_candidates(
+                state_with_planet(),
+                (mission,),
+                EvaluationConfig(horizon_ticks=2),
+            )
+
+        simulate.assert_called_once()
+        self.assertEqual(simulate.call_args.args[1], 2)
+        self.assertEqual(evaluation.facts.baseline_horizon_ticks, 2)
+
+    def test_baseline_target_facts_after_production_for_owned_and_enemy_planets(self) -> None:
+        enemy_mission = candidate(3, mission_type=MissionType.ATTACK_ENEMY)
+        own_mission = candidate(1, mission_type=MissionType.DEFEND_OWN)
+
+        enemy_eval, own_eval = evaluate_candidates(
+            state_with_planet(),
+            (enemy_mission, own_mission),
+            EvaluationConfig(horizon_ticks=2),
+        )
+
+        self.assertEqual(enemy_eval.facts.target_baseline, PlanetEvaluationFacts(3, 1, 16, 4))
+        self.assertEqual(own_eval.facts.target_baseline, PlanetEvaluationFacts(1, 0, 7, 1))
+
+    def test_baseline_neutral_target_does_not_gain_production(self) -> None:
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (candidate(2),),
+            EvaluationConfig(horizon_ticks=2),
+        )
+
+        self.assertEqual(evaluation.facts.target_before, PlanetEvaluationFacts(2, -1, 3, 2, True))
+        self.assertEqual(evaluation.facts.target_baseline, PlanetEvaluationFacts(2, -1, 3, 2, True))
+
+    def test_baseline_source_facts_preserve_candidate_source_order(self) -> None:
+        mission = candidate(
+            2,
+            source_planet_ids=(3, 1),
+            launches=(),
+        )
+
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (mission,),
+            EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertEqual(
+            evaluation.facts.sources_baseline,
+            (
+                PlanetEvaluationFacts(3, 1, 12, 4),
+                PlanetEvaluationFacts(1, 0, 6, 1),
+            ),
+        )
+
+    def test_duplicate_source_ids_preserve_duplicate_baseline_facts(self) -> None:
+        mission = candidate(
+            2,
+            source_planet_ids=(1, 1),
+            launches=(),
+        )
+
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (mission,),
+            EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertEqual(
+            evaluation.facts.sources_baseline,
+            (
+                PlanetEvaluationFacts(1, 0, 6, 1),
+                PlanetEvaluationFacts(1, 0, 6, 1),
+            ),
+        )
+
+    def test_missing_baseline_target_id_is_reported_without_crashing(self) -> None:
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (candidate(99),),
+            EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertIsNone(evaluation.facts.target_baseline)
+        self.assertEqual(evaluation.facts.missing_baseline_target_planet_id, 99)
+
+    def test_missing_baseline_source_ids_are_reported_without_crashing(self) -> None:
+        mission = candidate(
+            2,
+            source_planet_ids=(1, 99, 3, 42),
+            launches=(),
+        )
+
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (mission,),
+            EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertEqual(
+            evaluation.facts.sources_baseline,
+            (
+                PlanetEvaluationFacts(1, 0, 6, 1),
+                PlanetEvaluationFacts(3, 1, 12, 4),
+            ),
+        )
+        self.assertEqual(evaluation.facts.missing_baseline_source_planet_ids, (99, 42))
+
+    def test_none_target_id_is_not_reported_missing_for_baseline(self) -> None:
+        mission = MissionCandidate(
+            mission_type=MissionType.REINFORCE,
+            target_planet_id=None,
+            source_planet_ids=(1,),
+            launches=(),
+        )
+
+        (evaluation,) = evaluate_candidates(
+            state_with_planet(),
+            (mission,),
+            EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertIsNone(evaluation.facts.target_baseline)
+        self.assertIsNone(evaluation.facts.missing_baseline_target_planet_id)
 
     def test_evaluate_candidates_returns_evaluated_wrappers_with_facts(self) -> None:
         mission = candidate(2)
@@ -314,6 +488,7 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertEqual(evaluation.status, MissionEvaluationStatus.EVALUATED)
         self.assertEqual(evaluation.facts, extract_candidate_facts(mission, state_with_planet()))
+        self.assertEqual(evaluation.facts.baseline_horizon_ticks, 0)
         self.assertEqual(evaluation.score_components, ())
         self.assertIsNone(evaluation.total_score)
         self.assertIsNone(evaluation.note)
@@ -342,7 +517,7 @@ class PlannerEvaluationTests(unittest.TestCase):
             patch("ow_planner.candidates.generate_candidates") as generate,
             patch("ow_planner.actions.launch_candidate_to_order") as action_convert,
             patch("ow_planner.outcomes.validate_estimated_pair_outcomes") as outcomes,
-            patch("ow_sim.timeline.simulate_ticks") as simulate_ticks,
+            patch("ow_planner.evaluation.simulate_ticks") as simulate_ticks,
             patch("ow_sim.whatif.simulate_launch_orders") as simulate_launch_orders,
         ):
             evaluate_candidates(state_with_planet(), (candidate(2),))

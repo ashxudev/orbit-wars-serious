@@ -10,6 +10,7 @@ Mission Generation Cycle 6 adds the bounded public generation API.
 Mission Evaluation Cycle 0 adds structural evaluation contracts.
 Mission Evaluation Cycle 1 adds candidate-derived evaluation facts.
 Mission Evaluation Cycle 2 adds before-state planet lookup facts.
+Mission Evaluation Cycle 3 adds idle baseline future lookup facts.
 Strategy and scoring are intentionally deferred.
 """
 
@@ -64,6 +65,7 @@ from .evaluation import (
     MissionEvaluationStatus,
     PlanetEvaluationFacts,
     ScoreComponent,
+    baseline_state_after_horizon,
     evaluate_candidates,
     extract_candidate_facts,
     planet_evaluation_facts,
@@ -95,6 +97,7 @@ __all__ = (
     "ShipEstimateStatus",
     "SourceTargetPair",
     "TargetCategory",
+    "baseline_state_after_horizon",
     "extract_board_features",
     "enumerate_source_target_pairs",
     "enumerate_source_target_pairs_from_features",
