@@ -38,6 +38,7 @@ Commitment Policy Cycle 6 adds coordinated multi-source options.
 Strategy Modes Cycle 0 adds deterministic 2p / 4p mode facts.
 Strategy Modes Cycle 1 adds planner decision bundle composition.
 Strategy Modes Cycle 2 adds structural strategy-selection results.
+Strategy Modes Cycle 3 adds deterministic two-player direct-advantage facts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -172,6 +173,11 @@ from .strategy_decisions import (
     rejected_strategy_result,
     selected_strategy_result,
 )
+from .two_player_strategy import (
+    TwoPlayerAdvantageFacts,
+    two_player_advantage_facts,
+    two_player_advantage_facts_for_bundles,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -230,6 +236,7 @@ __all__ = (
     "TargetReinforcementFacts",
     "ThirdPartyBenefitFacts",
     "ThirdPartyOwnerFacts",
+    "TwoPlayerAdvantageFacts",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "classify_response_facts",
@@ -277,6 +284,8 @@ __all__ = (
     "target_race_facts",
     "target_reinforcement_facts",
     "third_party_benefit_facts",
+    "two_player_advantage_facts",
+    "two_player_advantage_facts_for_bundles",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",
 )
