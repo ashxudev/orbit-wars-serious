@@ -18,6 +18,7 @@ from ow_planner import (
     MissionCandidate,
     MissionType,
     commitment_options_for_candidates,
+    minimum_capture_commitment_option,
     no_attack_commitment_option,
 )
 from ow_sim.state import GameState, Planet
@@ -60,6 +61,34 @@ def mission_candidate(target_planet_id: int = 2) -> MissionCandidate:
     )
 
 
+def multi_launch_mission_candidate() -> MissionCandidate:
+    first = LaunchCandidate(
+        source_planet_id=2,
+        angle=0.5,
+        ships=4,
+        player_id=0,
+    )
+    second = LaunchCandidate(
+        source_planet_id=1,
+        angle=0.25,
+        ships=6,
+        player_id=0,
+    )
+    return MissionCandidate(
+        mission_type=MissionType.ATTACK_ENEMY,
+        target_planet_id=4,
+        source_planet_ids=(2, 1),
+        launches=(first, second),
+    )
+
+
+def no_launch_mission_candidate() -> MissionCandidate:
+    return MissionCandidate(
+        mission_type=MissionType.CAPTURE_NEUTRAL,
+        target_planet_id=2,
+    )
+
+
 class PlannerCommitmentTests(unittest.TestCase):
     def test_commitment_module_imports_and_exports_are_available(self) -> None:
         importlib.import_module("ow_planner.commitment")
@@ -70,6 +99,7 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertIs(CommitmentOptionType, CommitmentOptionType)
         self.assertIs(CommitmentPolicyConfig, CommitmentPolicyConfig)
         self.assertIsNotNone(commitment_options_for_candidates)
+        self.assertIsNotNone(minimum_capture_commitment_option)
         self.assertIsNotNone(no_attack_commitment_option)
 
     def test_commitment_option_type_values_are_stable(self) -> None:
@@ -164,6 +194,32 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertIsNone(option.candidate)
         self.assertEqual(option.status, CommitmentOptionStatus.VALIDATED)
 
+    def test_minimum_capture_commitment_option_fields_are_stable(self) -> None:
+        candidate = multi_launch_mission_candidate()
+
+        option = minimum_capture_commitment_option(candidate)
+
+        self.assertEqual(option.option_type, CommitmentOptionType.MINIMUM_CAPTURE)
+        self.assertIs(option.candidate, candidate)
+        self.assertIs(option.launches, candidate.launches)
+        self.assertEqual(option.source_planet_ids, (2, 1))
+        self.assertEqual(option.ships_committed, 10)
+        self.assertEqual(option.status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(option.note, "minimum capture")
+
+    def test_minimum_capture_commitment_option_rejects_no_launch_candidate(self) -> None:
+        candidate = no_launch_mission_candidate()
+
+        option = minimum_capture_commitment_option(candidate)
+
+        self.assertEqual(option.option_type, CommitmentOptionType.MINIMUM_CAPTURE)
+        self.assertIs(option.candidate, candidate)
+        self.assertEqual(option.launches, ())
+        self.assertEqual(option.source_planet_ids, ())
+        self.assertEqual(option.ships_committed, 0)
+        self.assertEqual(option.status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(option.note, "candidate has no launches")
+
     def test_commitment_options_preserves_candidate_order_and_identity(self) -> None:
         first = mission_candidate(2)
         second = mission_candidate(3)
@@ -177,20 +233,29 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertIs(wrappers[0].candidate, first)
         self.assertIs(wrappers[1].candidate, second)
         self.assertEqual(
-            tuple(wrapper.options[0].option_type for wrapper in wrappers),
-            (CommitmentOptionType.NO_ATTACK, CommitmentOptionType.NO_ATTACK),
+            tuple(option.option_type for option in wrappers[0].options),
+            (
+                CommitmentOptionType.NO_ATTACK,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+            ),
         )
         self.assertIs(wrappers[0].options[0].candidate, first)
+        self.assertIs(wrappers[0].options[1].candidate, first)
         self.assertIs(wrappers[1].options[0].candidate, second)
+        self.assertIs(wrappers[1].options[1].candidate, second)
         self.assertEqual(tuple(wrapper.notes for wrapper in wrappers), ((), ()))
 
-    def test_commitment_options_put_no_attack_first(self) -> None:
+    def test_commitment_options_put_no_attack_first_and_minimum_capture_second(self) -> None:
         (wrapper,) = commitment_options_for_candidates(
             state_with_planet(),
             (mission_candidate(),),
         )
 
         self.assertEqual(wrapper.options[0].option_type, CommitmentOptionType.NO_ATTACK)
+        self.assertEqual(
+            wrapper.options[1].option_type,
+            CommitmentOptionType.MINIMUM_CAPTURE,
+        )
 
     def test_commitment_options_respects_zero_limit_without_inventing_options(self) -> None:
         (wrapper,) = commitment_options_for_candidates(
@@ -210,6 +275,52 @@ class PlannerCommitmentTests(unittest.TestCase):
 
         self.assertEqual(len(wrapper.options), 1)
         self.assertEqual(wrapper.options[0].option_type, CommitmentOptionType.NO_ATTACK)
+
+    def test_commitment_options_limit_two_includes_minimum_capture_option(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planet(),
+            (mission_candidate(),),
+            CommitmentPolicyConfig(max_options_per_candidate=2),
+        )
+
+        self.assertEqual(
+            tuple(option.option_type for option in wrapper.options),
+            (
+                CommitmentOptionType.NO_ATTACK,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+            ),
+        )
+
+    def test_commitment_options_unlimited_includes_minimum_capture_option(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planet(),
+            (mission_candidate(),),
+            CommitmentPolicyConfig(max_options_per_candidate=None),
+        )
+
+        self.assertEqual(
+            tuple(option.option_type for option in wrapper.options),
+            (
+                CommitmentOptionType.NO_ATTACK,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+            ),
+        )
+
+    def test_commitment_options_attaches_rejected_minimum_capture_for_no_launch_candidate(
+        self,
+    ) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planet(),
+            (no_launch_mission_candidate(),),
+        )
+
+        self.assertEqual(wrapper.options[0].option_type, CommitmentOptionType.NO_ATTACK)
+        self.assertEqual(
+            wrapper.options[1].option_type,
+            CommitmentOptionType.MINIMUM_CAPTURE,
+        )
+        self.assertEqual(wrapper.options[1].status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(wrapper.options[1].note, "candidate has no launches")
 
     def test_commitment_options_does_not_mutate_state_or_candidates(self) -> None:
         state = state_with_planet()
@@ -232,6 +343,8 @@ class PlannerCommitmentTests(unittest.TestCase):
             patch("ow_planner.evaluation.evaluate_candidates") as evaluate,
             patch("ow_planner.scoring.score_evaluations") as score,
             patch("ow_planner.response.evaluate_responses") as responses,
+            patch("ow_planner.actions.mission_candidate_to_orders") as orders,
+            patch("ow_planner.actions.mission_candidate_to_actions") as actions,
             patch("ow_sim.timeline.simulate_ticks") as simulate_ticks,
             patch("ow_sim.whatif.simulate_launch_orders") as simulate_launch_orders,
         ):
@@ -244,6 +357,8 @@ class PlannerCommitmentTests(unittest.TestCase):
         evaluate.assert_not_called()
         score.assert_not_called()
         responses.assert_not_called()
+        orders.assert_not_called()
+        actions.assert_not_called()
         simulate_ticks.assert_not_called()
         simulate_launch_orders.assert_not_called()
 

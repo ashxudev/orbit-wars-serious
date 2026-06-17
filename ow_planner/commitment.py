@@ -1,9 +1,10 @@
 """Structural commitment policy API boundary.
 
 Commitment Policy Cycle 0 defines immutable containers for future ship-sizing
-decisions. Cycle 1 adds an explicit no-attack option. It does not generate
-attack sizes, evaluate, score, rank, prune, select, or convert commitment
-options.
+decisions. Cycle 1 adds an explicit no-attack option. Cycle 2 adds a
+minimum-capture option that mirrors existing candidate launches. It does not
+recompute attack sizes, evaluate, score, rank, prune, select, or convert
+commitment options.
 """
 
 from __future__ import annotations
@@ -84,8 +85,9 @@ def commitment_options_for_candidates(
 ) -> tuple[CandidateCommitmentOptions, ...]:
     """Return structural commitment option wrappers in candidate order.
 
-    Cycle 1 returns only an explicit no-attack option when the option limit
-    allows it. ``state`` is accepted to preserve the future API boundary.
+    Cycle 2 returns no-attack first and minimum-capture second when the option
+    limit allows them. ``state`` is accepted to preserve the future API
+    boundary.
     """
 
     effective_config = CommitmentPolicyConfig() if config is None else config
@@ -111,13 +113,39 @@ def no_attack_commitment_option(
     )
 
 
+def minimum_capture_commitment_option(candidate: MissionCandidate) -> CommitmentOption:
+    """Return a minimum-capture option based on a candidate's current launches."""
+
+    if not candidate.launches:
+        return CommitmentOption(
+            option_type=CommitmentOptionType.MINIMUM_CAPTURE,
+            candidate=candidate,
+            status=CommitmentOptionStatus.REJECTED,
+            note="candidate has no launches",
+        )
+
+    return CommitmentOption(
+        option_type=CommitmentOptionType.MINIMUM_CAPTURE,
+        candidate=candidate,
+        launches=candidate.launches,
+        source_planet_ids=tuple(launch.source_planet_id for launch in candidate.launches),
+        ships_committed=sum(launch.ships for launch in candidate.launches),
+        status=CommitmentOptionStatus.VALIDATED,
+        note="minimum capture",
+    )
+
+
 def _options_for_candidate(
     candidate: MissionCandidate,
     config: CommitmentPolicyConfig,
 ) -> tuple[CommitmentOption, ...]:
-    if config.max_options_per_candidate == 0:
-        return ()
-    return (no_attack_commitment_option(candidate),)
+    options = (
+        no_attack_commitment_option(candidate),
+        minimum_capture_commitment_option(candidate),
+    )
+    if config.max_options_per_candidate is None:
+        return options
+    return options[: config.max_options_per_candidate]
 
 
 __all__ = (
@@ -127,5 +155,6 @@ __all__ = (
     "CommitmentOptionType",
     "CommitmentPolicyConfig",
     "commitment_options_for_candidates",
+    "minimum_capture_commitment_option",
     "no_attack_commitment_option",
 )

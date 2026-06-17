@@ -30,6 +30,7 @@ Opponent Response Model Cycle 6 adds pinned/threatened response-source facts.
 Opponent Response Model Cycle 7 adds first-pass response classification labels.
 Commitment Policy Cycle 0 adds structural commitment option contracts.
 Commitment Policy Cycle 1 adds explicit no-attack options.
+Commitment Policy Cycle 2 adds minimum-capture options.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -54,6 +55,7 @@ from .commitment import (
     CommitmentOptionType,
     CommitmentPolicyConfig,
     commitment_options_for_candidates,
+    minimum_capture_commitment_option,
     no_attack_commitment_option,
 )
 from .features import (
@@ -219,6 +221,7 @@ __all__ = (
     "mission_future_delta_facts",
     "mission_timing_facts",
     "mission_value_facts",
+    "minimum_capture_commitment_option",
     "no_attack_commitment_option",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
