@@ -27,6 +27,7 @@ Opponent Response Model Cycle 3 adds source counterattack-risk facts.
 Opponent Response Model Cycle 4 adds FFA third-party benefit facts.
 Opponent Response Model Cycle 5 adds deterministic response summary labels.
 Opponent Response Model Cycle 6 adds pinned/threatened response-source facts.
+Opponent Response Model Cycle 7 adds first-pass response classification labels.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -128,6 +129,10 @@ from .response import (
     target_reinforcement_facts,
     third_party_benefit_facts,
 )
+from .response_classification import (
+    ResponseClassificationFacts,
+    classify_response_facts,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -162,6 +167,7 @@ __all__ = (
     "ReinforcementSourceFacts",
     "RespondingSourcePressureFacts",
     "ResponseConfig",
+    "ResponseClassificationFacts",
     "ResponseEvaluationStatus",
     "ResponseSourcePressureFacts",
     "ResponseSummaryFacts",
@@ -177,6 +183,7 @@ __all__ = (
     "ThirdPartyOwnerFacts",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
+    "classify_response_facts",
     "extract_board_features",
     "enumerate_source_target_pairs",
     "enumerate_source_target_pairs_from_features",

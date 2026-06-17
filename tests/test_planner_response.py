@@ -20,12 +20,14 @@ from ow_planner import (
     MissionResponseFacts,
     MissionTimingFacts,
     MissionType,
+    MissionValueFacts,
     PlanetEvaluationFacts,
     PlanetFutureDeltaFacts,
     RaceSourceFacts,
     ReinforcementSourceFacts,
     RespondingSourcePressureFacts,
     ResponseConfig,
+    ResponseClassificationFacts,
     ResponseEvaluationStatus,
     ResponseSourcePressureFacts,
     ResponseSummaryFacts,
@@ -34,6 +36,7 @@ from ow_planner import (
     TargetReinforcementFacts,
     ThirdPartyBenefitFacts,
     ThirdPartyOwnerFacts,
+    classify_response_facts,
     evaluate_responses,
     response_source_pressure_facts,
     response_summary_facts,
@@ -433,6 +436,48 @@ def third_party_mission_evaluation(
     )
 
 
+def response_for_classification(
+    response_facts: MissionResponseFacts,
+    *,
+    value_facts: MissionValueFacts | None = None,
+    total_score: float | None = None,
+) -> MissionResponseEvaluation:
+    candidate = mission_candidate()
+    evaluation_facts = MissionEvaluationFacts(
+        mission_type=candidate.mission_type,
+        target_planet_id=candidate.target_planet_id,
+        source_planet_ids=candidate.source_planet_ids,
+        launch_count=0,
+        ships_spent=0,
+        launch_angles=(),
+        candidate_outcome=candidate.outcome,
+        value_facts=MissionValueFacts() if value_facts is None else value_facts,
+    )
+    return MissionResponseEvaluation(
+        evaluation=MissionEvaluation(
+            candidate=candidate,
+            status=MissionEvaluationStatus.EVALUATED,
+            facts=evaluation_facts,
+            total_score=total_score,
+        ),
+        status=ResponseEvaluationStatus.EVALUATED,
+        facts=response_facts,
+    )
+
+
+def summarized_response_facts(facts: MissionResponseFacts) -> MissionResponseFacts:
+    summary = response_summary_facts(facts)
+    return MissionResponseFacts(
+        response_labels=summary.labels,
+        target_reinforcement=facts.target_reinforcement,
+        target_race=facts.target_race,
+        source_counterattacks=facts.source_counterattacks,
+        third_party_benefit=facts.third_party_benefit,
+        source_pressure=facts.source_pressure,
+        response_summary=summary,
+    )
+
+
 class PlannerResponseTests(unittest.TestCase):
     def test_response_module_imports_and_exports_are_available(self) -> None:
         importlib.import_module("ow_planner.response")
@@ -440,6 +485,7 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIs(ResponseConfig, ResponseConfig)
         self.assertIs(ResponseEvaluationStatus, ResponseEvaluationStatus)
         self.assertIs(CounterattackSourceFacts, CounterattackSourceFacts)
+        self.assertIs(ResponseClassificationFacts, ResponseClassificationFacts)
         self.assertIs(MissionResponseFacts, MissionResponseFacts)
         self.assertIs(MissionResponseEvaluation, MissionResponseEvaluation)
         self.assertIs(RaceSourceFacts, RaceSourceFacts)
@@ -452,6 +498,7 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIs(TargetReinforcementFacts, TargetReinforcementFacts)
         self.assertIs(ThirdPartyBenefitFacts, ThirdPartyBenefitFacts)
         self.assertIs(ThirdPartyOwnerFacts, ThirdPartyOwnerFacts)
+        self.assertIsNotNone(classify_response_facts)
         self.assertIsNotNone(evaluate_responses)
         self.assertIsNotNone(response_source_pressure_facts)
         self.assertIsNotNone(response_summary_facts)
@@ -579,6 +626,10 @@ class PlannerResponseTests(unittest.TestCase):
             ),
             notes=("structural",),
         )
+        classification = ResponseClassificationFacts(
+            labels=("race_risk",),
+            race_risk=True,
+        )
         response = MissionResponseEvaluation(
             evaluation=evaluation,
             status=ResponseEvaluationStatus.EVALUATED,
@@ -594,6 +645,7 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts.third_party_benefit.unaffected_non_player_owner_count, 1)
         self.assertEqual(facts.source_pressure.pinned_source_count, 1)
         self.assertEqual(facts.response_summary.labels, ("target_reinforcement_feasible",))
+        self.assertEqual(classification.labels, ("race_risk",))
         self.assertIs(response.evaluation, evaluation)
         with self.assertRaises(FrozenInstanceError):
             config.response_window_ticks = 1
@@ -611,6 +663,8 @@ class PlannerResponseTests(unittest.TestCase):
             facts.source_pressure.pinned_source_count = 2
         with self.assertRaises(FrozenInstanceError):
             facts.response_summary.labels = ()
+        with self.assertRaises(FrozenInstanceError):
+            classification.race_risk = False
         with self.assertRaises(FrozenInstanceError):
             response.note = None
 
@@ -1398,6 +1452,210 @@ class PlannerResponseTests(unittest.TestCase):
             response_summary_facts(facts).labels,
             ("target_reinforcement_feasible",),
         )
+
+    def test_response_classification_empty_response_has_no_labels(self) -> None:
+        classification = classify_response_facts(
+            response_for_classification(MissionResponseFacts())
+        )
+
+        self.assertEqual(classification.labels, ())
+        self.assertEqual(
+            classification.notes,
+            ("insufficient response facts for classification",),
+        )
+
+    def test_response_classification_incomplete_response_has_no_labels(self) -> None:
+        response = MissionResponseEvaluation(
+            evaluation=MissionEvaluation(candidate=mission_candidate(), facts=None),
+            status=ResponseEvaluationStatus.INCOMPLETE,
+            facts=MissionResponseFacts(notes=("mission facts are missing",)),
+        )
+
+        classification = classify_response_facts(response)
+
+        self.assertEqual(classification.labels, ())
+        self.assertEqual(classification.notes, ("response evaluation is incomplete",))
+
+    def test_response_classification_labels_undefendable(self) -> None:
+        facts = summarized_response_facts(
+            MissionResponseFacts(
+                target_reinforcement=TargetReinforcementFacts(
+                    target_planet_id=2,
+                    feasible_source_count=0,
+                ),
+                target_race=TargetRaceFacts(target_planet_id=2),
+            )
+        )
+
+        classification = classify_response_facts(response_for_classification(facts))
+
+        self.assertEqual(classification.labels, ("undefendable",))
+        self.assertIs(classification.undefendable, True)
+
+    def test_response_classification_labels_race_risk(self) -> None:
+        facts = summarized_response_facts(
+            MissionResponseFacts(
+                target_race=TargetRaceFacts(
+                    target_planet_id=2,
+                    source_facts=(
+                        RaceSourceFacts(
+                            planet_id=3,
+                            owner=1,
+                            ships=4,
+                            distance_to_target=3.0,
+                            travel_ticks=2,
+                            can_arrive_before_earliest=True,
+                            can_arrive_by_earliest=True,
+                            can_arrive_by_latest=True,
+                            target_ships_before=1,
+                            source_has_more_ships_than_target_before=True,
+                        ),
+                    ),
+                ),
+            )
+        )
+
+        classification = classify_response_facts(response_for_classification(facts))
+
+        self.assertEqual(classification.labels, ("race_risk",))
+        self.assertIs(classification.race_risk, True)
+
+    def test_response_classification_labels_source_drain_bait_from_pressure(self) -> None:
+        facts = summarized_response_facts(
+            MissionResponseFacts(
+                source_pressure=ResponseSourcePressureFacts(
+                    source_facts=(
+                        RespondingSourcePressureFacts(
+                            source_planet_id=3,
+                            owner=1,
+                            ships=5,
+                            pinned=True,
+                            threatened=True,
+                        ),
+                    ),
+                    pinned_source_count=1,
+                    threatened_source_count=1,
+                ),
+            )
+        )
+
+        classification = classify_response_facts(response_for_classification(facts))
+
+        self.assertEqual(classification.labels, ("source_drain_bait",))
+        self.assertIs(classification.source_drain_bait, True)
+
+    def test_response_classification_labels_donation_from_third_party_benefit(self) -> None:
+        facts = summarized_response_facts(
+            MissionResponseFacts(
+                third_party_benefit=third_party_benefit_facts(
+                    ffa_state(),
+                    third_party_mission_evaluation(),
+                ),
+            )
+        )
+
+        classification = classify_response_facts(response_for_classification(facts))
+
+        self.assertEqual(classification.labels, ("donation",))
+        self.assertIs(classification.donation, True)
+
+    def test_response_classification_labels_defendable_profitable(self) -> None:
+        facts = summarized_response_facts(
+            MissionResponseFacts(
+                target_reinforcement=TargetReinforcementFacts(
+                    target_planet_id=2,
+                    feasible_source_count=1,
+                ),
+            )
+        )
+        value_facts = MissionValueFacts(
+            production_delta_vs_baseline=5,
+            target_captured_by_player=True,
+            mission_valid_for_value=True,
+        )
+
+        classification = classify_response_facts(
+            response_for_classification(facts, value_facts=value_facts)
+        )
+
+        self.assertEqual(classification.labels, ("defendable_profitable",))
+        self.assertIs(classification.defendable_profitable, True)
+
+    def test_response_classification_labels_have_stable_order(self) -> None:
+        facts = summarized_response_facts(
+            MissionResponseFacts(
+                target_reinforcement=TargetReinforcementFacts(
+                    target_planet_id=2,
+                    feasible_source_count=1,
+                ),
+                target_race=TargetRaceFacts(
+                    target_planet_id=2,
+                    source_facts=(
+                        RaceSourceFacts(
+                            planet_id=3,
+                            owner=1,
+                            ships=4,
+                            distance_to_target=3.0,
+                            travel_ticks=2,
+                            can_arrive_before_earliest=True,
+                            can_arrive_by_earliest=True,
+                            can_arrive_by_latest=True,
+                            target_ships_before=1,
+                            source_has_more_ships_than_target_before=True,
+                        ),
+                    ),
+                ),
+                third_party_benefit=third_party_benefit_facts(
+                    ffa_state(),
+                    third_party_mission_evaluation(),
+                ),
+                source_pressure=ResponseSourcePressureFacts(
+                    source_facts=(
+                        RespondingSourcePressureFacts(
+                            source_planet_id=3,
+                            owner=1,
+                            ships=5,
+                            threatened=True,
+                        ),
+                    ),
+                    threatened_source_count=1,
+                ),
+            )
+        )
+
+        classification = classify_response_facts(
+            response_for_classification(facts, total_score=10.0)
+        )
+
+        self.assertEqual(
+            classification.labels,
+            (
+                "defendable_profitable",
+                "donation",
+                "race_risk",
+                "source_drain_bait",
+            ),
+        )
+
+    def test_response_classification_does_not_call_deferred_logic(self) -> None:
+        facts = summarized_response_facts(
+            MissionResponseFacts(
+                target_reinforcement=TargetReinforcementFacts(
+                    target_planet_id=2,
+                    feasible_source_count=1,
+                ),
+            )
+        )
+        with (
+            patch("ow_planner.candidates.generate_candidates") as generate,
+            patch("ow_sim.timeline.simulate_ticks") as simulate_ticks,
+            patch("ow_sim.whatif.simulate_launch_orders") as simulate_launch_orders,
+        ):
+            classify_response_facts(response_for_classification(facts))
+
+        generate.assert_not_called()
+        simulate_ticks.assert_not_called()
+        simulate_launch_orders.assert_not_called()
 
     def test_reinforcement_facts_are_unavailable_when_timing_is_incomplete(self) -> None:
         evaluation = mission_evaluation(
