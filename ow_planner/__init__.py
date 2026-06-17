@@ -14,7 +14,8 @@ Mission Evaluation Cycle 3 adds idle baseline future lookup facts.
 Mission Evaluation Cycle 4 adds mechanical candidate future lookup facts.
 Mission Evaluation Cycle 5 adds deterministic mission-vs-baseline deltas.
 Mission Evaluation Cycle 6 adds deterministic mission value feature facts.
-Strategy and scoring are intentionally deferred.
+Mission Evaluation Cycle 7 adds an isolated first-pass scoring policy.
+Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
 from .actions import (
@@ -80,6 +81,11 @@ from .evaluation import (
     planet_evaluation_facts,
     planet_future_delta_facts,
 )
+from .scoring import (
+    MissionScoringConfig,
+    score_evaluations,
+    score_mission_value_facts,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -96,6 +102,7 @@ __all__ = (
     "MissionEvaluationFacts",
     "MissionEvaluationStatus",
     "MissionFutureDeltaFacts",
+    "MissionScoringConfig",
     "MissionValueFacts",
     "MissionType",
     "NearestTarget",
@@ -129,6 +136,8 @@ __all__ = (
     "mission_value_facts",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
+    "score_evaluations",
+    "score_mission_value_facts",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",
 )
