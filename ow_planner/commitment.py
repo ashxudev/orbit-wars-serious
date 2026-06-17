@@ -4,8 +4,8 @@ Commitment Policy Cycle 0 defines immutable containers for future ship-sizing
 decisions. Cycle 1 adds an explicit no-attack option. Cycle 2 adds a
 minimum-capture option that mirrors existing candidate launches. Cycle 3 adds a
 first-pass capture-and-hold option with a deterministic buffer. Cycle 4 adds a
-reserve-preserving option. It does not evaluate, score, rank, prune, select, or
-convert commitment options.
+reserve-preserving option. Cycle 5 adds a full-source option. It does not
+evaluate, score, rank, prune, select, or convert commitment options.
 """
 
 from __future__ import annotations
@@ -88,8 +88,9 @@ def commitment_options_for_candidates(
 ) -> tuple[CandidateCommitmentOptions, ...]:
     """Return structural commitment option wrappers in candidate order.
 
-    Cycle 4 returns no-attack, minimum-capture, capture-and-hold, and
-    reserve-preserving options when the option limit allows them.
+    Cycle 5 returns no-attack, minimum-capture, capture-and-hold,
+    reserve-preserving, and full-source options when the option limit allows
+    them.
     """
 
     effective_config = CommitmentPolicyConfig() if config is None else config
@@ -274,6 +275,56 @@ def reserve_preserving_commitment_option(
     )
 
 
+def full_source_commitment_option(
+    state: GameState,
+    candidate: MissionCandidate,
+) -> CommitmentOption:
+    """Return an option that commits all ships from each unique source."""
+
+    if not candidate.launches:
+        return _rejected_full_source(candidate, "candidate has no launches")
+
+    planets_by_id = {planet.planet_id: planet for planet in state.planets}
+    seen_source_ids: set[int] = set()
+    launches = []
+    for launch in candidate.launches:
+        source_id = launch.source_planet_id
+        if source_id in seen_source_ids:
+            continue
+        planet = planets_by_id.get(source_id)
+        if planet is None:
+            return _rejected_full_source(candidate, "missing source planet")
+        player_id = launch.player_id if launch.player_id is not None else state.player_id
+        if player_id is None:
+            return _rejected_full_source(candidate, "missing player id")
+        if planet.owner != player_id:
+            return _rejected_full_source(
+                candidate,
+                "source planet not owned by player",
+            )
+        if planet.ships <= 0:
+            return _rejected_full_source(candidate, "source planet has no ships")
+        seen_source_ids.add(source_id)
+        launches.append(
+            LaunchCandidate(
+                source_planet_id=source_id,
+                angle=launch.angle,
+                ships=planet.ships,
+                player_id=launch.player_id,
+            )
+        )
+
+    return CommitmentOption(
+        option_type=CommitmentOptionType.FULL_SOURCE,
+        candidate=candidate,
+        launches=tuple(launches),
+        source_planet_ids=tuple(launch.source_planet_id for launch in launches),
+        ships_committed=sum(launch.ships for launch in launches),
+        status=CommitmentOptionStatus.VALIDATED,
+        note="full source",
+    )
+
+
 def _options_for_candidate(
     state: GameState,
     candidate: MissionCandidate,
@@ -295,6 +346,10 @@ def _options_for_candidate(
         return tuple(options)
 
     options.append(reserve_preserving_commitment_option(state, candidate, config))
+    if config.max_options_per_candidate == 4:
+        return tuple(options)
+
+    options.append(full_source_commitment_option(state, candidate))
     return tuple(options)
 
 
@@ -322,6 +377,18 @@ def _rejected_reserve_preserving(
     )
 
 
+def _rejected_full_source(
+    candidate: MissionCandidate,
+    note: str,
+) -> CommitmentOption:
+    return CommitmentOption(
+        option_type=CommitmentOptionType.FULL_SOURCE,
+        candidate=candidate,
+        status=CommitmentOptionStatus.REJECTED,
+        note=note,
+    )
+
+
 def _invalid_nonnegative_int(value: object) -> bool:
     return isinstance(value, bool) or not isinstance(value, int) or value < 0
 
@@ -334,6 +401,7 @@ __all__ = (
     "CommitmentPolicyConfig",
     "capture_and_hold_commitment_option",
     "commitment_options_for_candidates",
+    "full_source_commitment_option",
     "minimum_capture_commitment_option",
     "no_attack_commitment_option",
     "reserve_preserving_commitment_option",

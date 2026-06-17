@@ -33,6 +33,7 @@ Commitment Policy Cycle 1 adds explicit no-attack options.
 Commitment Policy Cycle 2 adds minimum-capture options.
 Commitment Policy Cycle 3 adds capture-and-hold options.
 Commitment Policy Cycle 4 adds reserve-preserving options.
+Commitment Policy Cycle 5 adds full-source options.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -58,6 +59,7 @@ from .commitment import (
     CommitmentPolicyConfig,
     capture_and_hold_commitment_option,
     commitment_options_for_candidates,
+    full_source_commitment_option,
     minimum_capture_commitment_option,
     no_attack_commitment_option,
     reserve_preserving_commitment_option,
@@ -217,6 +219,7 @@ __all__ = (
     "evaluate_candidates",
     "evaluate_responses",
     "extract_candidate_facts",
+    "full_source_commitment_option",
     "generate_candidates",
     "launch_candidate_to_action",
     "launch_candidate_to_order",

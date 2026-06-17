@@ -19,6 +19,7 @@ from ow_planner import (
     MissionType,
     capture_and_hold_commitment_option,
     commitment_options_for_candidates,
+    full_source_commitment_option,
     minimum_capture_commitment_option,
     no_attack_commitment_option,
     reserve_preserving_commitment_option,
@@ -51,6 +52,36 @@ def state_with_planet(
             "step": 5,
             "planets": [list(planet.raw)],
         },
+    )
+
+
+def state_with_planets(*planets: Planet, player_id: int | None = 0) -> GameState:
+    return GameState(
+        tick=5,
+        player_id=player_id,
+        planets=tuple(planets),
+        raw_observation={
+            "step": 5,
+            "planets": [list(planet.raw) for planet in planets],
+        },
+    )
+
+
+def planet(
+    planet_id: int,
+    *,
+    owner: int = 0,
+    ships: int = 12,
+) -> Planet:
+    return Planet(
+        planet_id=planet_id,
+        owner=owner,
+        x=float(planet_id * 10),
+        y=20.0,
+        radius=2.0,
+        ships=ships,
+        production=1,
+        raw=(planet_id, owner, float(planet_id * 10), 20.0, 2.0, ships, 1),
     )
 
 
@@ -144,6 +175,7 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertIs(CommitmentPolicyConfig, CommitmentPolicyConfig)
         self.assertIsNotNone(capture_and_hold_commitment_option)
         self.assertIsNotNone(commitment_options_for_candidates)
+        self.assertIsNotNone(full_source_commitment_option)
         self.assertIsNotNone(minimum_capture_commitment_option)
         self.assertIsNotNone(no_attack_commitment_option)
         self.assertIsNotNone(reserve_preserving_commitment_option)
@@ -485,6 +517,115 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertEqual(option.status, CommitmentOptionStatus.REJECTED)
         self.assertEqual(option.note, "insufficient source ships for reserve")
 
+    def test_full_source_commitment_option_fields_are_stable(self) -> None:
+        candidate = mission_candidate()
+
+        option = full_source_commitment_option(
+            state_with_planet(ships=12),
+            candidate,
+        )
+
+        self.assertEqual(option.option_type, CommitmentOptionType.FULL_SOURCE)
+        self.assertIs(option.candidate, candidate)
+        self.assertEqual(option.source_planet_ids, (1,))
+        self.assertEqual(option.ships_committed, 12)
+        self.assertEqual(option.status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(option.note, "full source")
+        self.assertEqual(len(option.launches), 1)
+        self.assertEqual(option.launches[0].source_planet_id, 1)
+        self.assertEqual(option.launches[0].angle, 0.25)
+        self.assertEqual(option.launches[0].ships, 12)
+        self.assertEqual(option.launches[0].player_id, 0)
+
+    def test_full_source_commitment_option_handles_multiple_sources(self) -> None:
+        candidate = multi_launch_mission_candidate()
+
+        option = full_source_commitment_option(
+            state_with_planets(planet(1, ships=12), planet(2, ships=9)),
+            candidate,
+        )
+
+        self.assertEqual(option.status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(option.source_planet_ids, (2, 1))
+        self.assertEqual(tuple(launch.angle for launch in option.launches), (0.5, 0.25))
+        self.assertEqual(tuple(launch.ships for launch in option.launches), (9, 12))
+        self.assertEqual(tuple(launch.player_id for launch in option.launches), (0, 0))
+        self.assertEqual(option.ships_committed, 21)
+
+    def test_full_source_commitment_option_collapses_repeated_source(self) -> None:
+        candidate = repeated_source_mission_candidate()
+
+        option = full_source_commitment_option(
+            state_with_planet(ships=7),
+            candidate,
+        )
+
+        self.assertEqual(option.status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(option.source_planet_ids, (1,))
+        self.assertEqual(len(option.launches), 1)
+        self.assertEqual(option.launches[0].source_planet_id, 1)
+        self.assertEqual(option.launches[0].angle, 0.25)
+        self.assertEqual(option.launches[0].ships, 7)
+        self.assertEqual(option.launches[0].player_id, 0)
+        self.assertEqual(option.ships_committed, 7)
+
+    def test_full_source_rejects_no_launch_candidate(self) -> None:
+        candidate = no_launch_mission_candidate()
+
+        option = full_source_commitment_option(state_with_planet(), candidate)
+
+        self.assertEqual(option.option_type, CommitmentOptionType.FULL_SOURCE)
+        self.assertIs(option.candidate, candidate)
+        self.assertEqual(option.launches, ())
+        self.assertEqual(option.source_planet_ids, ())
+        self.assertEqual(option.ships_committed, 0)
+        self.assertEqual(option.status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(option.note, "candidate has no launches")
+
+    def test_full_source_rejects_missing_source_planet(self) -> None:
+        candidate = mission_candidate()
+
+        option = full_source_commitment_option(
+            state_with_planet(planet_id=9),
+            candidate,
+        )
+
+        self.assertEqual(option.status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(option.note, "missing source planet")
+
+    def test_full_source_rejects_missing_player_id(self) -> None:
+        candidate = mission_candidate_without_launch_player()
+
+        option = full_source_commitment_option(
+            state_with_planet(player_id=None),
+            candidate,
+        )
+
+        self.assertEqual(option.status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(option.note, "missing player id")
+
+    def test_full_source_rejects_non_player_owned_source(self) -> None:
+        candidate = mission_candidate()
+
+        option = full_source_commitment_option(
+            state_with_planet(owner=1),
+            candidate,
+        )
+
+        self.assertEqual(option.status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(option.note, "source planet not owned by player")
+
+    def test_full_source_rejects_zero_ship_source(self) -> None:
+        candidate = mission_candidate()
+
+        option = full_source_commitment_option(
+            state_with_planet(ships=0),
+            candidate,
+        )
+
+        self.assertEqual(option.status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(option.note, "source planet has no ships")
+
     def test_commitment_options_preserves_candidate_order_and_identity(self) -> None:
         first = mission_candidate(2)
         second = mission_candidate(3)
@@ -504,16 +645,19 @@ class PlannerCommitmentTests(unittest.TestCase):
                 CommitmentOptionType.MINIMUM_CAPTURE,
                 CommitmentOptionType.CAPTURE_AND_HOLD,
                 CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.FULL_SOURCE,
             ),
         )
         self.assertIs(wrappers[0].options[0].candidate, first)
         self.assertIs(wrappers[0].options[1].candidate, first)
         self.assertIs(wrappers[0].options[2].candidate, first)
         self.assertIs(wrappers[0].options[3].candidate, first)
+        self.assertIs(wrappers[0].options[4].candidate, first)
         self.assertIs(wrappers[1].options[0].candidate, second)
         self.assertIs(wrappers[1].options[1].candidate, second)
         self.assertIs(wrappers[1].options[2].candidate, second)
         self.assertIs(wrappers[1].options[3].candidate, second)
+        self.assertIs(wrappers[1].options[4].candidate, second)
         self.assertEqual(tuple(wrapper.notes for wrapper in wrappers), ((), ()))
 
     def test_commitment_options_put_options_in_stable_order(self) -> None:
@@ -534,6 +678,10 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertEqual(
             wrapper.options[3].option_type,
             CommitmentOptionType.RESERVE_PRESERVING,
+        )
+        self.assertEqual(
+            wrapper.options[4].option_type,
+            CommitmentOptionType.FULL_SOURCE,
         )
 
     def test_commitment_options_respects_zero_limit_without_inventing_options(self) -> None:
@@ -584,6 +732,7 @@ class PlannerCommitmentTests(unittest.TestCase):
                 CommitmentOptionType.MINIMUM_CAPTURE,
                 CommitmentOptionType.CAPTURE_AND_HOLD,
                 CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.FULL_SOURCE,
             ),
         )
 
@@ -620,6 +769,24 @@ class PlannerCommitmentTests(unittest.TestCase):
             ),
         )
 
+    def test_commitment_options_limit_five_includes_full_source_option(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planet(),
+            (mission_candidate(),),
+            CommitmentPolicyConfig(max_options_per_candidate=5),
+        )
+
+        self.assertEqual(
+            tuple(option.option_type for option in wrapper.options),
+            (
+                CommitmentOptionType.NO_ATTACK,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+                CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.FULL_SOURCE,
+            ),
+        )
+
     def test_commitment_options_attaches_rejected_minimum_capture_for_no_launch_candidate(
         self,
     ) -> None:
@@ -647,6 +814,9 @@ class PlannerCommitmentTests(unittest.TestCase):
         )
         self.assertEqual(wrapper.options[3].status, CommitmentOptionStatus.REJECTED)
         self.assertEqual(wrapper.options[3].note, "candidate has no launches")
+        self.assertEqual(wrapper.options[4].option_type, CommitmentOptionType.FULL_SOURCE)
+        self.assertEqual(wrapper.options[4].status, CommitmentOptionStatus.REJECTED)
+        self.assertEqual(wrapper.options[4].note, "candidate has no launches")
 
     def test_commitment_options_does_not_mutate_state_or_candidates(self) -> None:
         state = state_with_planet()
@@ -657,7 +827,7 @@ class PlannerCommitmentTests(unittest.TestCase):
         commitment_options_for_candidates(
             state,
             candidates,
-            CommitmentPolicyConfig(max_options_per_candidate=4),
+            CommitmentPolicyConfig(max_options_per_candidate=5),
         )
 
         self.assertEqual(state, state_before)
