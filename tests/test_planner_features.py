@@ -295,8 +295,11 @@ class PlannerFeatureExtractionTests(unittest.TestCase):
         self.assertEqual(state.comets, state_before.comets)
         self.assertEqual(state.raw_observation, state_before.raw_observation)
 
-    def test_generate_candidates_placeholder_remains_deterministic_and_empty(self) -> None:
-        state = state_for_features()
+    def test_generate_candidates_returns_empty_when_features_state_has_no_targets(self) -> None:
+        state = state_for_features(
+            planets=(planet_at(1, 0, 0.0, 0.0, 10, 2),),
+            fleets=(),
+        )
 
         self.assertEqual(generate_candidates(state), ())
         self.assertEqual(generate_candidates(state), generate_candidates(state))

@@ -6,6 +6,7 @@ conversion helpers. Mission Generation Cycle 2 adds board feature extraction.
 Mission Generation Cycle 3 adds factual source-target pair enumeration.
 Mission Generation Cycle 4 adds first-pass required ship estimation.
 Mission Generation Cycle 5 adds simulator-backed factual outcome validation.
+Mission Generation Cycle 6 adds the bounded public generation API.
 Strategy and scoring are intentionally deferred.
 """
 

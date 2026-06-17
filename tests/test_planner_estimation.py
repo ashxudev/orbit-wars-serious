@@ -21,6 +21,7 @@ from ow_planner import (
     launch_candidate_from_pair,
 )
 from ow_sim.forecast import angle_to_point
+from ow_sim.state import GameState
 
 
 def pair(
@@ -219,9 +220,11 @@ class PlannerShipEstimationTests(unittest.TestCase):
 
         simulate_launch_orders.assert_not_called()
 
-    def test_generate_candidates_placeholder_remains_deterministic_and_empty(self) -> None:
-        self.assertEqual(generate_candidates(object()), ())
-        self.assertEqual(generate_candidates(object()), generate_candidates(object()))
+    def test_generate_candidates_returns_empty_for_empty_state(self) -> None:
+        state = GameState(player_id=0)
+
+        self.assertEqual(generate_candidates(state), ())
+        self.assertEqual(generate_candidates(state), generate_candidates(state))
 
 
 if __name__ == "__main__":

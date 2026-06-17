@@ -310,8 +310,11 @@ class PlannerEnumerationTests(unittest.TestCase):
             ),
         )
 
-    def test_generate_candidates_placeholder_remains_deterministic_and_empty(self) -> None:
-        state = enumeration_state()
+    def test_generate_candidates_returns_empty_when_enumeration_state_has_no_targets(self) -> None:
+        state = enumeration_state(
+            planets=(planet_at(10, 0, 0.0, 0.0, 5, 2),),
+            fleets=(),
+        )
 
         self.assertEqual(generate_candidates(state), ())
         self.assertEqual(generate_candidates(state), generate_candidates(state))
