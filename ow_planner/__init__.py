@@ -35,6 +35,7 @@ Commitment Policy Cycle 3 adds capture-and-hold options.
 Commitment Policy Cycle 4 adds reserve-preserving options.
 Commitment Policy Cycle 5 adds full-source options.
 Commitment Policy Cycle 6 adds coordinated multi-source options.
+Strategy Modes Cycle 0 adds deterministic 2p / 4p mode facts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -154,6 +155,12 @@ from .response_classification import (
     ResponseClassificationFacts,
     classify_response_facts,
 )
+from .strategy_modes import (
+    StrategyMode,
+    StrategyModeFacts,
+    detect_strategy_mode,
+    strategy_mode_facts,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -202,6 +209,8 @@ __all__ = (
     "ShipEstimateStatus",
     "SourceCounterattackFacts",
     "SourceTargetPair",
+    "StrategyMode",
+    "StrategyModeFacts",
     "TargetCategory",
     "TargetRaceFacts",
     "TargetReinforcementFacts",
@@ -213,6 +222,7 @@ __all__ = (
     "capture_and_hold_commitment_option",
     "coordinated_multi_source_commitment_option",
     "commitment_options_for_candidates",
+    "detect_strategy_mode",
     "extract_board_features",
     "enumerate_source_target_pairs",
     "enumerate_source_target_pairs_from_features",
@@ -245,6 +255,7 @@ __all__ = (
     "response_source_pressure_facts",
     "response_summary_facts",
     "source_counterattack_facts",
+    "strategy_mode_facts",
     "target_race_facts",
     "target_reinforcement_facts",
     "third_party_benefit_facts",
