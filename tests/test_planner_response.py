@@ -24,8 +24,10 @@ from ow_planner import (
     PlanetFutureDeltaFacts,
     RaceSourceFacts,
     ReinforcementSourceFacts,
+    RespondingSourcePressureFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    ResponseSourcePressureFacts,
     ResponseSummaryFacts,
     SourceCounterattackFacts,
     TargetRaceFacts,
@@ -33,13 +35,14 @@ from ow_planner import (
     ThirdPartyBenefitFacts,
     ThirdPartyOwnerFacts,
     evaluate_responses,
+    response_source_pressure_facts,
     response_summary_facts,
     source_counterattack_facts,
     target_race_facts,
     target_reinforcement_facts,
     third_party_benefit_facts,
 )
-from ow_sim.state import GameState, Planet
+from ow_sim.state import Fleet, GameState, Planet
 
 
 def response_state() -> GameState:
@@ -70,6 +73,26 @@ def planet(
         production=production,
         is_comet=is_comet,
         raw=(planet_id, owner, x, y, 1.0, ships, production),
+    )
+
+
+def fleet(
+    fleet_id: int,
+    owner: int,
+    x: float,
+    y: float,
+    angle: float,
+    ships: int,
+) -> Fleet:
+    return Fleet(
+        fleet_id=fleet_id,
+        owner=owner,
+        x=x,
+        y=y,
+        angle=angle,
+        from_planet_id=99,
+        ships=ships,
+        raw=(fleet_id, owner, x, y, angle, 99, ships),
     )
 
 
@@ -165,6 +188,56 @@ def two_player_state() -> GameState:
             planet(3, 1, 9.0, 0.0, 6, production=1),
         ),
         raw_observation={"step": 7, "player": 0},
+    )
+
+
+def pressure_state(
+    *,
+    fleets: tuple[Fleet, ...] = (),
+    player_planet_ships: int = 0,
+) -> GameState:
+    player_planets = (
+        (planet(9, 0, 2.0, 0.0, player_planet_ships),)
+        if player_planet_ships > 0
+        else ()
+    )
+    return GameState(
+        tick=7,
+        player_id=0,
+        planets=(
+            planet(2, -1, 0.0, 0.0, 0),
+            planet(3, 1, 3.0, 0.0, 5),
+            planet(4, 1, 10.0, 0.0, 5),
+            *player_planets,
+        ),
+        fleets=fleets,
+        raw_observation={"step": 7, "player": 0},
+    )
+
+
+def pressure_response_facts() -> MissionResponseFacts:
+    return MissionResponseFacts(
+        target_reinforcement=TargetReinforcementFacts(
+            source_facts=(
+                ReinforcementSourceFacts(
+                    planet_id=3,
+                    owner=1,
+                    ships=5,
+                    distance_to_target=3.0,
+                    travel_ticks=3,
+                    arrives_by_window=True,
+                ),
+                ReinforcementSourceFacts(
+                    planet_id=4,
+                    owner=1,
+                    ships=5,
+                    distance_to_target=10.0,
+                    travel_ticks=7,
+                    arrives_by_window=False,
+                ),
+            ),
+            feasible_source_count=1,
+        ),
     )
 
 
@@ -371,13 +444,16 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIs(MissionResponseEvaluation, MissionResponseEvaluation)
         self.assertIs(RaceSourceFacts, RaceSourceFacts)
         self.assertIs(ReinforcementSourceFacts, ReinforcementSourceFacts)
+        self.assertIs(RespondingSourcePressureFacts, RespondingSourcePressureFacts)
         self.assertIs(ResponseSummaryFacts, ResponseSummaryFacts)
+        self.assertIs(ResponseSourcePressureFacts, ResponseSourcePressureFacts)
         self.assertIs(SourceCounterattackFacts, SourceCounterattackFacts)
         self.assertIs(TargetRaceFacts, TargetRaceFacts)
         self.assertIs(TargetReinforcementFacts, TargetReinforcementFacts)
         self.assertIs(ThirdPartyBenefitFacts, ThirdPartyBenefitFacts)
         self.assertIs(ThirdPartyOwnerFacts, ThirdPartyOwnerFacts)
         self.assertIsNotNone(evaluate_responses)
+        self.assertIsNotNone(response_source_pressure_facts)
         self.assertIsNotNone(response_summary_facts)
         self.assertIsNotNone(source_counterattack_facts)
         self.assertIsNotNone(target_race_facts)
@@ -476,6 +552,26 @@ class PlannerResponseTests(unittest.TestCase):
                 ),
                 unaffected_non_player_owner_count=1,
             ),
+            source_pressure=ResponseSourcePressureFacts(
+                source_facts=(
+                    RespondingSourcePressureFacts(
+                        source_planet_id=3,
+                        owner=1,
+                        ships=5,
+                        response_window_ticks=3,
+                        inbound_player_fleet_count=1,
+                        inbound_player_fleet_ships=5,
+                        spare_ships_after_inbound_pressure=0,
+                        pinned_by_inbound_fleets=True,
+                        threatened_by_inbound_fleets=True,
+                        pinned=True,
+                        threatened=True,
+                        free_to_respond=False,
+                    ),
+                ),
+                pinned_source_count=1,
+                threatened_source_count=1,
+            ),
             response_summary=ResponseSummaryFacts(
                 labels=("target_reinforcement_feasible",),
                 target_reinforcement_feasible=True,
@@ -496,6 +592,7 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts.target_race.target_ships_before, 1)
         self.assertEqual(facts.source_counterattacks[0].ships_drained, 6)
         self.assertEqual(facts.third_party_benefit.unaffected_non_player_owner_count, 1)
+        self.assertEqual(facts.source_pressure.pinned_source_count, 1)
         self.assertEqual(facts.response_summary.labels, ("target_reinforcement_feasible",))
         self.assertIs(response.evaluation, evaluation)
         with self.assertRaises(FrozenInstanceError):
@@ -510,6 +607,8 @@ class PlannerResponseTests(unittest.TestCase):
             facts.source_counterattacks[0].ships_drained = 7
         with self.assertRaises(FrozenInstanceError):
             facts.third_party_benefit.unaffected_non_player_owner_count = 2
+        with self.assertRaises(FrozenInstanceError):
+            facts.source_pressure.pinned_source_count = 2
         with self.assertRaises(FrozenInstanceError):
             facts.response_summary.labels = ()
         with self.assertRaises(FrozenInstanceError):
@@ -1202,6 +1301,103 @@ class PlannerResponseTests(unittest.TestCase):
         )
         self.assertIn("third_party_benefit_possible", response.facts.response_labels)
         self.assertIs(response.facts.response_summary.third_party_benefit_possible, True)
+
+    def test_response_source_pressure_facts_empty_has_no_sources(self) -> None:
+        pressure = response_source_pressure_facts(response_state(), MissionResponseFacts())
+
+        self.assertEqual(
+            pressure,
+            ResponseSourcePressureFacts(notes=("no responding sources",)),
+        )
+
+    def test_response_source_pressure_facts_no_threat_marks_sources_free(self) -> None:
+        pressure = response_source_pressure_facts(
+            pressure_state(),
+            pressure_response_facts(),
+            ResponseConfig(response_window_ticks=3),
+        )
+
+        self.assertEqual(pressure.pinned_source_count, 0)
+        self.assertEqual(pressure.threatened_source_count, 0)
+        self.assertEqual(pressure.free_source_count, 2)
+        self.assertEqual(
+            tuple(source.free_to_respond for source in pressure.source_facts),
+            (True, True),
+        )
+        self.assertEqual(
+            tuple(source.notes for source in pressure.source_facts),
+            (("no player pressure detected",), ("no player pressure detected",)),
+        )
+
+    def test_response_source_pressure_facts_inbound_fleet_marks_source_pinned(self) -> None:
+        pressure = response_source_pressure_facts(
+            pressure_state(fleets=(fleet(1, 0, 2.0, 0.0, 0.0, 5),)),
+            pressure_response_facts(),
+            ResponseConfig(response_window_ticks=1),
+        )
+
+        source = pressure.source_facts[0]
+        self.assertEqual(source.source_planet_id, 3)
+        self.assertEqual(source.inbound_player_fleet_count, 1)
+        self.assertEqual(source.inbound_player_fleet_ships, 5)
+        self.assertEqual(source.spare_ships_after_inbound_pressure, 0)
+        self.assertIs(source.threatened_by_inbound_fleets, True)
+        self.assertIs(source.pinned_by_inbound_fleets, True)
+        self.assertIs(source.threatened, True)
+        self.assertIs(source.pinned, True)
+        self.assertIs(source.free_to_respond, False)
+        self.assertEqual(pressure.pinned_source_count, 1)
+
+    def test_response_source_pressure_facts_nearby_player_planet_marks_source_pinned(self) -> None:
+        pressure = response_source_pressure_facts(
+            pressure_state(player_planet_ships=6),
+            pressure_response_facts(),
+            ResponseConfig(response_window_ticks=1),
+        )
+
+        source = pressure.source_facts[0]
+        self.assertEqual(source.nearby_player_planet_count, 1)
+        self.assertEqual(source.nearby_player_planet_ships, 6)
+        self.assertIs(source.threatened_by_nearby_player_planets, True)
+        self.assertIs(source.pinned_by_nearby_player_planets, True)
+        self.assertIs(source.pinned, True)
+        self.assertIs(source.threatened, True)
+
+    def test_evaluate_responses_attaches_source_pressure_facts(self) -> None:
+        (response,) = evaluate_responses(
+            pressure_state(fleets=(fleet(1, 0, 2.0, 0.0, 0.0, 5),)),
+            (mission_evaluation(),),
+            ResponseConfig(response_window_ticks=1),
+        )
+
+        self.assertEqual(response.status, ResponseEvaluationStatus.EVALUATED)
+        self.assertEqual(response.facts.source_pressure.pinned_source_count, 1)
+        self.assertEqual(response.facts.source_pressure.threatened_source_count, 1)
+        self.assertEqual(
+            tuple(
+                source.source_planet_id
+                for source in response.facts.source_pressure.source_facts
+            ),
+            (3, 4),
+        )
+
+    def test_response_source_pressure_does_not_change_summary_labels(self) -> None:
+        pressure = response_source_pressure_facts(
+            pressure_state(fleets=(fleet(1, 0, 2.0, 0.0, 0.0, 5),)),
+            pressure_response_facts(),
+            ResponseConfig(response_window_ticks=1),
+        )
+        facts = MissionResponseFacts(
+            target_reinforcement=TargetReinforcementFacts(
+                feasible_source_count=1,
+            ),
+            source_pressure=pressure,
+        )
+
+        self.assertEqual(
+            response_summary_facts(facts).labels,
+            ("target_reinforcement_feasible",),
+        )
 
     def test_reinforcement_facts_are_unavailable_when_timing_is_incomplete(self) -> None:
         evaluation = mission_evaluation(

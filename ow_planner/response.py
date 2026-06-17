@@ -5,7 +5,8 @@ containers and a structural public API. Cycle 1 adds deterministic opponent
 reinforcement feasibility facts. Cycle 2 adds deterministic target race-risk
 facts. Cycle 3 adds deterministic source counterattack-risk facts. Cycle 4 adds
 deterministic FFA third-party benefit facts. Cycle 5 adds deterministic response
-summary labels. It does not model scoring, ranking, pruning, or selection.
+summary labels. Cycle 6 adds deterministic pinned/threatened responding-source
+facts. It does not model scoring, ranking, pruning, or selection.
 """
 
 from __future__ import annotations
@@ -14,9 +15,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Sequence
 
-from ow_sim.forecast import fleet_ticks_to_reach_distance
-from ow_sim.geometry import distance
-from ow_sim.state import GameState, Planet
+from ow_sim.forecast import fleet_position_after_ticks, fleet_ticks_to_reach_distance
+from ow_sim.geometry import distance, point_to_segment_distance
+from ow_sim.state import Fleet, GameState, Planet
 
 from .evaluation import (
     MissionEvaluation,
@@ -177,6 +178,40 @@ class ResponseSummaryFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class RespondingSourcePressureFacts:
+    """Pinned/threatened facts for one potential opponent response source."""
+
+    source_planet_id: int
+    owner: int | None = None
+    ships: int | None = None
+    response_window_ticks: int = 0
+    inbound_player_fleet_count: int = 0
+    inbound_player_fleet_ships: int = 0
+    nearby_player_planet_count: int = 0
+    nearby_player_planet_ships: int = 0
+    spare_ships_after_inbound_pressure: int | None = None
+    pinned_by_inbound_fleets: bool = False
+    pinned_by_nearby_player_planets: bool = False
+    threatened_by_inbound_fleets: bool = False
+    threatened_by_nearby_player_planets: bool = False
+    pinned: bool = False
+    threatened: bool = False
+    free_to_respond: bool = False
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseSourcePressureFacts:
+    """Deterministic pressure facts for all potential response sources."""
+
+    source_facts: tuple[RespondingSourcePressureFacts, ...] = ()
+    pinned_source_count: int = 0
+    threatened_source_count: int = 0
+    free_source_count: int = 0
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class MissionResponseFacts:
     """Deterministic response facts for one mission evaluation."""
 
@@ -188,6 +223,9 @@ class MissionResponseFacts:
     source_counterattacks: tuple[SourceCounterattackFacts, ...] = ()
     third_party_benefit: ThirdPartyBenefitFacts = field(
         default_factory=ThirdPartyBenefitFacts
+    )
+    source_pressure: ResponseSourcePressureFacts = field(
+        default_factory=ResponseSourcePressureFacts
     )
     response_summary: ResponseSummaryFacts = field(default_factory=ResponseSummaryFacts)
     notes: tuple[str, ...] = ()
@@ -254,6 +292,18 @@ def evaluate_responses(
             source_counterattacks=source_counterattacks,
             third_party_benefit=third_party_benefit,
         )
+        source_pressure = response_source_pressure_facts(
+            state,
+            facts,
+            effective_config,
+        )
+        facts = MissionResponseFacts(
+            target_reinforcement=target_reinforcement,
+            target_race=target_race,
+            source_counterattacks=source_counterattacks,
+            third_party_benefit=third_party_benefit,
+            source_pressure=source_pressure,
+        )
         response_summary = response_summary_facts(facts)
         response_evaluations.append(
             MissionResponseEvaluation(
@@ -265,6 +315,7 @@ def evaluate_responses(
                     target_race=target_race,
                     source_counterattacks=source_counterattacks,
                     third_party_benefit=third_party_benefit,
+                    source_pressure=source_pressure,
                     response_summary=response_summary,
                 ),
             )
@@ -556,6 +607,34 @@ def response_summary_facts(
     )
 
 
+def response_source_pressure_facts(
+    state: GameState,
+    response_facts: MissionResponseFacts,
+    config: ResponseConfig | None = None,
+) -> ResponseSourcePressureFacts:
+    """Return deterministic pressure facts for potential response sources."""
+
+    effective_config = ResponseConfig() if config is None else config
+    source_planet_ids = _responding_source_planet_ids(response_facts)
+    if not source_planet_ids:
+        return ResponseSourcePressureFacts(notes=("no responding sources",))
+
+    source_facts = tuple(
+        _responding_source_pressure_facts(
+            state,
+            source_planet_id,
+            effective_config.response_window_ticks,
+        )
+        for source_planet_id in source_planet_ids
+    )
+    return ResponseSourcePressureFacts(
+        source_facts=source_facts,
+        pinned_source_count=sum(1 for source in source_facts if source.pinned),
+        threatened_source_count=sum(1 for source in source_facts if source.threatened),
+        free_source_count=sum(1 for source in source_facts if source.free_to_respond),
+    )
+
+
 def _reinforcement_source_facts(
     source: Planet,
     target: Planet,
@@ -695,6 +774,117 @@ def _counterattack_source_facts(
     )
 
 
+def _responding_source_pressure_facts(
+    state: GameState,
+    source_planet_id: int,
+    response_window_ticks: int,
+) -> RespondingSourcePressureFacts:
+    notes: list[str] = []
+    source = _planet_by_id(state, source_planet_id)
+    if source is None:
+        return RespondingSourcePressureFacts(
+            source_planet_id=source_planet_id,
+            response_window_ticks=response_window_ticks,
+            notes=("responding source planet is missing",),
+        )
+    if state.player_id is None:
+        notes.append("player id is missing")
+
+    inbound_fleets = (
+        ()
+        if state.player_id is None
+        else tuple(
+            fleet
+            for fleet in state.fleets
+            if fleet.owner == state.player_id
+            and _player_fleet_applies_pressure(fleet, source, response_window_ticks)
+        )
+    )
+    nearby_player_planets = (
+        ()
+        if state.player_id is None
+        else tuple(
+            planet
+            for planet in state.planets
+            if _player_planet_applies_pressure(
+                planet,
+                source,
+                state.player_id,
+                response_window_ticks,
+            )
+        )
+    )
+    inbound_player_fleet_ships = sum(fleet.ships for fleet in inbound_fleets)
+    nearby_player_planet_ships = sum(planet.ships for planet in nearby_player_planets)
+    spare_ships_after_inbound_pressure = source.ships - inbound_player_fleet_ships
+
+    pinned_by_inbound_fleets = inbound_player_fleet_ships >= source.ships and bool(
+        inbound_fleets
+    )
+    pinned_by_nearby_player_planets = (
+        nearby_player_planet_ships >= source.ships and bool(nearby_player_planets)
+    )
+    threatened_by_inbound_fleets = bool(inbound_fleets)
+    threatened_by_nearby_player_planets = bool(nearby_player_planets)
+    pinned = pinned_by_inbound_fleets or pinned_by_nearby_player_planets
+    threatened = threatened_by_inbound_fleets or threatened_by_nearby_player_planets
+
+    if not threatened:
+        notes.append("no player pressure detected")
+
+    return RespondingSourcePressureFacts(
+        source_planet_id=source_planet_id,
+        owner=source.owner,
+        ships=source.ships,
+        response_window_ticks=response_window_ticks,
+        inbound_player_fleet_count=len(inbound_fleets),
+        inbound_player_fleet_ships=inbound_player_fleet_ships,
+        nearby_player_planet_count=len(nearby_player_planets),
+        nearby_player_planet_ships=nearby_player_planet_ships,
+        spare_ships_after_inbound_pressure=spare_ships_after_inbound_pressure,
+        pinned_by_inbound_fleets=pinned_by_inbound_fleets,
+        pinned_by_nearby_player_planets=pinned_by_nearby_player_planets,
+        threatened_by_inbound_fleets=threatened_by_inbound_fleets,
+        threatened_by_nearby_player_planets=threatened_by_nearby_player_planets,
+        pinned=pinned,
+        threatened=threatened,
+        free_to_respond=not pinned and not threatened,
+        notes=tuple(notes),
+    )
+
+
+def _player_fleet_applies_pressure(
+    fleet: Fleet,
+    source: Planet,
+    response_window_ticks: int,
+) -> bool:
+    end_position = fleet_position_after_ticks(fleet, response_window_ticks)
+    return (
+        point_to_segment_distance(source.position, fleet.position, end_position)
+        <= source.radius
+    )
+
+
+def _player_planet_applies_pressure(
+    candidate: Planet,
+    source: Planet,
+    player_id: int,
+    response_window_ticks: int,
+) -> bool:
+    if (
+        candidate.planet_id == source.planet_id
+        or candidate.owner != player_id
+        or candidate.is_comet
+        or candidate.ships <= 0
+    ):
+        return False
+    travel_ticks = fleet_ticks_to_reach_distance(
+        distance(candidate.position, source.position),
+        candidate.ships,
+    )
+    return travel_ticks <= response_window_ticks
+
+
 def _third_party_owner_facts(
     state: GameState,
     player_id: int | None,
@@ -799,6 +989,27 @@ def _planet_by_id(state: GameState, planet_id: int) -> Planet | None:
     return None
 
 
+def _responding_source_planet_ids(
+    response_facts: MissionResponseFacts,
+) -> tuple[int, ...]:
+    seen: set[int] = set()
+    source_ids: list[int] = []
+
+    def add(planet_id: int) -> None:
+        if planet_id not in seen:
+            seen.add(planet_id)
+            source_ids.append(planet_id)
+
+    for source in response_facts.target_reinforcement.source_facts:
+        add(source.planet_id)
+    for source in response_facts.target_race.source_facts:
+        add(source.planet_id)
+    for source_counterattack in response_facts.source_counterattacks:
+        for source in source_counterattack.counterattack_sources:
+            add(source.planet_id)
+    return tuple(source_ids)
+
+
 def _planet_evaluation_facts_by_id(
     planet_facts: tuple[PlanetEvaluationFacts, ...],
 ) -> dict[int, PlanetEvaluationFacts]:
@@ -821,8 +1032,10 @@ __all__ = (
     "MissionResponseFacts",
     "RaceSourceFacts",
     "ReinforcementSourceFacts",
+    "RespondingSourcePressureFacts",
     "ResponseConfig",
     "ResponseEvaluationStatus",
+    "ResponseSourcePressureFacts",
     "ResponseSummaryFacts",
     "SourceCounterattackFacts",
     "TargetRaceFacts",
@@ -830,6 +1043,7 @@ __all__ = (
     "ThirdPartyBenefitFacts",
     "ThirdPartyOwnerFacts",
     "evaluate_responses",
+    "response_source_pressure_facts",
     "response_summary_facts",
     "source_counterattack_facts",
     "target_race_facts",
