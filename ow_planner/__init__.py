@@ -32,6 +32,7 @@ Commitment Policy Cycle 0 adds structural commitment option contracts.
 Commitment Policy Cycle 1 adds explicit no-attack options.
 Commitment Policy Cycle 2 adds minimum-capture options.
 Commitment Policy Cycle 3 adds capture-and-hold options.
+Commitment Policy Cycle 4 adds reserve-preserving options.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -59,6 +60,7 @@ from .commitment import (
     commitment_options_for_candidates,
     minimum_capture_commitment_option,
     no_attack_commitment_option,
+    reserve_preserving_commitment_option,
 )
 from .features import (
     BoardFeatures,
@@ -233,6 +235,7 @@ __all__ = (
     "score_mission_timing_facts",
     "score_mission_value_facts",
     "score_source_opportunity_facts",
+    "reserve_preserving_commitment_option",
     "response_source_pressure_facts",
     "response_summary_facts",
     "source_counterattack_facts",

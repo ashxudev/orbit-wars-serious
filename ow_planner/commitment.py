@@ -3,8 +3,9 @@
 Commitment Policy Cycle 0 defines immutable containers for future ship-sizing
 decisions. Cycle 1 adds an explicit no-attack option. Cycle 2 adds a
 minimum-capture option that mirrors existing candidate launches. Cycle 3 adds a
-first-pass capture-and-hold option with a deterministic buffer. It does not
-evaluate, score, rank, prune, select, or convert commitment options.
+first-pass capture-and-hold option with a deterministic buffer. Cycle 4 adds a
+reserve-preserving option. It does not evaluate, score, rank, prune, select, or
+convert commitment options.
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ class CommitmentPolicyConfig:
 
     max_options_per_candidate: int | None = None
     capture_hold_buffer_ships: int = 5
+    reserve_ships_per_source: int = 1
 
     def __post_init__(self) -> None:
         if self.max_options_per_candidate is not None and _invalid_nonnegative_int(
@@ -53,6 +55,8 @@ class CommitmentPolicyConfig:
             )
         if _invalid_nonnegative_int(self.capture_hold_buffer_ships):
             raise ValueError("capture_hold_buffer_ships must be an integer >= 0")
+        if _invalid_nonnegative_int(self.reserve_ships_per_source):
+            raise ValueError("reserve_ships_per_source must be an integer >= 0")
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,8 +88,8 @@ def commitment_options_for_candidates(
 ) -> tuple[CandidateCommitmentOptions, ...]:
     """Return structural commitment option wrappers in candidate order.
 
-    Cycle 3 returns no-attack, minimum-capture, and capture-and-hold when the
-    option limit allows them.
+    Cycle 4 returns no-attack, minimum-capture, capture-and-hold, and
+    reserve-preserving options when the option limit allows them.
     """
 
     effective_config = CommitmentPolicyConfig() if config is None else config
@@ -222,6 +226,54 @@ def capture_and_hold_commitment_option(
     )
 
 
+def reserve_preserving_commitment_option(
+    state: GameState,
+    candidate: MissionCandidate,
+    config: CommitmentPolicyConfig | None = None,
+) -> CommitmentOption:
+    """Return an option that preserves a per-source ship reserve."""
+
+    effective_config = CommitmentPolicyConfig() if config is None else config
+    if not candidate.launches:
+        return _rejected_reserve_preserving(candidate, "candidate has no launches")
+
+    planets_by_id = {planet.planet_id: planet for planet in state.planets}
+    committed_by_source: dict[int, int] = {}
+    for launch in candidate.launches:
+        planet = planets_by_id.get(launch.source_planet_id)
+        if planet is None:
+            return _rejected_reserve_preserving(candidate, "missing source planet")
+        player_id = launch.player_id if launch.player_id is not None else state.player_id
+        if player_id is None:
+            return _rejected_reserve_preserving(candidate, "missing player id")
+        if planet.owner != player_id:
+            return _rejected_reserve_preserving(
+                candidate,
+                "source planet not owned by player",
+            )
+        committed_by_source[launch.source_planet_id] = (
+            committed_by_source.get(launch.source_planet_id, 0) + launch.ships
+        )
+
+    reserve = effective_config.reserve_ships_per_source
+    for source_id, committed in committed_by_source.items():
+        if planets_by_id[source_id].ships - committed < reserve:
+            return _rejected_reserve_preserving(
+                candidate,
+                "insufficient source ships for reserve",
+            )
+
+    return CommitmentOption(
+        option_type=CommitmentOptionType.RESERVE_PRESERVING,
+        candidate=candidate,
+        launches=candidate.launches,
+        source_planet_ids=tuple(launch.source_planet_id for launch in candidate.launches),
+        ships_committed=sum(launch.ships for launch in candidate.launches),
+        status=CommitmentOptionStatus.VALIDATED,
+        note="reserve preserving",
+    )
+
+
 def _options_for_candidate(
     state: GameState,
     candidate: MissionCandidate,
@@ -239,6 +291,10 @@ def _options_for_candidate(
         return tuple(options)
 
     options.append(capture_and_hold_commitment_option(state, candidate, config))
+    if config.max_options_per_candidate == 3:
+        return tuple(options)
+
+    options.append(reserve_preserving_commitment_option(state, candidate, config))
     return tuple(options)
 
 
@@ -248,6 +304,18 @@ def _rejected_capture_and_hold(
 ) -> CommitmentOption:
     return CommitmentOption(
         option_type=CommitmentOptionType.CAPTURE_AND_HOLD,
+        candidate=candidate,
+        status=CommitmentOptionStatus.REJECTED,
+        note=note,
+    )
+
+
+def _rejected_reserve_preserving(
+    candidate: MissionCandidate,
+    note: str,
+) -> CommitmentOption:
+    return CommitmentOption(
+        option_type=CommitmentOptionType.RESERVE_PRESERVING,
         candidate=candidate,
         status=CommitmentOptionStatus.REJECTED,
         note=note,
@@ -268,4 +336,5 @@ __all__ = (
     "commitment_options_for_candidates",
     "minimum_capture_commitment_option",
     "no_attack_commitment_option",
+    "reserve_preserving_commitment_option",
 )
