@@ -127,6 +127,31 @@ def lost_target_value_facts() -> MissionValueFacts:
     )
 
 
+def outcome_only_value_facts(
+    *,
+    captured: bool = False,
+    retained: bool = False,
+    lost: bool = False,
+) -> MissionValueFacts:
+    return MissionValueFacts(
+        target_owner_before=0,
+        target_owner_baseline=0,
+        target_owner_mission=0 if not lost else 1,
+        target_captured_by_player=captured,
+        target_retained_by_player=retained,
+        target_lost_by_player=lost,
+        target_production_before=0,
+        target_production_baseline_controlled_by_player=0,
+        target_production_mission_controlled_by_player=0,
+        production_delta_vs_baseline=0,
+        target_ship_delta_vs_baseline=0,
+        total_source_ship_delta_vs_baseline=0,
+        total_source_ship_delta_vs_before=0,
+        ships_spent=0,
+        mission_valid_for_value=True,
+    )
+
+
 def mission_evaluation(
     value_facts: MissionValueFacts,
     timing_facts: MissionTimingFacts = MissionTimingFacts(timing_complete=True),
@@ -746,6 +771,98 @@ class PlannerScoringTests(unittest.TestCase):
         )
         self.assertEqual(scored.total_score, -1000.0)
 
+    def test_sanity_productive_capture_scores_above_no_launch_neutral_outcome(self) -> None:
+        capture = mission_evaluation(neutral_capture_value_facts())
+        no_launch = mission_evaluation(no_launch_value_facts())
+
+        capture_score, no_launch_score = _scores(capture, no_launch)
+
+        self.assertGreater(capture_score, no_launch_score)
+
+    def test_sanity_complete_timing_scores_above_incomplete_timing(self) -> None:
+        complete = mission_evaluation(
+            neutral_capture_value_facts(),
+            MissionTimingFacts(
+                launch_arrival_ticks=(3,),
+                min_arrival_ticks=3,
+                max_arrival_ticks=3,
+                timing_complete=True,
+            ),
+        )
+        incomplete = mission_evaluation(
+            neutral_capture_value_facts(),
+            MissionTimingFacts(launch_arrival_ticks=(None,), timing_complete=False),
+        )
+
+        complete_score, incomplete_score = _scores(complete, incomplete)
+
+        self.assertGreater(complete_score, incomplete_score)
+
+    def test_sanity_faster_arrival_scores_above_slower_arrival(self) -> None:
+        fast = mission_evaluation(
+            neutral_capture_value_facts(),
+            MissionTimingFacts(
+                launch_arrival_ticks=(2,),
+                min_arrival_ticks=2,
+                max_arrival_ticks=2,
+                timing_complete=True,
+            ),
+        )
+        slow = mission_evaluation(
+            neutral_capture_value_facts(),
+            MissionTimingFacts(
+                launch_arrival_ticks=(10,),
+                min_arrival_ticks=10,
+                max_arrival_ticks=10,
+                timing_complete=True,
+            ),
+        )
+
+        fast_score, slow_score = _scores(fast, slow)
+
+        self.assertGreater(fast_score, slow_score)
+
+    def test_sanity_capture_and_retain_score_above_losing_target(self) -> None:
+        captured = mission_evaluation(outcome_only_value_facts(captured=True))
+        retained = mission_evaluation(outcome_only_value_facts(retained=True))
+        lost = mission_evaluation(outcome_only_value_facts(lost=True))
+
+        captured_score, retained_score, lost_score = _scores(captured, retained, lost)
+
+        self.assertGreater(captured_score, lost_score)
+        self.assertGreater(retained_score, lost_score)
+
+    def test_sanity_non_depleted_source_scores_above_depleted_source(self) -> None:
+        non_depleted = mission_evaluation(
+            neutral_capture_value_facts(),
+            source_before_ships=5,
+            source_mission_ships=4,
+        )
+        depleted = mission_evaluation(
+            neutral_capture_value_facts(),
+            source_before_ships=5,
+            source_mission_ships=0,
+        )
+
+        non_depleted_score, depleted_score = _scores(non_depleted, depleted)
+
+        self.assertGreater(non_depleted_score, depleted_score)
+
+    def test_sanity_invalid_mission_scores_below_valid_mission(self) -> None:
+        valid = mission_evaluation(no_launch_value_facts())
+        invalid = MissionEvaluation(
+            candidate=MissionCandidate(
+                mission_type=MissionType.CAPTURE_NEUTRAL,
+                target_planet_id=2,
+                source_planet_ids=(1,),
+            ),
+            facts=None,
+        )
+
+        valid_score, invalid_score = _scores(valid, invalid)
+
+        self.assertGreater(valid_score, invalid_score)
+
     def test_scoring_does_not_call_generation_or_simulation_helpers(self) -> None:
         with (
             patch("ow_planner.candidates.generate_candidates") as generate,
@@ -763,6 +880,11 @@ class PlannerScoringTests(unittest.TestCase):
 
         self.assertFalse(hasattr(scored, "rank"))
         self.assertFalse(hasattr(scored, "selected"))
+
+
+def _scores(*evaluations: MissionEvaluation) -> tuple[float, ...]:
+    scored = score_evaluations(evaluations)
+    return tuple(evaluation.total_score for evaluation in scored if evaluation.total_score is not None)
 
 
 if __name__ == "__main__":

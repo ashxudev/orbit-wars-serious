@@ -1340,6 +1340,24 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         self.assertAlmostEqual(evaluation.total_score, 6.75)
 
+    def test_evaluate_and_score_candidates_sanity_capture_scores_above_no_launch(self) -> None:
+        state = launch_test_state(target_owner=-1, target_ships=0, target_production=3)
+        capture = candidate(
+            2,
+            launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),),
+        )
+        no_launch = candidate(2, launches=())
+
+        capture_eval, no_launch_eval = evaluate_and_score_candidates(
+            state,
+            (capture, no_launch),
+            evaluation_config=EvaluationConfig(horizon_ticks=1),
+        )
+
+        self.assertGreater(capture_eval.total_score, no_launch_eval.total_score)
+        self.assertFalse(hasattr(capture_eval, "rank"))
+        self.assertFalse(hasattr(capture_eval, "selected"))
+
     def test_evaluate_and_score_candidates_propagates_invalid_penalty(self) -> None:
         state = launch_test_state(source_ships=1)
         mission = candidate(
