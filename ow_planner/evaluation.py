@@ -1,10 +1,11 @@
 """Planner mission evaluation contracts.
 
-Mission Evaluation Cycle 8 extracts deterministic candidate facts, before-state
+Mission Evaluation Cycle 9 extracts deterministic candidate facts, before-state
 source/target lookups, idle baseline future lookups, mechanical candidate
 future lookups, mission-vs-baseline delta facts, and deterministic value
-feature facts. It also exposes an opt-in evaluated-and-scored composition
-helper. It does not rank, prune, or select missions.
+feature facts, and launch arrival timing facts. It also exposes an opt-in
+evaluated-and-scored composition helper. It does not rank, prune, or select
+missions.
 """
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Sequence
 
 from ow_sim.state import GameState, Planet
+from ow_sim.geometry import distance
+from ow_sim.forecast import fleet_ticks_to_reach_distance
 from ow_sim.timeline import simulate_ticks
 from ow_sim.whatif import simulate_launch_orders
 
@@ -118,6 +121,18 @@ class MissionValueFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class MissionTimingFacts:
+    """Deterministic launch arrival timing facts for a mission candidate."""
+
+    launch_arrival_ticks: tuple[int | None, ...] = ()
+    min_arrival_ticks: int | None = None
+    max_arrival_ticks: int | None = None
+    timing_complete: bool = False
+    missing_timing_target_planet_id: int | None = None
+    missing_timing_source_planet_ids: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class MissionEvaluationFacts:
     """Deterministic candidate facts plus before-state planet lookups."""
 
@@ -145,6 +160,7 @@ class MissionEvaluationFacts:
     mission_simulation_error: str | None = None
     future_delta: MissionFutureDeltaFacts = field(default_factory=MissionFutureDeltaFacts)
     value_facts: MissionValueFacts = field(default_factory=MissionValueFacts)
+    timing_facts: MissionTimingFacts = field(default_factory=MissionTimingFacts)
     notes: tuple[str, ...] = ()
 
 
@@ -167,9 +183,9 @@ def evaluate_candidates(
 ) -> tuple[MissionEvaluation, ...]:
     """Return candidate-fact evaluations for ``candidates``.
 
-    Cycle 6 adds shared idle baseline facts, per-candidate mechanical mission
-    future facts, mission-vs-baseline delta facts, and deterministic value
-    feature facts. Input order is preserved.
+    Cycle 9 adds shared idle baseline facts, per-candidate mechanical mission
+    future facts, mission-vs-baseline delta facts, deterministic value feature
+    facts, and arrival timing facts. Input order is preserved.
     """
 
     effective_config = config or EvaluationConfig()
@@ -283,6 +299,7 @@ def extract_candidate_facts(
         ships_spent=sum(launch.ships for launch in candidate.launches),
         mission_simulation_error=mission_simulation_error,
     )
+    timing_facts = mission_timing_facts(state, candidate)
 
     return MissionEvaluationFacts(
         mission_type=candidate.mission_type,
@@ -309,6 +326,7 @@ def extract_candidate_facts(
         mission_simulation_error=mission_simulation_error,
         future_delta=future_delta,
         value_facts=value_facts,
+        timing_facts=timing_facts,
     )
 
 
@@ -341,6 +359,65 @@ def candidate_state_after_horizon(
         orders,
         ticks=horizon_ticks,
         player_id=player_id,
+    )
+
+
+def mission_timing_facts(
+    state: GameState | None,
+    candidate: MissionCandidate,
+) -> MissionTimingFacts:
+    """Return deterministic arrival timing facts for candidate launches."""
+
+    if not candidate.launches:
+        return MissionTimingFacts(timing_complete=True)
+    if state is None:
+        return MissionTimingFacts(
+            launch_arrival_ticks=tuple(None for _ in candidate.launches),
+        )
+
+    planets_by_id = _planets_by_id(state)
+    target = None
+    missing_target_planet_id = None
+    if candidate.target_planet_id is not None:
+        target = planets_by_id.get(candidate.target_planet_id)
+        if target is None:
+            missing_target_planet_id = candidate.target_planet_id
+    else:
+        missing_target_planet_id = None
+
+    arrival_ticks: list[int | None] = []
+    missing_source_planet_ids: list[int] = []
+    for launch in candidate.launches:
+        source = planets_by_id.get(launch.source_planet_id)
+        if source is None:
+            missing_source_planet_ids.append(launch.source_planet_id)
+            arrival_ticks.append(None)
+            continue
+        if target is None:
+            arrival_ticks.append(None)
+            continue
+        try:
+            arrival_ticks.append(
+                fleet_ticks_to_reach_distance(
+                    distance(source.position, target.position),
+                    launch.ships,
+                )
+            )
+        except ValueError:
+            arrival_ticks.append(None)
+
+    known_ticks = tuple(tick for tick in arrival_ticks if tick is not None)
+    return MissionTimingFacts(
+        launch_arrival_ticks=tuple(arrival_ticks),
+        min_arrival_ticks=None if not known_ticks else min(known_ticks),
+        max_arrival_ticks=None if not known_ticks else max(known_ticks),
+        timing_complete=(
+            len(known_ticks) == len(arrival_ticks)
+            and missing_target_planet_id is None
+            and not missing_source_planet_ids
+        ),
+        missing_timing_target_planet_id=missing_target_planet_id,
+        missing_timing_source_planet_ids=tuple(missing_source_planet_ids),
     )
 
 
@@ -663,6 +740,7 @@ __all__ = (
     "MissionEvaluationFacts",
     "MissionEvaluationStatus",
     "MissionFutureDeltaFacts",
+    "MissionTimingFacts",
     "MissionValueFacts",
     "PlanetEvaluationFacts",
     "PlanetFutureDeltaFacts",
@@ -673,6 +751,7 @@ __all__ = (
     "evaluate_candidates",
     "extract_candidate_facts",
     "mission_future_delta_facts",
+    "mission_timing_facts",
     "mission_value_facts",
     "planet_evaluation_facts",
     "planet_future_delta_facts",

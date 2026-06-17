@@ -16,6 +16,7 @@ Mission Evaluation Cycle 5 adds deterministic mission-vs-baseline deltas.
 Mission Evaluation Cycle 6 adds deterministic mission value feature facts.
 Mission Evaluation Cycle 7 adds an isolated first-pass scoring policy.
 Mission Evaluation Cycle 8 adds evaluated-and-scored composition.
+Mission Evaluation Cycle 9 adds deterministic arrival timing facts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -69,6 +70,7 @@ from .evaluation import (
     MissionEvaluationFacts,
     MissionEvaluationStatus,
     MissionFutureDeltaFacts,
+    MissionTimingFacts,
     MissionValueFacts,
     PlanetEvaluationFacts,
     PlanetFutureDeltaFacts,
@@ -79,6 +81,7 @@ from .evaluation import (
     evaluate_candidates,
     extract_candidate_facts,
     mission_future_delta_facts,
+    mission_timing_facts,
     mission_value_facts,
     planet_evaluation_facts,
     planet_future_delta_facts,
@@ -104,6 +107,7 @@ __all__ = (
     "MissionEvaluationFacts",
     "MissionEvaluationStatus",
     "MissionFutureDeltaFacts",
+    "MissionTimingFacts",
     "MissionScoringConfig",
     "MissionValueFacts",
     "MissionType",
@@ -136,6 +140,7 @@ __all__ = (
     "mission_candidate_to_actions",
     "mission_candidate_to_orders",
     "mission_future_delta_facts",
+    "mission_timing_facts",
     "mission_value_facts",
     "planet_evaluation_facts",
     "planet_future_delta_facts",

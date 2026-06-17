@@ -18,6 +18,7 @@ from ow_planner import (
     MissionEvaluationStatus,
     MissionFutureDeltaFacts,
     MissionScoringConfig,
+    MissionTimingFacts,
     MissionValueFacts,
     MissionType,
     PlanetEvaluationFacts,
@@ -29,6 +30,7 @@ from ow_planner import (
     evaluate_candidates,
     extract_candidate_facts,
     mission_future_delta_facts,
+    mission_timing_facts,
     mission_value_facts,
     planet_evaluation_facts,
     planet_future_delta_facts,
@@ -131,6 +133,24 @@ def launch_test_state(
     )
 
 
+def timing_test_state(target_x: float = 10.0) -> GameState:
+    source = planet_at(1, 0, 0.0, 0.0, 10, production=0)
+    target = planet_at(2, -1, target_x, 0.0, 0, production=0)
+    return GameState(
+        tick=0,
+        player_id=0,
+        planets=(source, target),
+        initial_planets=(source, target),
+        next_fleet_id=20,
+        raw_observation={
+            "step": 0,
+            "player": 0,
+            "planets": [list(source.raw), list(target.raw)],
+            "next_fleet_id": 20,
+        },
+    )
+
+
 def candidate(
     target_planet_id: int,
     mission_type: MissionType = MissionType.CAPTURE_NEUTRAL,
@@ -158,6 +178,7 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertIs(MissionEvaluation, MissionEvaluation)
         self.assertIs(MissionEvaluationFacts, MissionEvaluationFacts)
         self.assertIs(MissionFutureDeltaFacts, MissionFutureDeltaFacts)
+        self.assertIs(MissionTimingFacts, MissionTimingFacts)
         self.assertIs(MissionValueFacts, MissionValueFacts)
         self.assertIs(PlanetEvaluationFacts, PlanetEvaluationFacts)
         self.assertIs(PlanetFutureDeltaFacts, PlanetFutureDeltaFacts)
@@ -167,6 +188,7 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertIsNotNone(candidate_state_after_horizon)
         self.assertIsNotNone(extract_candidate_facts)
         self.assertIsNotNone(mission_future_delta_facts)
+        self.assertIsNotNone(mission_timing_facts)
         self.assertIsNotNone(mission_value_facts)
         self.assertIsNotNone(planet_evaluation_facts)
         self.assertIsNotNone(planet_future_delta_facts)
@@ -230,6 +252,12 @@ class PlannerEvaluationTests(unittest.TestCase):
             ships_spent=1,
             mission_valid_for_value=True,
         )
+        timing_facts = MissionTimingFacts(
+            launch_arrival_ticks=(3,),
+            min_arrival_ticks=3,
+            max_arrival_ticks=3,
+            timing_complete=True,
+        )
         facts = MissionEvaluationFacts(
             mission_type=MissionType.CAPTURE_NEUTRAL,
             target_planet_id=2,
@@ -248,6 +276,7 @@ class PlannerEvaluationTests(unittest.TestCase):
             sources_mission=(PlanetEvaluationFacts(1, 0, 4, 1),),
             future_delta=future_delta,
             value_facts=value_facts,
+            timing_facts=timing_facts,
             notes=("structural",),
         )
         evaluation = MissionEvaluation(
@@ -262,6 +291,7 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(planet_delta.mission_ship_delta_vs_baseline, -2)
         self.assertEqual(future_delta.total_source_ship_delta_vs_baseline, -1)
         self.assertEqual(value_facts.production_delta_vs_baseline, 2)
+        self.assertEqual(timing_facts.launch_arrival_ticks, (3,))
         self.assertEqual(facts.notes, ("structural",))
         self.assertIs(evaluation.candidate, mission)
         with self.assertRaises(FrozenInstanceError):
@@ -274,6 +304,8 @@ class PlannerEvaluationTests(unittest.TestCase):
             future_delta.sources = ()
         with self.assertRaises(FrozenInstanceError):
             value_facts.ships_spent = 2
+        with self.assertRaises(FrozenInstanceError):
+            timing_facts.min_arrival_ticks = 1
         with self.assertRaises(FrozenInstanceError):
             facts.notes = ()
         with self.assertRaises(FrozenInstanceError):
@@ -449,6 +481,87 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertEqual(value_facts.ships_spent, 2)
         self.assertIs(value_facts.mission_valid_for_value, False)
 
+    def test_mission_timing_facts_no_launch_is_complete(self) -> None:
+        facts = mission_timing_facts(timing_test_state(), candidate(2, launches=()))
+
+        self.assertEqual(facts, MissionTimingFacts(timing_complete=True))
+
+    def test_mission_timing_facts_single_launch_uses_geometry_and_ship_speed(self) -> None:
+        mission = candidate(
+            2,
+            launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),),
+        )
+
+        facts = mission_timing_facts(timing_test_state(target_x=10.0), mission)
+
+        self.assertEqual(facts.launch_arrival_ticks, (10,))
+        self.assertEqual(facts.min_arrival_ticks, 10)
+        self.assertEqual(facts.max_arrival_ticks, 10)
+        self.assertIs(facts.timing_complete, True)
+        self.assertIsNone(facts.missing_timing_target_planet_id)
+        self.assertEqual(facts.missing_timing_source_planet_ids, ())
+
+    def test_mission_timing_facts_multi_launch_preserves_order_and_min_max(self) -> None:
+        mission = candidate(
+            2,
+            launches=(
+                LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),
+                LaunchCandidate(source_planet_id=1, angle=0.0, ships=1000),
+            ),
+        )
+
+        facts = mission_timing_facts(timing_test_state(target_x=10.0), mission)
+
+        self.assertEqual(facts.launch_arrival_ticks, (10, 2))
+        self.assertEqual(facts.min_arrival_ticks, 2)
+        self.assertEqual(facts.max_arrival_ticks, 10)
+        self.assertIs(facts.timing_complete, True)
+
+    def test_mission_timing_facts_missing_target_is_incomplete(self) -> None:
+        facts = mission_timing_facts(timing_test_state(), candidate(99))
+
+        self.assertEqual(facts.launch_arrival_ticks, (None,))
+        self.assertIsNone(facts.min_arrival_ticks)
+        self.assertIsNone(facts.max_arrival_ticks)
+        self.assertIs(facts.timing_complete, False)
+        self.assertEqual(facts.missing_timing_target_planet_id, 99)
+
+    def test_mission_timing_facts_missing_source_is_incomplete(self) -> None:
+        mission = candidate(
+            2,
+            source_planet_ids=(99,),
+            launches=(LaunchCandidate(source_planet_id=99, angle=0.0, ships=1),),
+        )
+
+        facts = mission_timing_facts(timing_test_state(), mission)
+
+        self.assertEqual(facts.launch_arrival_ticks, (None,))
+        self.assertIs(facts.timing_complete, False)
+        self.assertEqual(facts.missing_timing_source_planet_ids, (99,))
+
+    def test_mission_timing_facts_missing_state_is_incomplete_without_missing_ids(self) -> None:
+        facts = mission_timing_facts(None, candidate(2))
+
+        self.assertEqual(facts.launch_arrival_ticks, (None,))
+        self.assertIsNone(facts.min_arrival_ticks)
+        self.assertIsNone(facts.max_arrival_ticks)
+        self.assertIs(facts.timing_complete, False)
+        self.assertIsNone(facts.missing_timing_target_planet_id)
+        self.assertEqual(facts.missing_timing_source_planet_ids, ())
+
+    def test_mission_timing_facts_invalid_launch_ships_are_incomplete(self) -> None:
+        mission = candidate(
+            2,
+            launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=0),),
+        )
+
+        facts = mission_timing_facts(timing_test_state(), mission)
+
+        self.assertEqual(facts.launch_arrival_ticks, (None,))
+        self.assertIsNone(facts.min_arrival_ticks)
+        self.assertIsNone(facts.max_arrival_ticks)
+        self.assertIs(facts.timing_complete, False)
+
     def test_evaluate_candidates_returns_empty_tuple_for_empty_input(self) -> None:
         self.assertEqual(evaluate_candidates(state_with_planet(), ()), ())
 
@@ -500,6 +613,8 @@ class PlannerEvaluationTests(unittest.TestCase):
         )
         self.assertIsNone(facts.future_delta.total_source_ship_delta_vs_baseline)
         self.assertEqual(facts.value_facts, MissionValueFacts(ships_spent=1))
+        self.assertEqual(facts.timing_facts.launch_arrival_ticks, (None,))
+        self.assertIs(facts.timing_facts.timing_complete, False)
 
     def test_extract_candidate_facts_for_enemy_attack_candidate(self) -> None:
         mission = candidate(
@@ -832,6 +947,8 @@ class PlannerEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(evaluation.facts.value_facts.ships_spent, 0)
         self.assertIs(evaluation.facts.value_facts.mission_valid_for_value, True)
+        self.assertEqual(evaluation.facts.timing_facts.launch_arrival_ticks, ())
+        self.assertIs(evaluation.facts.timing_facts.timing_complete, True)
 
     def test_no_launch_positive_horizon_candidate_future_matches_idle_baseline(self) -> None:
         state = launch_test_state(next_fleet_id=None)
@@ -862,6 +979,8 @@ class PlannerEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(evaluation.facts.value_facts.ships_spent, 0)
         self.assertIs(evaluation.facts.value_facts.mission_valid_for_value, True)
+        self.assertEqual(evaluation.facts.timing_facts.launch_arrival_ticks, ())
+        self.assertIs(evaluation.facts.timing_facts.timing_complete, True)
 
     def test_candidate_state_after_horizon_launch_reduces_source_at_zero_horizon(self) -> None:
         state = launch_test_state(source_ships=10)
@@ -944,6 +1063,10 @@ class PlannerEvaluationTests(unittest.TestCase):
         )
         self.assertEqual(evaluation.facts.value_facts.ships_spent, 1)
         self.assertIs(evaluation.facts.value_facts.mission_valid_for_value, True)
+        self.assertEqual(evaluation.facts.timing_facts.launch_arrival_ticks, (1,))
+        self.assertEqual(evaluation.facts.timing_facts.min_arrival_ticks, 1)
+        self.assertEqual(evaluation.facts.timing_facts.max_arrival_ticks, 1)
+        self.assertIs(evaluation.facts.timing_facts.timing_complete, True)
 
     def test_enemy_attack_candidate_populates_target_mission_facts(self) -> None:
         state = launch_test_state(target_owner=1, target_ships=0, target_production=4)
