@@ -21,6 +21,9 @@ Mission Evaluation Cycle 10 adds timing-aware scoring components.
 Mission Evaluation Cycle 11 adds capture-outcome scoring components.
 Mission Evaluation Cycle 12 adds source-drain opportunity-cost scoring.
 Opponent Response Model Cycle 0 adds structural response-evaluation contracts.
+Opponent Response Model Cycle 1 adds reinforcement feasibility facts.
+Opponent Response Model Cycle 2 adds target race-risk facts.
+Opponent Response Model Cycle 3 adds source counterattack-risk facts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -99,15 +102,18 @@ from .scoring import (
     score_source_opportunity_facts,
 )
 from .response import (
+    CounterattackSourceFacts,
     MissionResponseEvaluation,
     MissionResponseFacts,
     RaceSourceFacts,
     ReinforcementSourceFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    SourceCounterattackFacts,
     TargetRaceFacts,
     TargetReinforcementFacts,
     evaluate_responses,
+    source_counterattack_facts,
     target_race_facts,
     target_reinforcement_facts,
 )
@@ -118,6 +124,7 @@ __all__ = (
     "CandidateOutcome",
     "CandidateOutcomeReport",
     "CandidateValidationStatus",
+    "CounterattackSourceFacts",
     "DEFAULT_CAPTURE_BUFFER_SHIPS",
     "EstimatedPair",
     "EvaluationConfig",
@@ -147,6 +154,7 @@ __all__ = (
     "ScoreComponent",
     "ShipEstimate",
     "ShipEstimateStatus",
+    "SourceCounterattackFacts",
     "SourceTargetPair",
     "TargetCategory",
     "TargetRaceFacts",
@@ -178,6 +186,7 @@ __all__ = (
     "score_mission_timing_facts",
     "score_mission_value_facts",
     "score_source_opportunity_facts",
+    "source_counterattack_facts",
     "target_race_facts",
     "target_reinforcement_facts",
     "validate_estimated_pair_outcome",
