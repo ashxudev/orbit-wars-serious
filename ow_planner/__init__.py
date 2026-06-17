@@ -31,6 +31,7 @@ Opponent Response Model Cycle 7 adds first-pass response classification labels.
 Commitment Policy Cycle 0 adds structural commitment option contracts.
 Commitment Policy Cycle 1 adds explicit no-attack options.
 Commitment Policy Cycle 2 adds minimum-capture options.
+Commitment Policy Cycle 3 adds capture-and-hold options.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -54,6 +55,7 @@ from .commitment import (
     CommitmentOptionStatus,
     CommitmentOptionType,
     CommitmentPolicyConfig,
+    capture_and_hold_commitment_option,
     commitment_options_for_candidates,
     minimum_capture_commitment_option,
     no_attack_commitment_option,
@@ -202,6 +204,7 @@ __all__ = (
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "classify_response_facts",
+    "capture_and_hold_commitment_option",
     "commitment_options_for_candidates",
     "extract_board_features",
     "enumerate_source_target_pairs",

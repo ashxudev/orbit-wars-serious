@@ -2,9 +2,9 @@
 
 Commitment Policy Cycle 0 defines immutable containers for future ship-sizing
 decisions. Cycle 1 adds an explicit no-attack option. Cycle 2 adds a
-minimum-capture option that mirrors existing candidate launches. It does not
-recompute attack sizes, evaluate, score, rank, prune, select, or convert
-commitment options.
+minimum-capture option that mirrors existing candidate launches. Cycle 3 adds a
+first-pass capture-and-hold option with a deterministic buffer. It does not
+evaluate, score, rank, prune, select, or convert commitment options.
 """
 
 from __future__ import annotations
@@ -42,18 +42,17 @@ class CommitmentPolicyConfig:
     """Configuration boundary for commitment option generation."""
 
     max_options_per_candidate: int | None = None
+    capture_hold_buffer_ships: int = 5
 
     def __post_init__(self) -> None:
-        if self.max_options_per_candidate is None:
-            return
-        if (
-            isinstance(self.max_options_per_candidate, bool)
-            or not isinstance(self.max_options_per_candidate, int)
-            or self.max_options_per_candidate < 0
+        if self.max_options_per_candidate is not None and _invalid_nonnegative_int(
+            self.max_options_per_candidate
         ):
             raise ValueError(
                 "max_options_per_candidate must be None or an integer >= 0"
             )
+        if _invalid_nonnegative_int(self.capture_hold_buffer_ships):
+            raise ValueError("capture_hold_buffer_ships must be an integer >= 0")
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,16 +84,15 @@ def commitment_options_for_candidates(
 ) -> tuple[CandidateCommitmentOptions, ...]:
     """Return structural commitment option wrappers in candidate order.
 
-    Cycle 2 returns no-attack first and minimum-capture second when the option
-    limit allows them. ``state`` is accepted to preserve the future API
-    boundary.
+    Cycle 3 returns no-attack, minimum-capture, and capture-and-hold when the
+    option limit allows them.
     """
 
     effective_config = CommitmentPolicyConfig() if config is None else config
     return tuple(
         CandidateCommitmentOptions(
             candidate=candidate,
-            options=_options_for_candidate(candidate, effective_config),
+            options=_options_for_candidate(state, candidate, effective_config),
         )
         for candidate in candidates
     )
@@ -135,17 +133,129 @@ def minimum_capture_commitment_option(candidate: MissionCandidate) -> Commitment
     )
 
 
+def capture_and_hold_commitment_option(
+    state: GameState,
+    candidate: MissionCandidate,
+    config: CommitmentPolicyConfig | None = None,
+) -> CommitmentOption:
+    """Return a buffered capture-and-hold option when sources can afford it."""
+
+    effective_config = CommitmentPolicyConfig() if config is None else config
+    if not candidate.launches:
+        return _rejected_capture_and_hold(candidate, "candidate has no launches")
+
+    planets_by_id = {planet.planet_id: planet for planet in state.planets}
+    baseline_by_source: dict[int, int] = {}
+    for launch in candidate.launches:
+        planet = planets_by_id.get(launch.source_planet_id)
+        if planet is None:
+            return _rejected_capture_and_hold(candidate, "missing source planet")
+        player_id = launch.player_id if launch.player_id is not None else state.player_id
+        if player_id is None:
+            return _rejected_capture_and_hold(candidate, "missing player id")
+        if planet.owner != player_id:
+            return _rejected_capture_and_hold(
+                candidate,
+                "source planet not owned by player",
+            )
+        baseline_by_source[launch.source_planet_id] = (
+            baseline_by_source.get(launch.source_planet_id, 0) + launch.ships
+        )
+
+    remaining_by_source = {
+        source_id: planets_by_id[source_id].ships - committed
+        for source_id, committed in baseline_by_source.items()
+    }
+    if any(remaining < 0 for remaining in remaining_by_source.values()):
+        return _rejected_capture_and_hold(
+            candidate,
+            "insufficient source ships for hold buffer",
+        )
+
+    buffer_remaining = effective_config.capture_hold_buffer_ships
+    if buffer_remaining == 0:
+        return CommitmentOption(
+            option_type=CommitmentOptionType.CAPTURE_AND_HOLD,
+            candidate=candidate,
+            launches=candidate.launches,
+            source_planet_ids=tuple(
+                launch.source_planet_id for launch in candidate.launches
+            ),
+            ships_committed=sum(launch.ships for launch in candidate.launches),
+            status=CommitmentOptionStatus.VALIDATED,
+            note="capture and hold",
+        )
+
+    adjusted_launches = []
+    for launch in candidate.launches:
+        source_id = launch.source_planet_id
+        extra = min(buffer_remaining, remaining_by_source[source_id])
+        buffer_remaining -= extra
+        remaining_by_source[source_id] -= extra
+        adjusted_launches.append(
+            LaunchCandidate(
+                source_planet_id=launch.source_planet_id,
+                angle=launch.angle,
+                ships=launch.ships + extra,
+                player_id=launch.player_id,
+            )
+        )
+        if buffer_remaining == 0:
+            adjusted_launches.extend(candidate.launches[len(adjusted_launches) :])
+            break
+
+    if buffer_remaining != 0:
+        return _rejected_capture_and_hold(
+            candidate,
+            "insufficient source ships for hold buffer",
+        )
+
+    launches = tuple(adjusted_launches)
+    return CommitmentOption(
+        option_type=CommitmentOptionType.CAPTURE_AND_HOLD,
+        candidate=candidate,
+        launches=launches,
+        source_planet_ids=tuple(launch.source_planet_id for launch in launches),
+        ships_committed=sum(launch.ships for launch in launches),
+        status=CommitmentOptionStatus.VALIDATED,
+        note="capture and hold",
+    )
+
+
 def _options_for_candidate(
+    state: GameState,
     candidate: MissionCandidate,
     config: CommitmentPolicyConfig,
 ) -> tuple[CommitmentOption, ...]:
-    options = (
-        no_attack_commitment_option(candidate),
-        minimum_capture_commitment_option(candidate),
+    if config.max_options_per_candidate == 0:
+        return ()
+
+    options = [no_attack_commitment_option(candidate)]
+    if config.max_options_per_candidate == 1:
+        return tuple(options)
+
+    options.append(minimum_capture_commitment_option(candidate))
+    if config.max_options_per_candidate == 2:
+        return tuple(options)
+
+    options.append(capture_and_hold_commitment_option(state, candidate, config))
+    return tuple(options)
+
+
+def _rejected_capture_and_hold(
+    candidate: MissionCandidate,
+    note: str,
+) -> CommitmentOption:
+    return CommitmentOption(
+        option_type=CommitmentOptionType.CAPTURE_AND_HOLD,
+        candidate=candidate,
+        status=CommitmentOptionStatus.REJECTED,
+        note=note,
     )
-    if config.max_options_per_candidate is None:
-        return options
-    return options[: config.max_options_per_candidate]
+
+
+def _invalid_nonnegative_int(value: object) -> bool:
+    return isinstance(value, bool) or not isinstance(value, int) or value < 0
 
 
 __all__ = (
@@ -154,6 +264,7 @@ __all__ = (
     "CommitmentOptionStatus",
     "CommitmentOptionType",
     "CommitmentPolicyConfig",
+    "capture_and_hold_commitment_option",
     "commitment_options_for_candidates",
     "minimum_capture_commitment_option",
     "no_attack_commitment_option",
