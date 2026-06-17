@@ -39,6 +39,7 @@ Strategy Modes Cycle 0 adds deterministic 2p / 4p mode facts.
 Strategy Modes Cycle 1 adds planner decision bundle composition.
 Strategy Modes Cycle 2 adds structural strategy-selection results.
 Strategy Modes Cycle 3 adds deterministic two-player direct-advantage facts.
+Strategy Modes Cycle 4 adds first-pass two-player direct-advantage selection.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -178,6 +179,10 @@ from .two_player_strategy import (
     two_player_advantage_facts,
     two_player_advantage_facts_for_bundles,
 )
+from .two_player_selection import (
+    TwoPlayerSelectionConfig,
+    select_two_player_direct_advantage,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -237,6 +242,7 @@ __all__ = (
     "ThirdPartyBenefitFacts",
     "ThirdPartyOwnerFacts",
     "TwoPlayerAdvantageFacts",
+    "TwoPlayerSelectionConfig",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "classify_response_facts",
@@ -276,6 +282,7 @@ __all__ = (
     "score_mission_value_facts",
     "score_source_opportunity_facts",
     "selected_strategy_result",
+    "select_two_player_direct_advantage",
     "reserve_preserving_commitment_option",
     "response_source_pressure_facts",
     "response_summary_facts",
