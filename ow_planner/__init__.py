@@ -20,6 +20,7 @@ Mission Evaluation Cycle 9 adds deterministic arrival timing facts.
 Mission Evaluation Cycle 10 adds timing-aware scoring components.
 Mission Evaluation Cycle 11 adds capture-outcome scoring components.
 Mission Evaluation Cycle 12 adds source-drain opportunity-cost scoring.
+Opponent Response Model Cycle 0 adds structural response-evaluation contracts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -97,6 +98,13 @@ from .scoring import (
     score_mission_value_facts,
     score_source_opportunity_facts,
 )
+from .response import (
+    MissionResponseEvaluation,
+    MissionResponseFacts,
+    ResponseConfig,
+    ResponseEvaluationStatus,
+    evaluate_responses,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -113,6 +121,8 @@ __all__ = (
     "MissionEvaluationFacts",
     "MissionEvaluationStatus",
     "MissionFutureDeltaFacts",
+    "MissionResponseEvaluation",
+    "MissionResponseFacts",
     "MissionTimingFacts",
     "MissionScoringConfig",
     "MissionValueFacts",
@@ -124,6 +134,8 @@ __all__ = (
     "PlanetFutureDeltaFacts",
     "PlanetFacts",
     "ROUGH_TRAVEL_SHIPS",
+    "ResponseConfig",
+    "ResponseEvaluationStatus",
     "ScoreComponent",
     "ShipEstimate",
     "ShipEstimateStatus",
@@ -138,6 +150,7 @@ __all__ = (
     "estimate_source_target_pairs",
     "evaluate_and_score_candidates",
     "evaluate_candidates",
+    "evaluate_responses",
     "extract_candidate_facts",
     "generate_candidates",
     "launch_candidate_to_action",
