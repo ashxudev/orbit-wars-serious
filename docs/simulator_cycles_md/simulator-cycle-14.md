@@ -15,7 +15,7 @@ branch comparison behavior.
 
 - `AGENTS.md`
 - `docs/competition-context.md`
-- `docs/simulator-cycle-13.md`
+- `docs/simulator_cycles_md/simulator-cycle-13.md`
 - `ow_sim/whatif.py`
 - `ow_sim/timeline.py`
 - `tests/test_whatif_launches.py`

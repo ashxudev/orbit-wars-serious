@@ -23,7 +23,7 @@
   `/Users/user/dev/hackathons/orbit-wars-serious/.venv/lib/python3.12/site-packages/kaggle_environments/envs/orbit_wars/orbit_wars.py`
 - Existing workspace docs:
   `AGENTS.md`, `docs/competition-context.md`,
-  `docs/simulator-cycle-0.md`, and `docs/simulator-cycle-1.md`
+  `docs/simulator_cycles_md/simulator-cycle-0.md`, and `docs/simulator_cycles_md/simulator-cycle-1.md`
 
 ## Constants Confirmed
 

@@ -14,12 +14,12 @@
 - Workspace docs:
   - `AGENTS.md`
   - `docs/competition-context.md`
-  - `docs/simulator-cycle-0.md`
-  - `docs/simulator-cycle-1.md`
-  - `docs/simulator-cycle-2.md`
-  - `docs/simulator-cycle-3.md`
-  - `docs/simulator-cycle-4.md`
-  - `docs/simulator-cycle-5.md`
+  - `docs/simulator_cycles_md/simulator-cycle-0.md`
+  - `docs/simulator_cycles_md/simulator-cycle-1.md`
+  - `docs/simulator_cycles_md/simulator-cycle-2.md`
+  - `docs/simulator_cycles_md/simulator-cycle-3.md`
+  - `docs/simulator_cycles_md/simulator-cycle-4.md`
+  - `docs/simulator_cycles_md/simulator-cycle-5.md`
 - Local official environment package:
   `/Users/user/dev/hackathons/orbit-wars-serious/.venv`
 - Official interpreter source:

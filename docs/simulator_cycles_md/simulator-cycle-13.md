@@ -25,7 +25,7 @@ simulate_ticks(apply_launch_orders(state, orders), ticks)
 
 - `AGENTS.md`
 - `docs/competition-context.md`
-- `docs/simulator-cycle-12.md`
+- `docs/simulator_cycles_md/simulator-cycle-12.md`
 - `ow_sim/forecast.py`
 - `ow_sim/timeline.py`
 - `ow_sim/whatif.py`

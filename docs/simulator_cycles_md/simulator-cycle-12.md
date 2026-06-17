@@ -15,7 +15,7 @@ planner behavior.
 
 - `AGENTS.md`
 - `docs/competition-context.md`
-- `docs/simulator-cycle-11.md`
+- `docs/simulator_cycles_md/simulator-cycle-11.md`
 - `ow_sim/timeline.py`
 - `tests/test_timeline_next_state.py`
 - Existing deterministic fixtures in `tests/fixtures/`
