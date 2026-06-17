@@ -1,8 +1,9 @@
 """Structural commitment policy API boundary.
 
 Commitment Policy Cycle 0 defines immutable containers for future ship-sizing
-decisions. It does not generate, evaluate, score, rank, prune, select, or
-convert commitment options.
+decisions. Cycle 1 adds an explicit no-attack option. It does not generate
+attack sizes, evaluate, score, rank, prune, select, or convert commitment
+options.
 """
 
 from __future__ import annotations
@@ -83,15 +84,40 @@ def commitment_options_for_candidates(
 ) -> tuple[CandidateCommitmentOptions, ...]:
     """Return structural commitment option wrappers in candidate order.
 
-    Cycle 0 intentionally returns empty option tuples for every candidate.
-    ``state`` and ``config`` are accepted to establish the future API boundary.
+    Cycle 1 returns only an explicit no-attack option when the option limit
+    allows it. ``state`` is accepted to preserve the future API boundary.
     """
 
-    CommitmentPolicyConfig() if config is None else config
+    effective_config = CommitmentPolicyConfig() if config is None else config
     return tuple(
-        CandidateCommitmentOptions(candidate=candidate)
+        CandidateCommitmentOptions(
+            candidate=candidate,
+            options=_options_for_candidate(candidate, effective_config),
+        )
         for candidate in candidates
     )
+
+
+def no_attack_commitment_option(
+    candidate: MissionCandidate | None = None,
+) -> CommitmentOption:
+    """Return a validated explicit no-attack commitment option."""
+
+    return CommitmentOption(
+        option_type=CommitmentOptionType.NO_ATTACK,
+        candidate=candidate,
+        status=CommitmentOptionStatus.VALIDATED,
+        note="no attack",
+    )
+
+
+def _options_for_candidate(
+    candidate: MissionCandidate,
+    config: CommitmentPolicyConfig,
+) -> tuple[CommitmentOption, ...]:
+    if config.max_options_per_candidate == 0:
+        return ()
+    return (no_attack_commitment_option(candidate),)
 
 
 __all__ = (
@@ -101,4 +127,5 @@ __all__ = (
     "CommitmentOptionType",
     "CommitmentPolicyConfig",
     "commitment_options_for_candidates",
+    "no_attack_commitment_option",
 )

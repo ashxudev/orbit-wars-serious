@@ -18,6 +18,7 @@ from ow_planner import (
     MissionCandidate,
     MissionType,
     commitment_options_for_candidates,
+    no_attack_commitment_option,
 )
 from ow_sim.state import GameState, Planet
 
@@ -69,6 +70,7 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertIs(CommitmentOptionType, CommitmentOptionType)
         self.assertIs(CommitmentPolicyConfig, CommitmentPolicyConfig)
         self.assertIsNotNone(commitment_options_for_candidates)
+        self.assertIsNotNone(no_attack_commitment_option)
 
     def test_commitment_option_type_values_are_stable(self) -> None:
         self.assertEqual(CommitmentOptionType.NO_ATTACK.value, "no_attack")
@@ -142,6 +144,26 @@ class PlannerCommitmentTests(unittest.TestCase):
     def test_commitment_options_returns_empty_tuple_for_empty_candidates(self) -> None:
         self.assertEqual(commitment_options_for_candidates(state_with_planet(), ()), ())
 
+    def test_no_attack_commitment_option_fields_are_stable(self) -> None:
+        candidate = mission_candidate()
+
+        option = no_attack_commitment_option(candidate)
+
+        self.assertEqual(option.option_type, CommitmentOptionType.NO_ATTACK)
+        self.assertIs(option.candidate, candidate)
+        self.assertEqual(option.launches, ())
+        self.assertEqual(option.source_planet_ids, ())
+        self.assertEqual(option.ships_committed, 0)
+        self.assertEqual(option.status, CommitmentOptionStatus.VALIDATED)
+        self.assertEqual(option.note, "no attack")
+
+    def test_no_attack_commitment_option_accepts_no_candidate(self) -> None:
+        option = no_attack_commitment_option()
+
+        self.assertEqual(option.option_type, CommitmentOptionType.NO_ATTACK)
+        self.assertIsNone(option.candidate)
+        self.assertEqual(option.status, CommitmentOptionStatus.VALIDATED)
+
     def test_commitment_options_preserves_candidate_order_and_identity(self) -> None:
         first = mission_candidate(2)
         second = mission_candidate(3)
@@ -154,8 +176,21 @@ class PlannerCommitmentTests(unittest.TestCase):
         self.assertEqual(tuple(wrapper.candidate for wrapper in wrappers), (first, second))
         self.assertIs(wrappers[0].candidate, first)
         self.assertIs(wrappers[1].candidate, second)
-        self.assertEqual(tuple(wrapper.options for wrapper in wrappers), ((), ()))
+        self.assertEqual(
+            tuple(wrapper.options[0].option_type for wrapper in wrappers),
+            (CommitmentOptionType.NO_ATTACK, CommitmentOptionType.NO_ATTACK),
+        )
+        self.assertIs(wrappers[0].options[0].candidate, first)
+        self.assertIs(wrappers[1].options[0].candidate, second)
         self.assertEqual(tuple(wrapper.notes for wrapper in wrappers), ((), ()))
+
+    def test_commitment_options_put_no_attack_first(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planet(),
+            (mission_candidate(),),
+        )
+
+        self.assertEqual(wrapper.options[0].option_type, CommitmentOptionType.NO_ATTACK)
 
     def test_commitment_options_respects_zero_limit_without_inventing_options(self) -> None:
         (wrapper,) = commitment_options_for_candidates(
@@ -165,6 +200,16 @@ class PlannerCommitmentTests(unittest.TestCase):
         )
 
         self.assertEqual(wrapper.options, ())
+
+    def test_commitment_options_positive_limit_includes_no_attack_option(self) -> None:
+        (wrapper,) = commitment_options_for_candidates(
+            state_with_planet(),
+            (mission_candidate(),),
+            CommitmentPolicyConfig(max_options_per_candidate=1),
+        )
+
+        self.assertEqual(len(wrapper.options), 1)
+        self.assertEqual(wrapper.options[0].option_type, CommitmentOptionType.NO_ATTACK)
 
     def test_commitment_options_does_not_mutate_state_or_candidates(self) -> None:
         state = state_with_planet()
