@@ -101,11 +101,14 @@ from .scoring import (
 from .response import (
     MissionResponseEvaluation,
     MissionResponseFacts,
+    RaceSourceFacts,
     ReinforcementSourceFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    TargetRaceFacts,
     TargetReinforcementFacts,
     evaluate_responses,
+    target_race_facts,
     target_reinforcement_facts,
 )
 
@@ -137,6 +140,7 @@ __all__ = (
     "PlanetFutureDeltaFacts",
     "PlanetFacts",
     "ROUGH_TRAVEL_SHIPS",
+    "RaceSourceFacts",
     "ReinforcementSourceFacts",
     "ResponseConfig",
     "ResponseEvaluationStatus",
@@ -145,6 +149,7 @@ __all__ = (
     "ShipEstimateStatus",
     "SourceTargetPair",
     "TargetCategory",
+    "TargetRaceFacts",
     "TargetReinforcementFacts",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
@@ -173,6 +178,7 @@ __all__ = (
     "score_mission_timing_facts",
     "score_mission_value_facts",
     "score_source_opportunity_facts",
+    "target_race_facts",
     "target_reinforcement_facts",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",

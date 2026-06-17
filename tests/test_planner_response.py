@@ -18,11 +18,14 @@ from ow_planner import (
     MissionResponseFacts,
     MissionTimingFacts,
     MissionType,
+    RaceSourceFacts,
     ReinforcementSourceFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    TargetRaceFacts,
     TargetReinforcementFacts,
     evaluate_responses,
+    target_race_facts,
     target_reinforcement_facts,
 )
 from ow_sim.state import GameState, Planet
@@ -135,9 +138,12 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIs(ResponseEvaluationStatus, ResponseEvaluationStatus)
         self.assertIs(MissionResponseFacts, MissionResponseFacts)
         self.assertIs(MissionResponseEvaluation, MissionResponseEvaluation)
+        self.assertIs(RaceSourceFacts, RaceSourceFacts)
         self.assertIs(ReinforcementSourceFacts, ReinforcementSourceFacts)
+        self.assertIs(TargetRaceFacts, TargetRaceFacts)
         self.assertIs(TargetReinforcementFacts, TargetReinforcementFacts)
         self.assertIsNotNone(evaluate_responses)
+        self.assertIsNotNone(target_race_facts)
         self.assertIsNotNone(target_reinforcement_facts)
 
     def test_response_status_enum_values_are_stable(self) -> None:
@@ -166,6 +172,27 @@ class PlannerResponseTests(unittest.TestCase):
                 ),
                 feasible_source_count=1,
             ),
+            target_race=TargetRaceFacts(
+                target_planet_id=2,
+                min_arrival_ticks=3,
+                max_arrival_ticks=5,
+                timing_complete=True,
+                target_ships_before=1,
+                source_facts=(
+                    RaceSourceFacts(
+                        planet_id=3,
+                        owner=1,
+                        ships=4,
+                        distance_to_target=3.0,
+                        travel_ticks=2,
+                        can_arrive_before_earliest=True,
+                        can_arrive_by_earliest=True,
+                        can_arrive_by_latest=True,
+                        target_ships_before=1,
+                        source_has_more_ships_than_target_before=True,
+                    ),
+                ),
+            ),
             notes=("structural",),
         )
         response = MissionResponseEvaluation(
@@ -178,6 +205,7 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(config.response_window_ticks, 3)
         self.assertEqual(facts.response_labels, ("placeholder",))
         self.assertEqual(facts.target_reinforcement.feasible_source_count, 1)
+        self.assertEqual(facts.target_race.target_ships_before, 1)
         self.assertIs(response.evaluation, evaluation)
         with self.assertRaises(FrozenInstanceError):
             config.response_window_ticks = 1
@@ -185,6 +213,8 @@ class PlannerResponseTests(unittest.TestCase):
             facts.notes = ()
         with self.assertRaises(FrozenInstanceError):
             facts.target_reinforcement.feasible_source_count = 2
+        with self.assertRaises(FrozenInstanceError):
+            facts.target_race.target_ships_before = 2
         with self.assertRaises(FrozenInstanceError):
             response.note = None
 
@@ -219,6 +249,8 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(tuple(response.note for response in responses), (None, None))
         self.assertEqual(responses[0].facts.target_reinforcement.target_planet_id, 2)
         self.assertEqual(responses[1].facts.target_reinforcement.target_planet_id, 3)
+        self.assertEqual(responses[0].facts.target_race.target_planet_id, 2)
+        self.assertEqual(responses[1].facts.target_race.target_planet_id, 3)
 
     def test_evaluate_responses_marks_missing_facts_incomplete(self) -> None:
         evaluation = MissionEvaluation(candidate=mission_candidate(), facts=None)
@@ -280,6 +312,86 @@ class PlannerResponseTests(unittest.TestCase):
         )
         self.assertEqual(facts.feasible_source_count, 2)
 
+    def test_target_race_facts_identify_candidate_enemy_sources(self) -> None:
+        facts = target_race_facts(
+            reinforcement_state(),
+            mission_evaluation(),
+        )
+
+        self.assertEqual(facts.target_planet_id, 2)
+        self.assertEqual(facts.min_arrival_ticks, 5)
+        self.assertEqual(facts.max_arrival_ticks, 5)
+        self.assertIs(facts.timing_complete, True)
+        self.assertEqual(facts.target_ships_before, 0)
+        self.assertEqual(
+            facts.source_facts,
+            (
+                RaceSourceFacts(
+                    planet_id=3,
+                    owner=1,
+                    ships=1,
+                    distance_to_target=3.0,
+                    travel_ticks=3,
+                    can_arrive_before_earliest=True,
+                    can_arrive_by_earliest=True,
+                    can_arrive_by_latest=True,
+                    target_ships_before=0,
+                    source_has_more_ships_than_target_before=True,
+                ),
+                RaceSourceFacts(
+                    planet_id=4,
+                    owner=1,
+                    ships=1,
+                    distance_to_target=10.0,
+                    travel_ticks=10,
+                    can_arrive_before_earliest=False,
+                    can_arrive_by_earliest=False,
+                    can_arrive_by_latest=False,
+                    target_ships_before=0,
+                    source_has_more_ships_than_target_before=True,
+                ),
+            ),
+        )
+        self.assertEqual(facts.notes, ())
+
+    def test_target_race_facts_expose_by_latest_arrival_flags(self) -> None:
+        evaluation = mission_evaluation(
+            timing_facts=MissionTimingFacts(
+                launch_arrival_ticks=(5, 10),
+                min_arrival_ticks=5,
+                max_arrival_ticks=10,
+                timing_complete=True,
+            )
+        )
+
+        facts = target_race_facts(reinforcement_state(), evaluation)
+
+        self.assertEqual(
+            tuple(source.can_arrive_before_earliest for source in facts.source_facts),
+            (True, False),
+        )
+        self.assertEqual(
+            tuple(source.can_arrive_by_earliest for source in facts.source_facts),
+            (True, False),
+        )
+        self.assertEqual(
+            tuple(source.can_arrive_by_latest for source in facts.source_facts),
+            (True, True),
+        )
+
+    def test_evaluate_responses_attaches_race_facts(self) -> None:
+        (response,) = evaluate_responses(
+            reinforcement_state(),
+            (mission_evaluation(),),
+        )
+
+        self.assertEqual(response.status, ResponseEvaluationStatus.EVALUATED)
+        self.assertEqual(response.facts.target_race.target_planet_id, 2)
+        self.assertEqual(
+            tuple(source.planet_id for source in response.facts.target_race.source_facts),
+            (3, 4),
+        )
+
     def test_evaluate_responses_attaches_reinforcement_facts(self) -> None:
         (response,) = evaluate_responses(
             reinforcement_state(),
@@ -296,6 +408,17 @@ class PlannerResponseTests(unittest.TestCase):
 
     def test_reinforcement_excludes_target_neutral_player_comet_and_zero_ship_planets(self) -> None:
         facts = target_reinforcement_facts(
+            reinforcement_state(),
+            mission_evaluation(),
+        )
+
+        self.assertEqual(
+            tuple(source.planet_id for source in facts.source_facts),
+            (3, 4),
+        )
+
+    def test_race_excludes_target_neutral_player_comet_and_zero_ship_planets(self) -> None:
+        facts = target_race_facts(
             reinforcement_state(),
             mission_evaluation(),
         )
@@ -322,6 +445,23 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts.feasible_source_count, 0)
         self.assertEqual(facts.notes, ("mission arrival timing is incomplete",))
 
+    def test_race_facts_are_unavailable_when_timing_is_incomplete(self) -> None:
+        evaluation = mission_evaluation(
+            timing_facts=MissionTimingFacts(
+                launch_arrival_ticks=(None,),
+                timing_complete=False,
+            )
+        )
+
+        facts = target_race_facts(reinforcement_state(), evaluation)
+
+        self.assertEqual(facts.target_planet_id, 2)
+        self.assertIsNone(facts.min_arrival_ticks)
+        self.assertIsNone(facts.max_arrival_ticks)
+        self.assertIs(facts.timing_complete, False)
+        self.assertEqual(facts.source_facts, ())
+        self.assertEqual(facts.notes, ("mission arrival timing is incomplete",))
+
     def test_reinforcement_facts_are_unavailable_when_target_is_missing(self) -> None:
         evaluation = mission_evaluation(target_planet_id=99)
 
@@ -334,6 +474,45 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts.feasible_source_count, 0)
         self.assertEqual(facts.notes, ("target planet is missing",))
 
+    def test_race_facts_are_unavailable_when_target_id_is_missing(self) -> None:
+        evaluation = MissionEvaluation(
+            candidate=mission_candidate(target_planet_id=None),
+            status=MissionEvaluationStatus.EVALUATED,
+            facts=MissionEvaluationFacts(
+                mission_type=MissionType.REINFORCE,
+                target_planet_id=None,
+                source_planet_ids=(1,),
+                launch_count=0,
+                ships_spent=0,
+                launch_angles=(),
+                candidate_outcome=CandidateOutcome.UNTESTED,
+                timing_facts=MissionTimingFacts(
+                    launch_arrival_ticks=(5,),
+                    min_arrival_ticks=5,
+                    max_arrival_ticks=5,
+                    timing_complete=True,
+                ),
+            ),
+        )
+
+        facts = target_race_facts(reinforcement_state(), evaluation)
+
+        self.assertIsNone(facts.target_planet_id)
+        self.assertEqual(facts.source_facts, ())
+        self.assertEqual(facts.notes, ("target planet id is missing",))
+
+    def test_race_facts_are_unavailable_when_target_planet_is_missing(self) -> None:
+        evaluation = mission_evaluation(target_planet_id=99)
+
+        facts = target_race_facts(reinforcement_state(), evaluation)
+
+        self.assertEqual(facts.target_planet_id, 99)
+        self.assertEqual(facts.min_arrival_ticks, 5)
+        self.assertEqual(facts.max_arrival_ticks, 5)
+        self.assertIs(facts.timing_complete, True)
+        self.assertEqual(facts.source_facts, ())
+        self.assertEqual(facts.notes, ("target planet is missing",))
+
     def test_reinforcement_facts_note_when_no_candidate_sources_exist(self) -> None:
         facts = target_reinforcement_facts(
             no_reinforcement_state(),
@@ -343,6 +522,15 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts.source_facts, ())
         self.assertEqual(facts.feasible_source_count, 0)
         self.assertEqual(facts.notes, ("no candidate reinforcing planets",))
+
+    def test_race_facts_note_when_no_candidate_sources_exist(self) -> None:
+        facts = target_race_facts(
+            no_reinforcement_state(),
+            mission_evaluation(),
+        )
+
+        self.assertEqual(facts.source_facts, ())
+        self.assertEqual(facts.notes, ("no candidate race sources",))
 
     def test_evaluate_responses_does_not_mutate_state_or_evaluations(self) -> None:
         state = response_state()
