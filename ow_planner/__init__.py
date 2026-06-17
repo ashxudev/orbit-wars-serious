@@ -37,6 +37,7 @@ Commitment Policy Cycle 5 adds full-source options.
 Commitment Policy Cycle 6 adds coordinated multi-source options.
 Strategy Modes Cycle 0 adds deterministic 2p / 4p mode facts.
 Strategy Modes Cycle 1 adds planner decision bundle composition.
+Strategy Modes Cycle 2 adds structural strategy-selection results.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -164,7 +165,12 @@ from .strategy_modes import (
 )
 from .strategy_decisions import (
     PlannerDecisionBundle,
+    StrategySelectionResult,
+    StrategySelectionStatus,
+    no_action_strategy_result,
     planner_decision_bundles,
+    rejected_strategy_result,
+    selected_strategy_result,
 )
 
 __all__ = (
@@ -217,6 +223,8 @@ __all__ = (
     "SourceTargetPair",
     "StrategyMode",
     "StrategyModeFacts",
+    "StrategySelectionResult",
+    "StrategySelectionStatus",
     "TargetCategory",
     "TargetRaceFacts",
     "TargetReinforcementFacts",
@@ -249,15 +257,18 @@ __all__ = (
     "mission_timing_facts",
     "mission_value_facts",
     "minimum_capture_commitment_option",
+    "no_action_strategy_result",
     "no_attack_commitment_option",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
     "planner_decision_bundles",
+    "rejected_strategy_result",
     "score_evaluations",
     "score_mission_outcome_facts",
     "score_mission_timing_facts",
     "score_mission_value_facts",
     "score_source_opportunity_facts",
+    "selected_strategy_result",
     "reserve_preserving_commitment_option",
     "response_source_pressure_facts",
     "response_summary_facts",

@@ -22,7 +22,12 @@ from ow_planner import (
     PlannerDecisionBundle,
     StrategyMode,
     StrategyModeFacts,
+    StrategySelectionResult,
+    StrategySelectionStatus,
+    no_action_strategy_result,
     planner_decision_bundles,
+    rejected_strategy_result,
+    selected_strategy_result,
 )
 
 
@@ -103,7 +108,18 @@ class PlannerStrategyDecisionTests(unittest.TestCase):
         importlib.import_module("ow_planner.strategy_decisions")
 
         self.assertIs(PlannerDecisionBundle, PlannerDecisionBundle)
+        self.assertIs(StrategySelectionResult, StrategySelectionResult)
+        self.assertIs(StrategySelectionStatus, StrategySelectionStatus)
         self.assertIsNotNone(planner_decision_bundles)
+        self.assertIsNotNone(selected_strategy_result)
+        self.assertIsNotNone(no_action_strategy_result)
+        self.assertIsNotNone(rejected_strategy_result)
+
+    def test_strategy_selection_status_values_are_stable(self) -> None:
+        self.assertEqual(StrategySelectionStatus.UNSELECTED.value, "unselected")
+        self.assertEqual(StrategySelectionStatus.SELECTED.value, "selected")
+        self.assertEqual(StrategySelectionStatus.NO_ACTION.value, "no_action")
+        self.assertEqual(StrategySelectionStatus.REJECTED.value, "rejected")
 
     def test_planner_decision_bundle_is_constructible_frozen_and_slotted(self) -> None:
         candidate = mission_candidate()
@@ -114,6 +130,18 @@ class PlannerStrategyDecisionTests(unittest.TestCase):
         self.assertTrue(hasattr(PlannerDecisionBundle, "__slots__"))
         with self.assertRaises(FrozenInstanceError):
             bundle.notes = ("changed",)
+
+    def test_strategy_selection_result_defaults_to_unselected(self) -> None:
+        result = StrategySelectionResult()
+
+        self.assertEqual(result.status, StrategySelectionStatus.UNSELECTED)
+        self.assertIsNone(result.strategy_mode_facts)
+        self.assertIsNone(result.selected_bundle)
+        self.assertIsNone(result.selected_commitment_option)
+        self.assertEqual(result.notes, ())
+        self.assertTrue(hasattr(StrategySelectionResult, "__slots__"))
+        with self.assertRaises(FrozenInstanceError):
+            result.status = StrategySelectionStatus.SELECTED
 
     def test_full_bundle_joins_existing_artifacts_by_candidate_identity(self) -> None:
         candidate = mission_candidate()
@@ -242,6 +270,58 @@ class PlannerStrategyDecisionTests(unittest.TestCase):
         self.assertIs(bundles[0].strategy_mode_facts, facts)
         self.assertIs(bundles[1].strategy_mode_facts, facts)
 
+    def test_selected_strategy_result_attaches_exact_bundle_and_commitment(self) -> None:
+        candidate = mission_candidate()
+        facts = strategy_facts()
+        bundle = PlannerDecisionBundle(
+            candidate=candidate,
+            strategy_mode_facts=facts,
+        )
+        option = commitment_options(candidate).options[0]
+
+        result = selected_strategy_result(
+            bundle,
+            option,
+            notes=["selected structurally"],
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.strategy_mode_facts, facts)
+        self.assertIs(result.selected_bundle, bundle)
+        self.assertIs(result.selected_commitment_option, option)
+        self.assertEqual(result.notes, ("selected structurally",))
+
+    def test_no_action_strategy_result_uses_default_note(self) -> None:
+        facts = strategy_facts()
+
+        result = no_action_strategy_result(strategy_mode_facts=facts)
+
+        self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
+        self.assertIs(result.strategy_mode_facts, facts)
+        self.assertIsNone(result.selected_bundle)
+        self.assertIsNone(result.selected_commitment_option)
+        self.assertEqual(result.notes, ("no action",))
+
+    def test_no_action_strategy_result_preserves_supplied_notes_tuple(self) -> None:
+        result = no_action_strategy_result(notes=("hold", "idle"))
+
+        self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
+        self.assertEqual(result.notes, ("hold", "idle"))
+
+    def test_rejected_strategy_result_preserves_notes(self) -> None:
+        facts = strategy_facts()
+
+        result = rejected_strategy_result(
+            strategy_mode_facts=facts,
+            notes=("missing viable option",),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.REJECTED)
+        self.assertIs(result.strategy_mode_facts, facts)
+        self.assertIsNone(result.selected_bundle)
+        self.assertIsNone(result.selected_commitment_option)
+        self.assertEqual(result.notes, ("missing viable option",))
+
     def test_bundle_composition_does_not_mutate_inputs(self) -> None:
         candidate = mission_candidate()
         evaluation = mission_evaluation(candidate, total_score=3.5)
@@ -269,6 +349,27 @@ class PlannerStrategyDecisionTests(unittest.TestCase):
             before,
         )
 
+    def test_strategy_selection_result_helpers_do_not_mutate_inputs(self) -> None:
+        candidate = mission_candidate()
+        facts = strategy_facts()
+        bundle = PlannerDecisionBundle(
+            candidate=candidate,
+            strategy_mode_facts=facts,
+        )
+        option = commitment_options(candidate).options[0]
+        before = (
+            copy.deepcopy(candidate),
+            copy.deepcopy(facts),
+            copy.deepcopy(bundle),
+            copy.deepcopy(option),
+        )
+
+        selected_strategy_result(bundle, option, notes=("selected",))
+        no_action_strategy_result(facts)
+        rejected_strategy_result(facts, notes=("rejected",))
+
+        self.assertEqual((candidate, facts, bundle, option), before)
+
     def test_bundle_composition_does_not_call_deferred_planner_or_simulator_logic(
         self,
     ) -> None:
@@ -276,6 +377,11 @@ class PlannerStrategyDecisionTests(unittest.TestCase):
         evaluation = mission_evaluation(candidate)
         response = response_evaluation(evaluation)
         commitments = commitment_options(candidate)
+        bundle = PlannerDecisionBundle(
+            candidate=candidate,
+            strategy_mode_facts=strategy_facts(),
+        )
+        option = commitments.options[0]
 
         with (
             patch(
@@ -321,9 +427,18 @@ class PlannerStrategyDecisionTests(unittest.TestCase):
                 response_evaluations=(response,),
                 commitment_options=(commitments,),
             )
+            selected = selected_strategy_result(bundle, option)
+            no_action = no_action_strategy_result(bundle.strategy_mode_facts)
+            rejected = rejected_strategy_result(
+                bundle.strategy_mode_facts,
+                notes=("rejected",),
+            )
 
         self.assertEqual(len(bundles), 1)
         self.assertEqual(bundles[0].notes, ())
+        self.assertEqual(selected.status, StrategySelectionStatus.SELECTED)
+        self.assertEqual(no_action.status, StrategySelectionStatus.NO_ACTION)
+        self.assertEqual(rejected.status, StrategySelectionStatus.REJECTED)
 
 
 if __name__ == "__main__":
