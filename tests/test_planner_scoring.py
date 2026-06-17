@@ -12,10 +12,12 @@ from ow_planner import (
     MissionEvaluation,
     MissionEvaluationFacts,
     MissionScoringConfig,
+    MissionTimingFacts,
     MissionType,
     MissionValueFacts,
     ScoreComponent,
     score_evaluations,
+    score_mission_timing_facts,
     score_mission_value_facts,
 )
 
@@ -80,7 +82,10 @@ def no_launch_value_facts() -> MissionValueFacts:
     )
 
 
-def mission_evaluation(value_facts: MissionValueFacts) -> MissionEvaluation:
+def mission_evaluation(
+    value_facts: MissionValueFacts,
+    timing_facts: MissionTimingFacts = MissionTimingFacts(timing_complete=True),
+) -> MissionEvaluation:
     candidate = MissionCandidate(
         mission_type=MissionType.CAPTURE_NEUTRAL,
         target_planet_id=2,
@@ -96,6 +101,7 @@ def mission_evaluation(value_facts: MissionValueFacts) -> MissionEvaluation:
         launch_angles=(),
         candidate_outcome=CandidateOutcome.UNTESTED,
         value_facts=value_facts,
+        timing_facts=timing_facts,
     )
     return MissionEvaluation(candidate=candidate, facts=facts)
 
@@ -104,18 +110,111 @@ class PlannerScoringTests(unittest.TestCase):
     def test_scoring_exports_are_available(self) -> None:
         self.assertIs(MissionScoringConfig, MissionScoringConfig)
         self.assertIsNotNone(score_mission_value_facts)
+        self.assertIsNotNone(score_mission_timing_facts)
         self.assertIsNotNone(score_evaluations)
 
     def test_scoring_config_is_frozen_and_validates_weights(self) -> None:
-        config = MissionScoringConfig(production_delta_weight=12.0)
+        config = MissionScoringConfig(
+            production_delta_weight=12.0,
+            arrival_tick_weight=-0.25,
+        )
 
         self.assertEqual(config.production_delta_weight, 12.0)
+        self.assertEqual(config.arrival_tick_weight, -0.25)
         with self.assertRaises(FrozenInstanceError):
             config.production_delta_weight = 7.0
-        for value in (True, float("inf"), "1.0"):
-            with self.subTest(value=value):
-                with self.assertRaises(ValueError):
-                    MissionScoringConfig(production_delta_weight=value)
+        for field_name in (
+            "production_delta_weight",
+            "arrival_tick_weight",
+            "incomplete_timing_penalty",
+        ):
+            for value in (True, float("inf"), "1.0"):
+                with self.subTest(field_name=field_name, value=value):
+                    with self.assertRaises(ValueError):
+                        MissionScoringConfig(**{field_name: value})
+
+    def test_complete_timing_scores_max_arrival_ticks(self) -> None:
+        components, total = score_mission_timing_facts(
+            MissionTimingFacts(
+                launch_arrival_ticks=(3, 7),
+                min_arrival_ticks=3,
+                max_arrival_ticks=7,
+                timing_complete=True,
+            )
+        )
+
+        self.assertEqual(
+            components,
+            (ScoreComponent("max_arrival_ticks", 7.0, -0.05),),
+        )
+        self.assertAlmostEqual(total, -0.35)
+
+    def test_no_launch_complete_timing_scores_zero_without_component(self) -> None:
+        components, total = score_mission_timing_facts(
+            MissionTimingFacts(timing_complete=True)
+        )
+
+        self.assertEqual(components, ())
+        self.assertEqual(total, 0.0)
+
+    def test_incomplete_timing_scores_explicit_penalty(self) -> None:
+        components, total = score_mission_timing_facts(
+            MissionTimingFacts(
+                launch_arrival_ticks=(None,),
+                timing_complete=False,
+            )
+        )
+
+        self.assertEqual(
+            components,
+            (ScoreComponent("incomplete_timing_penalty", 1.0, -25.0),),
+        )
+        self.assertEqual(total, -25.0)
+
+    def test_custom_timing_weights_are_applied(self) -> None:
+        config = MissionScoringConfig(
+            arrival_tick_weight=-2.0,
+            incomplete_timing_penalty=-9.0,
+        )
+
+        complete_components, complete_total = score_mission_timing_facts(
+            MissionTimingFacts(
+                launch_arrival_ticks=(4,),
+                min_arrival_ticks=4,
+                max_arrival_ticks=4,
+                timing_complete=True,
+            ),
+            config,
+        )
+        incomplete_components, incomplete_total = score_mission_timing_facts(
+            MissionTimingFacts(launch_arrival_ticks=(None,), timing_complete=False),
+            config,
+        )
+
+        self.assertEqual(
+            complete_components,
+            (ScoreComponent("max_arrival_ticks", 4.0, -2.0),),
+        )
+        self.assertEqual(complete_total, -8.0)
+        self.assertEqual(
+            incomplete_components,
+            (ScoreComponent("incomplete_timing_penalty", 1.0, -9.0),),
+        )
+        self.assertEqual(incomplete_total, -9.0)
+
+    def test_value_scoring_remains_value_only(self) -> None:
+        components, total = score_mission_value_facts(neutral_capture_value_facts())
+
+        self.assertEqual(
+            tuple(component.name for component in components),
+            (
+                "production_delta_vs_baseline",
+                "target_ship_delta_vs_baseline",
+                "source_ship_delta_vs_baseline",
+                "ships_spent",
+            ),
+        )
+        self.assertEqual(total, 29.75)
 
     def test_neutral_capture_value_facts_score_components_and_total(self) -> None:
         components, total = score_mission_value_facts(neutral_capture_value_facts())
@@ -217,6 +316,68 @@ class PlannerScoringTests(unittest.TestCase):
         self.assertEqual(scored[1].total_score, 0.0)
         self.assertEqual(first.score_components, ())
         self.assertIsNone(first.total_score)
+
+    def test_score_evaluations_appends_timing_components_after_value_components(self) -> None:
+        evaluation = mission_evaluation(
+            neutral_capture_value_facts(),
+            MissionTimingFacts(
+                launch_arrival_ticks=(3,),
+                min_arrival_ticks=3,
+                max_arrival_ticks=3,
+                timing_complete=True,
+            ),
+        )
+
+        (scored,) = score_evaluations((evaluation,))
+
+        self.assertEqual(
+            tuple(component.name for component in scored.score_components),
+            (
+                "production_delta_vs_baseline",
+                "target_ship_delta_vs_baseline",
+                "source_ship_delta_vs_baseline",
+                "ships_spent",
+                "max_arrival_ticks",
+            ),
+        )
+        self.assertEqual(
+            scored.score_components[-1],
+            ScoreComponent("max_arrival_ticks", 3.0, -0.05),
+        )
+        self.assertAlmostEqual(scored.total_score, 29.6)
+
+    def test_score_evaluations_penalizes_incomplete_timing_for_valid_missions(self) -> None:
+        evaluation = mission_evaluation(
+            neutral_capture_value_facts(),
+            MissionTimingFacts(launch_arrival_ticks=(None,), timing_complete=False),
+        )
+
+        (scored,) = score_evaluations((evaluation,))
+
+        self.assertEqual(
+            scored.score_components[-1],
+            ScoreComponent("incomplete_timing_penalty", 1.0, -25.0),
+        )
+        self.assertEqual(scored.total_score, 4.75)
+
+    def test_score_evaluations_does_not_add_timing_to_invalid_missions(self) -> None:
+        evaluation = mission_evaluation(
+            MissionValueFacts(ships_spent=3, mission_valid_for_value=False),
+            MissionTimingFacts(
+                launch_arrival_ticks=(3,),
+                min_arrival_ticks=3,
+                max_arrival_ticks=3,
+                timing_complete=True,
+            ),
+        )
+
+        (scored,) = score_evaluations((evaluation,))
+
+        self.assertEqual(
+            scored.score_components,
+            (ScoreComponent("invalid_mission_penalty", 1.0, -1000.0),),
+        )
+        self.assertEqual(scored.total_score, -1000.0)
 
     def test_score_evaluations_handles_missing_facts_as_invalid(self) -> None:
         candidate = MissionCandidate(

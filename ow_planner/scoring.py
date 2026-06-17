@@ -1,8 +1,9 @@
 """Isolated first-pass mission scoring policy.
 
 Mission Evaluation Cycle 7 consumes deterministic ``MissionValueFacts`` and
-returns tunable score components. It does not generate, rank, prune, select,
-simulate, or mutate missions.
+returns tunable score components. Mission Evaluation Cycle 10 adds timing-aware
+components from deterministic ``MissionTimingFacts``. This module does not
+generate, rank, prune, select, simulate, or mutate missions.
 """
 
 from __future__ import annotations
@@ -11,7 +12,12 @@ import math
 from dataclasses import dataclass, replace
 from typing import Sequence
 
-from .evaluation import MissionEvaluation, MissionValueFacts, ScoreComponent
+from .evaluation import (
+    MissionEvaluation,
+    MissionTimingFacts,
+    MissionValueFacts,
+    ScoreComponent,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +29,8 @@ class MissionScoringConfig:
     source_ship_delta_weight: float = 1.0
     ships_spent_weight: float = -0.25
     invalid_mission_penalty: float = -1000.0
+    arrival_tick_weight: float = -0.05
+    incomplete_timing_penalty: float = -25.0
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -31,6 +39,8 @@ class MissionScoringConfig:
             "source_ship_delta_weight",
             "ships_spent_weight",
             "invalid_mission_penalty",
+            "arrival_tick_weight",
+            "incomplete_timing_penalty",
         ):
             _validate_weight(getattr(self, field_name), field_name)
 
@@ -77,6 +87,35 @@ def score_mission_value_facts(
     return (components, _total_score(components))
 
 
+def score_mission_timing_facts(
+    timing_facts: MissionTimingFacts,
+    config: MissionScoringConfig | None = None,
+) -> tuple[tuple[ScoreComponent, ...], float]:
+    """Return timing score components for deterministic arrival facts."""
+
+    effective_config = config or MissionScoringConfig()
+    if timing_facts.timing_complete and not timing_facts.launch_arrival_ticks:
+        return ((), 0.0)
+    if timing_facts.timing_complete and timing_facts.max_arrival_ticks is not None:
+        components = (
+            ScoreComponent(
+                name="max_arrival_ticks",
+                value=float(timing_facts.max_arrival_ticks),
+                weight=effective_config.arrival_tick_weight,
+            ),
+        )
+        return (components, _total_score(components))
+
+    components = (
+        ScoreComponent(
+            name="incomplete_timing_penalty",
+            value=1.0,
+            weight=effective_config.incomplete_timing_penalty,
+        ),
+    )
+    return (components, _total_score(components))
+
+
 def score_evaluations(
     evaluations: Sequence[MissionEvaluation],
     config: MissionScoringConfig | None = None,
@@ -90,10 +129,19 @@ def score_evaluations(
             if evaluation.facts is None
             else evaluation.facts.value_facts
         )
-        components, total_score = score_mission_value_facts(
+        value_components, value_total = score_mission_value_facts(
             value_facts,
             config=config,
         )
+        components = value_components
+        total_score = value_total
+        if value_facts.mission_valid_for_value and evaluation.facts is not None:
+            timing_components, timing_total = score_mission_timing_facts(
+                evaluation.facts.timing_facts,
+                config=config,
+            )
+            components = value_components + timing_components
+            total_score = value_total + timing_total
         scored.append(
             replace(
                 evaluation,
@@ -124,5 +172,6 @@ def _validate_weight(value: object, field_name: str) -> None:
 __all__ = (
     "MissionScoringConfig",
     "score_evaluations",
+    "score_mission_timing_facts",
     "score_mission_value_facts",
 )
