@@ -8,6 +8,7 @@ Mission Generation Cycle 4 adds first-pass required ship estimation.
 Mission Generation Cycle 5 adds simulator-backed factual outcome validation.
 Mission Generation Cycle 6 adds the bounded public generation API.
 Mission Evaluation Cycle 0 adds structural evaluation contracts.
+Mission Evaluation Cycle 1 adds candidate-derived evaluation facts.
 Strategy and scoring are intentionally deferred.
 """
 
@@ -62,6 +63,7 @@ from .evaluation import (
     MissionEvaluationStatus,
     ScoreComponent,
     evaluate_candidates,
+    extract_candidate_facts,
 )
 
 __all__ = (
@@ -95,6 +97,7 @@ __all__ = (
     "estimate_required_ships_for_pair",
     "estimate_source_target_pairs",
     "evaluate_candidates",
+    "extract_candidate_facts",
     "generate_candidates",
     "launch_candidate_to_action",
     "launch_candidate_to_order",

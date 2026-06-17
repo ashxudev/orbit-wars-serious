@@ -1,8 +1,8 @@
 """Planner mission evaluation contracts.
 
-Mission Evaluation Cycle 0 defines stable value types and a structural public
-API boundary. It does not compute facts, run simulator comparisons, score,
-rank, prune, or select missions.
+Mission Evaluation Cycle 1 extracts deterministic facts available directly
+from mission candidates. It does not inspect game state, run simulator
+comparisons, score, rank, prune, or select missions.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Sequence
 
 from ow_sim.state import GameState
 
-from .candidates import MissionCandidate
+from .candidates import CandidateOutcome, MissionCandidate, MissionType
 
 
 class MissionEvaluationStatus(str, Enum):
@@ -52,8 +52,15 @@ class ScoreComponent:
 
 @dataclass(frozen=True, slots=True)
 class MissionEvaluationFacts:
-    """Structural placeholder for future mission evaluation facts."""
+    """Deterministic facts available directly from a mission candidate."""
 
+    mission_type: MissionType
+    target_planet_id: int | None
+    source_planet_ids: tuple[int, ...]
+    launch_count: int
+    ships_spent: int
+    launch_angles: tuple[float, ...]
+    candidate_outcome: CandidateOutcome
     notes: tuple[str, ...] = ()
 
 
@@ -74,15 +81,37 @@ def evaluate_candidates(
     candidates: Sequence[MissionCandidate],
     config: EvaluationConfig | None = None,
 ) -> tuple[MissionEvaluation, ...]:
-    """Return structural unevaluated wrappers for ``candidates``.
+    """Return candidate-fact evaluations for ``candidates``.
 
-    Cycle 0 deliberately avoids simulator rollouts, fact extraction, scoring,
-    ranking, pruning, and action selection. Input order is preserved.
+    Cycle 1 extracts only facts already present on each ``MissionCandidate``.
+    The state argument is intentionally unused and preserved for future API
+    compatibility. Input order is preserved.
     """
 
     _ = state
     _ = config or EvaluationConfig()
-    return tuple(MissionEvaluation(candidate=candidate) for candidate in candidates)
+    return tuple(
+        MissionEvaluation(
+            candidate=candidate,
+            status=MissionEvaluationStatus.EVALUATED,
+            facts=extract_candidate_facts(candidate),
+        )
+        for candidate in candidates
+    )
+
+
+def extract_candidate_facts(candidate: MissionCandidate) -> MissionEvaluationFacts:
+    """Return deterministic facts carried directly by ``candidate``."""
+
+    return MissionEvaluationFacts(
+        mission_type=candidate.mission_type,
+        target_planet_id=candidate.target_planet_id,
+        source_planet_ids=candidate.source_planet_ids,
+        launch_count=len(candidate.launches),
+        ships_spent=sum(launch.ships for launch in candidate.launches),
+        launch_angles=tuple(launch.angle for launch in candidate.launches),
+        candidate_outcome=candidate.outcome,
+    )
 
 
 __all__ = (
@@ -92,4 +121,5 @@ __all__ = (
     "MissionEvaluationStatus",
     "ScoreComponent",
     "evaluate_candidates",
+    "extract_candidate_facts",
 )

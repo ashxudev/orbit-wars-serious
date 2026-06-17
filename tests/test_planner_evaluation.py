@@ -9,6 +9,7 @@ from dataclasses import FrozenInstanceError
 from unittest.mock import patch
 
 from ow_planner import (
+    CandidateOutcome,
     EvaluationConfig,
     LaunchCandidate,
     MissionCandidate,
@@ -18,6 +19,7 @@ from ow_planner import (
     MissionType,
     ScoreComponent,
     evaluate_candidates,
+    extract_candidate_facts,
 )
 from ow_sim.state import GameState, Planet
 
@@ -54,12 +56,18 @@ def state_with_planet() -> GameState:
 def candidate(
     target_planet_id: int,
     mission_type: MissionType = MissionType.CAPTURE_NEUTRAL,
+    source_planet_ids: tuple[int, ...] = (1,),
+    launches: tuple[LaunchCandidate, ...] | None = None,
+    outcome: CandidateOutcome = CandidateOutcome.UNTESTED,
 ) -> MissionCandidate:
+    if launches is None:
+        launches = (LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),)
     return MissionCandidate(
         mission_type=mission_type,
         target_planet_id=target_planet_id,
-        source_planet_ids=(1,),
-        launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=1),),
+        source_planet_ids=source_planet_ids,
+        launches=launches,
+        outcome=outcome,
     )
 
 
@@ -72,6 +80,7 @@ class PlannerEvaluationTests(unittest.TestCase):
         self.assertIs(MissionEvaluationFacts, MissionEvaluationFacts)
         self.assertIs(ScoreComponent, ScoreComponent)
         self.assertIs(EvaluationConfig, EvaluationConfig)
+        self.assertIsNotNone(extract_candidate_facts)
 
     def test_enum_string_values_are_stable(self) -> None:
         self.assertEqual(MissionEvaluationStatus.UNEVALUATED.value, "unevaluated")
@@ -82,7 +91,16 @@ class PlannerEvaluationTests(unittest.TestCase):
         mission = candidate(2)
         config = EvaluationConfig(horizon_ticks=12)
         component = ScoreComponent(name="placeholder", value=2.5, weight=0.75)
-        facts = MissionEvaluationFacts(notes=("structural",))
+        facts = MissionEvaluationFacts(
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            target_planet_id=2,
+            source_planet_ids=(1,),
+            launch_count=1,
+            ships_spent=1,
+            launch_angles=(0.0,),
+            candidate_outcome=CandidateOutcome.UNTESTED,
+            notes=("structural",),
+        )
         evaluation = MissionEvaluation(
             candidate=mission,
             facts=facts,
@@ -112,17 +130,72 @@ class PlannerEvaluationTests(unittest.TestCase):
 
         evaluations = evaluate_candidates(state_with_planet(), (first, second))
 
-        self.assertEqual(tuple(evaluation.candidate for evaluation in evaluations), (first, second))
+        self.assertEqual(
+            tuple(evaluation.candidate for evaluation in evaluations),
+            (first, second),
+        )
         self.assertIs(evaluations[0].candidate, first)
         self.assertIs(evaluations[1].candidate, second)
 
-    def test_default_evaluations_are_unevaluated_structural_wrappers(self) -> None:
+    def test_extract_candidate_facts_for_neutral_capture_candidate(self) -> None:
+        mission = candidate(2)
+
+        facts = extract_candidate_facts(mission)
+
+        self.assertEqual(facts.mission_type, MissionType.CAPTURE_NEUTRAL)
+        self.assertEqual(facts.target_planet_id, 2)
+        self.assertEqual(facts.source_planet_ids, (1,))
+        self.assertEqual(facts.launch_count, 1)
+        self.assertEqual(facts.ships_spent, 1)
+        self.assertEqual(facts.launch_angles, (0.0,))
+        self.assertEqual(facts.candidate_outcome, CandidateOutcome.UNTESTED)
+
+    def test_extract_candidate_facts_for_enemy_attack_candidate(self) -> None:
+        mission = candidate(
+            3,
+            mission_type=MissionType.ATTACK_ENEMY,
+            outcome=CandidateOutcome.VALIDATED,
+        )
+
+        facts = extract_candidate_facts(mission)
+
+        self.assertEqual(facts.mission_type, MissionType.ATTACK_ENEMY)
+        self.assertEqual(facts.target_planet_id, 3)
+        self.assertEqual(facts.candidate_outcome, CandidateOutcome.VALIDATED)
+
+    def test_multi_launch_candidate_totals_and_ordered_angles(self) -> None:
+        mission = candidate(
+            4,
+            source_planet_ids=(3, 1),
+            launches=(
+                LaunchCandidate(source_planet_id=3, angle=1.25, ships=5),
+                LaunchCandidate(source_planet_id=1, angle=-0.5, ships=7),
+            ),
+        )
+
+        facts = extract_candidate_facts(mission)
+
+        self.assertEqual(facts.source_planet_ids, (3, 1))
+        self.assertEqual(facts.launch_count, 2)
+        self.assertEqual(facts.ships_spent, 12)
+        self.assertEqual(facts.launch_angles, (1.25, -0.5))
+
+    def test_no_launch_candidate_has_zero_launch_facts(self) -> None:
+        mission = candidate(5, launches=())
+
+        facts = extract_candidate_facts(mission)
+
+        self.assertEqual(facts.launch_count, 0)
+        self.assertEqual(facts.ships_spent, 0)
+        self.assertEqual(facts.launch_angles, ())
+
+    def test_evaluate_candidates_returns_evaluated_wrappers_with_facts(self) -> None:
         mission = candidate(2)
 
         (evaluation,) = evaluate_candidates(state_with_planet(), (mission,))
 
-        self.assertEqual(evaluation.status, MissionEvaluationStatus.UNEVALUATED)
-        self.assertIsNone(evaluation.facts)
+        self.assertEqual(evaluation.status, MissionEvaluationStatus.EVALUATED)
+        self.assertEqual(evaluation.facts, extract_candidate_facts(mission))
         self.assertEqual(evaluation.score_components, ())
         self.assertIsNone(evaluation.total_score)
         self.assertIsNone(evaluation.note)
@@ -149,12 +222,16 @@ class PlannerEvaluationTests(unittest.TestCase):
     def test_evaluate_candidates_does_not_call_generation_or_simulation_helpers(self) -> None:
         with (
             patch("ow_planner.candidates.generate_candidates") as generate,
+            patch("ow_planner.actions.launch_candidate_to_order") as action_convert,
+            patch("ow_planner.outcomes.validate_estimated_pair_outcomes") as outcomes,
             patch("ow_sim.timeline.simulate_ticks") as simulate_ticks,
             patch("ow_sim.whatif.simulate_launch_orders") as simulate_launch_orders,
         ):
             evaluate_candidates(state_with_planet(), (candidate(2),))
 
         generate.assert_not_called()
+        action_convert.assert_not_called()
+        outcomes.assert_not_called()
         simulate_ticks.assert_not_called()
         simulate_launch_orders.assert_not_called()
 
