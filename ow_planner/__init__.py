@@ -19,6 +19,7 @@ Mission Evaluation Cycle 8 adds evaluated-and-scored composition.
 Mission Evaluation Cycle 9 adds deterministic arrival timing facts.
 Mission Evaluation Cycle 10 adds timing-aware scoring components.
 Mission Evaluation Cycle 11 adds capture-outcome scoring components.
+Mission Evaluation Cycle 12 adds source-drain opportunity-cost scoring.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -94,6 +95,7 @@ from .scoring import (
     score_mission_outcome_facts,
     score_mission_timing_facts,
     score_mission_value_facts,
+    score_source_opportunity_facts,
 )
 
 __all__ = (
@@ -152,6 +154,7 @@ __all__ = (
     "score_mission_outcome_facts",
     "score_mission_timing_facts",
     "score_mission_value_facts",
+    "score_source_opportunity_facts",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",
 )

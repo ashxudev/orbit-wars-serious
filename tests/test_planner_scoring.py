@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from ow_planner import (
     CandidateOutcome,
+    MissionFutureDeltaFacts,
     MissionCandidate,
     MissionEvaluation,
     MissionEvaluationFacts,
@@ -15,11 +16,14 @@ from ow_planner import (
     MissionTimingFacts,
     MissionType,
     MissionValueFacts,
+    PlanetEvaluationFacts,
+    PlanetFutureDeltaFacts,
     ScoreComponent,
     score_evaluations,
     score_mission_outcome_facts,
     score_mission_timing_facts,
     score_mission_value_facts,
+    score_source_opportunity_facts,
 )
 
 
@@ -126,7 +130,44 @@ def lost_target_value_facts() -> MissionValueFacts:
 def mission_evaluation(
     value_facts: MissionValueFacts,
     timing_facts: MissionTimingFacts = MissionTimingFacts(timing_complete=True),
+    *,
+    source_before_ships: int = 5,
+    source_mission_ships: int | None = None,
+    include_source_facts: bool = True,
 ) -> MissionEvaluation:
+    if source_mission_ships is None:
+        source_mission_ships = (
+            source_before_ships
+            + (value_facts.total_source_ship_delta_vs_before or 0)
+        )
+    source_delta = source_mission_ships - source_before_ships
+    sources_before = (
+        (PlanetEvaluationFacts(1, 0, source_before_ships, 0),)
+        if include_source_facts
+        else ()
+    )
+    sources_mission = (
+        (PlanetEvaluationFacts(1, 0, source_mission_ships, 0),)
+        if include_source_facts
+        else ()
+    )
+    future_delta = (
+        MissionFutureDeltaFacts(
+            sources=(
+                PlanetFutureDeltaFacts(
+                    planet_id=1,
+                    before_ships=source_before_ships,
+                    mission_ships=source_mission_ships,
+                    mission_ship_delta_vs_baseline=source_delta,
+                    mission_ship_delta_vs_before=source_delta,
+                ),
+            ),
+            total_source_ship_delta_vs_baseline=source_delta,
+            total_source_ship_delta_vs_before=source_delta,
+        )
+        if include_source_facts
+        else MissionFutureDeltaFacts()
+    )
     candidate = MissionCandidate(
         mission_type=MissionType.CAPTURE_NEUTRAL,
         target_planet_id=2,
@@ -141,6 +182,9 @@ def mission_evaluation(
         ships_spent=value_facts.ships_spent,
         launch_angles=(),
         candidate_outcome=CandidateOutcome.UNTESTED,
+        sources_before=sources_before,
+        sources_mission=sources_mission,
+        future_delta=future_delta,
         value_facts=value_facts,
         timing_facts=timing_facts,
     )
@@ -153,6 +197,7 @@ class PlannerScoringTests(unittest.TestCase):
         self.assertIsNotNone(score_mission_value_facts)
         self.assertIsNotNone(score_mission_timing_facts)
         self.assertIsNotNone(score_mission_outcome_facts)
+        self.assertIsNotNone(score_source_opportunity_facts)
         self.assertIsNotNone(score_evaluations)
 
     def test_scoring_config_is_frozen_and_validates_weights(self) -> None:
@@ -172,6 +217,9 @@ class PlannerScoringTests(unittest.TestCase):
             "capture_success_weight",
             "retain_control_weight",
             "target_loss_penalty",
+            "source_drain_fraction_weight",
+            "source_depleted_count_weight",
+            "incomplete_source_opportunity_penalty",
         ):
             for value in (True, float("inf"), "1.0"):
                 with self.subTest(field_name=field_name, value=value):
@@ -332,6 +380,133 @@ class PlannerScoringTests(unittest.TestCase):
         )
         self.assertEqual(loss_total, -13.0)
 
+    def test_source_opportunity_scores_drain_fraction_and_depleted_count(self) -> None:
+        evaluation = mission_evaluation(
+            neutral_capture_value_facts(),
+            source_before_ships=10,
+            source_mission_ships=4,
+        )
+
+        components, total = score_source_opportunity_facts(evaluation.facts)
+
+        self.assertEqual(
+            components,
+            (
+                ScoreComponent("source_drain_fraction", 0.6, -2.0),
+                ScoreComponent("source_depleted_count", 0.0, -3.0),
+            ),
+        )
+        self.assertAlmostEqual(total, -1.2)
+
+    def test_source_opportunity_scores_depleted_source(self) -> None:
+        evaluation = mission_evaluation(
+            neutral_capture_value_facts(),
+            source_before_ships=5,
+            source_mission_ships=0,
+        )
+
+        components, total = score_source_opportunity_facts(evaluation.facts)
+
+        self.assertEqual(
+            components,
+            (
+                ScoreComponent("source_drain_fraction", 1.0, -2.0),
+                ScoreComponent("source_depleted_count", 1.0, -3.0),
+            ),
+        )
+        self.assertEqual(total, -5.0)
+
+    def test_source_opportunity_no_drain_scores_zero_components(self) -> None:
+        evaluation = mission_evaluation(no_launch_value_facts())
+
+        components, total = score_source_opportunity_facts(evaluation.facts)
+
+        self.assertEqual(
+            components,
+            (
+                ScoreComponent("source_drain_fraction", 0.0, -2.0),
+                ScoreComponent("source_depleted_count", 0.0, -3.0),
+            ),
+        )
+        self.assertEqual(total, 0.0)
+
+    def test_source_opportunity_incomplete_facts_get_penalty(self) -> None:
+        evaluation = mission_evaluation(
+            neutral_capture_value_facts(),
+            include_source_facts=False,
+        )
+
+        components, total = score_source_opportunity_facts(evaluation.facts)
+
+        self.assertEqual(
+            components,
+            (ScoreComponent("incomplete_source_opportunity_penalty", 1.0, -15.0),),
+        )
+        self.assertEqual(total, -15.0)
+
+    def test_source_opportunity_empty_source_ids_scores_zero(self) -> None:
+        facts = MissionEvaluationFacts(
+            mission_type=MissionType.REINFORCE,
+            target_planet_id=None,
+            source_planet_ids=(),
+            launch_count=0,
+            ships_spent=0,
+            launch_angles=(),
+            candidate_outcome=CandidateOutcome.UNTESTED,
+            value_facts=MissionValueFacts(mission_valid_for_value=True),
+        )
+
+        components, total = score_source_opportunity_facts(facts)
+
+        self.assertEqual(components, ())
+        self.assertEqual(total, 0.0)
+
+    def test_source_opportunity_scores_nothing_for_invalid_missions(self) -> None:
+        evaluation = mission_evaluation(
+            MissionValueFacts(mission_valid_for_value=False),
+            include_source_facts=False,
+        )
+
+        components, total = score_source_opportunity_facts(evaluation.facts)
+
+        self.assertEqual(components, ())
+        self.assertEqual(total, 0.0)
+
+    def test_custom_source_opportunity_weights_are_applied(self) -> None:
+        evaluation = mission_evaluation(
+            neutral_capture_value_facts(),
+            source_before_ships=8,
+            source_mission_ships=0,
+        )
+        config = MissionScoringConfig(
+            source_drain_fraction_weight=-4.0,
+            source_depleted_count_weight=-9.0,
+            incomplete_source_opportunity_penalty=-21.0,
+        )
+
+        components, total = score_source_opportunity_facts(evaluation.facts, config)
+        incomplete_components, incomplete_total = score_source_opportunity_facts(
+            mission_evaluation(
+                neutral_capture_value_facts(),
+                include_source_facts=False,
+            ).facts,
+            config,
+        )
+
+        self.assertEqual(
+            components,
+            (
+                ScoreComponent("source_drain_fraction", 1.0, -4.0),
+                ScoreComponent("source_depleted_count", 1.0, -9.0),
+            ),
+        )
+        self.assertEqual(total, -13.0)
+        self.assertEqual(
+            incomplete_components,
+            (ScoreComponent("incomplete_source_opportunity_penalty", 1.0, -21.0),),
+        )
+        self.assertEqual(incomplete_total, -21.0)
+
     def test_value_scoring_remains_value_only(self) -> None:
         components, total = score_mission_value_facts(neutral_capture_value_facts())
 
@@ -442,7 +617,7 @@ class PlannerScoringTests(unittest.TestCase):
         self.assertEqual(tuple(evaluation.candidate for evaluation in scored), (first.candidate, second.candidate))
         self.assertIs(scored[0].candidate, first.candidate)
         self.assertIs(scored[1].candidate, second.candidate)
-        self.assertEqual(scored[0].total_score, 34.75)
+        self.assertEqual(scored[0].total_score, 34.35)
         self.assertEqual(scored[1].total_score, 0.0)
         self.assertEqual(first.score_components, ())
         self.assertIsNone(first.total_score)
@@ -469,17 +644,26 @@ class PlannerScoringTests(unittest.TestCase):
                 "ships_spent",
                 "max_arrival_ticks",
                 "target_captured_by_player",
+                "source_drain_fraction",
+                "source_depleted_count",
             ),
         )
         self.assertEqual(
-            scored.score_components[-2],
+            scored.score_components[-4],
             ScoreComponent("max_arrival_ticks", 3.0, -0.05),
         )
         self.assertEqual(
-            scored.score_components[-1],
+            scored.score_components[-3],
             ScoreComponent("target_captured_by_player", 1.0, 5.0),
         )
-        self.assertAlmostEqual(scored.total_score, 34.6)
+        self.assertEqual(
+            scored.score_components[-2:],
+            (
+                ScoreComponent("source_drain_fraction", 0.2, -2.0),
+                ScoreComponent("source_depleted_count", 0.0, -3.0),
+            ),
+        )
+        self.assertAlmostEqual(scored.total_score, 34.2)
 
     def test_score_evaluations_penalizes_incomplete_timing_for_valid_missions(self) -> None:
         evaluation = mission_evaluation(
@@ -490,14 +674,21 @@ class PlannerScoringTests(unittest.TestCase):
         (scored,) = score_evaluations((evaluation,))
 
         self.assertEqual(
-            scored.score_components[-2],
+            scored.score_components[-4],
             ScoreComponent("incomplete_timing_penalty", 1.0, -25.0),
         )
         self.assertEqual(
-            scored.score_components[-1],
+            scored.score_components[-3],
             ScoreComponent("target_captured_by_player", 1.0, 5.0),
         )
-        self.assertEqual(scored.total_score, 9.75)
+        self.assertEqual(
+            scored.score_components[-2:],
+            (
+                ScoreComponent("source_drain_fraction", 0.2, -2.0),
+                ScoreComponent("source_depleted_count", 0.0, -3.0),
+            ),
+        )
+        self.assertEqual(scored.total_score, 9.35)
 
     def test_score_evaluations_appends_retain_and_loss_outcome_components(self) -> None:
         retained = mission_evaluation(retained_control_value_facts())
@@ -506,12 +697,12 @@ class PlannerScoringTests(unittest.TestCase):
         retained_scored, lost_scored = score_evaluations((retained, lost))
 
         self.assertEqual(
-            retained_scored.score_components[-1],
+            retained_scored.score_components[-3],
             ScoreComponent("target_retained_by_player", 1.0, 2.0),
         )
         self.assertEqual(retained_scored.total_score, 3.0)
         self.assertEqual(
-            lost_scored.score_components[-1],
+            lost_scored.score_components[-3],
             ScoreComponent("target_lost_by_player", 1.0, -10.0),
         )
         self.assertEqual(lost_scored.total_score, -34.0)
