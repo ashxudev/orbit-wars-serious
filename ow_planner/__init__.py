@@ -25,6 +25,7 @@ Opponent Response Model Cycle 1 adds reinforcement feasibility facts.
 Opponent Response Model Cycle 2 adds target race-risk facts.
 Opponent Response Model Cycle 3 adds source counterattack-risk facts.
 Opponent Response Model Cycle 4 adds FFA third-party benefit facts.
+Opponent Response Model Cycle 5 adds deterministic response summary labels.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -110,12 +111,14 @@ from .response import (
     ReinforcementSourceFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    ResponseSummaryFacts,
     SourceCounterattackFacts,
     TargetRaceFacts,
     TargetReinforcementFacts,
     ThirdPartyBenefitFacts,
     ThirdPartyOwnerFacts,
     evaluate_responses,
+    response_summary_facts,
     source_counterattack_facts,
     target_race_facts,
     target_reinforcement_facts,
@@ -155,6 +158,7 @@ __all__ = (
     "ReinforcementSourceFacts",
     "ResponseConfig",
     "ResponseEvaluationStatus",
+    "ResponseSummaryFacts",
     "ScoreComponent",
     "ShipEstimate",
     "ShipEstimateStatus",
@@ -192,6 +196,7 @@ __all__ = (
     "score_mission_timing_facts",
     "score_mission_value_facts",
     "score_source_opportunity_facts",
+    "response_summary_facts",
     "source_counterattack_facts",
     "target_race_facts",
     "target_reinforcement_facts",

@@ -26,12 +26,14 @@ from ow_planner import (
     ReinforcementSourceFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    ResponseSummaryFacts,
     SourceCounterattackFacts,
     TargetRaceFacts,
     TargetReinforcementFacts,
     ThirdPartyBenefitFacts,
     ThirdPartyOwnerFacts,
     evaluate_responses,
+    response_summary_facts,
     source_counterattack_facts,
     target_race_facts,
     target_reinforcement_facts,
@@ -369,12 +371,14 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIs(MissionResponseEvaluation, MissionResponseEvaluation)
         self.assertIs(RaceSourceFacts, RaceSourceFacts)
         self.assertIs(ReinforcementSourceFacts, ReinforcementSourceFacts)
+        self.assertIs(ResponseSummaryFacts, ResponseSummaryFacts)
         self.assertIs(SourceCounterattackFacts, SourceCounterattackFacts)
         self.assertIs(TargetRaceFacts, TargetRaceFacts)
         self.assertIs(TargetReinforcementFacts, TargetReinforcementFacts)
         self.assertIs(ThirdPartyBenefitFacts, ThirdPartyBenefitFacts)
         self.assertIs(ThirdPartyOwnerFacts, ThirdPartyOwnerFacts)
         self.assertIsNotNone(evaluate_responses)
+        self.assertIsNotNone(response_summary_facts)
         self.assertIsNotNone(source_counterattack_facts)
         self.assertIsNotNone(target_race_facts)
         self.assertIsNotNone(target_reinforcement_facts)
@@ -472,6 +476,11 @@ class PlannerResponseTests(unittest.TestCase):
                 ),
                 unaffected_non_player_owner_count=1,
             ),
+            response_summary=ResponseSummaryFacts(
+                labels=("target_reinforcement_feasible",),
+                target_reinforcement_feasible=True,
+                reinforcement_feasible_source_count=1,
+            ),
             notes=("structural",),
         )
         response = MissionResponseEvaluation(
@@ -487,6 +496,7 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertEqual(facts.target_race.target_ships_before, 1)
         self.assertEqual(facts.source_counterattacks[0].ships_drained, 6)
         self.assertEqual(facts.third_party_benefit.unaffected_non_player_owner_count, 1)
+        self.assertEqual(facts.response_summary.labels, ("target_reinforcement_feasible",))
         self.assertIs(response.evaluation, evaluation)
         with self.assertRaises(FrozenInstanceError):
             config.response_window_ticks = 1
@@ -500,6 +510,8 @@ class PlannerResponseTests(unittest.TestCase):
             facts.source_counterattacks[0].ships_drained = 7
         with self.assertRaises(FrozenInstanceError):
             facts.third_party_benefit.unaffected_non_player_owner_count = 2
+        with self.assertRaises(FrozenInstanceError):
+            facts.response_summary.labels = ()
         with self.assertRaises(FrozenInstanceError):
             response.note = None
 
@@ -684,7 +696,10 @@ class PlannerResponseTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status, ResponseEvaluationStatus.EVALUATED)
-        self.assertEqual(response.facts.response_labels, ())
+        self.assertEqual(
+            response.facts.response_labels,
+            ("target_reinforcement_feasible", "target_race_risk"),
+        )
         self.assertEqual(response.facts.target_reinforcement.feasible_source_count, 1)
         self.assertEqual(
             tuple(source.planet_id for source in response.facts.target_reinforcement.source_facts),
@@ -1044,6 +1059,149 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIsNone(facts.target_owner_mission)
         self.assertIsNone(facts.target_owner_loses_control_by_mission)
         self.assertIn("target mission facts are missing", facts.notes)
+
+    def test_response_summary_empty_default_has_no_labels(self) -> None:
+        summary = response_summary_facts(MissionResponseFacts())
+
+        self.assertEqual(summary, ResponseSummaryFacts())
+        self.assertEqual(summary.labels, ())
+
+    def test_response_summary_labels_reinforcement_feasible(self) -> None:
+        summary = response_summary_facts(
+            MissionResponseFacts(
+                target_reinforcement=TargetReinforcementFacts(
+                    feasible_source_count=2,
+                ),
+            )
+        )
+
+        self.assertEqual(summary.labels, ("target_reinforcement_feasible",))
+        self.assertIs(summary.target_reinforcement_feasible, True)
+        self.assertEqual(summary.reinforcement_feasible_source_count, 2)
+
+    def test_response_summary_labels_target_race_risk(self) -> None:
+        summary = response_summary_facts(
+            MissionResponseFacts(
+                target_race=TargetRaceFacts(
+                    source_facts=(
+                        RaceSourceFacts(
+                            planet_id=3,
+                            owner=1,
+                            ships=4,
+                            distance_to_target=3.0,
+                            travel_ticks=2,
+                            can_arrive_before_earliest=True,
+                            can_arrive_by_earliest=True,
+                            can_arrive_by_latest=True,
+                            target_ships_before=1,
+                            source_has_more_ships_than_target_before=True,
+                        ),
+                        RaceSourceFacts(
+                            planet_id=4,
+                            owner=2,
+                            ships=4,
+                            distance_to_target=10.0,
+                            travel_ticks=7,
+                            can_arrive_before_earliest=False,
+                            can_arrive_by_earliest=False,
+                            can_arrive_by_latest=True,
+                            target_ships_before=1,
+                            source_has_more_ships_than_target_before=True,
+                        ),
+                    ),
+                ),
+            )
+        )
+
+        self.assertEqual(summary.labels, ("target_race_risk",))
+        self.assertIs(summary.target_race_risk, True)
+        self.assertEqual(summary.race_by_earliest_source_count, 1)
+
+    def test_response_summary_labels_source_counterattack_risk(self) -> None:
+        summary = response_summary_facts(
+            MissionResponseFacts(
+                source_counterattacks=source_counterattack_facts(
+                    counterattack_state(),
+                    source_mission_evaluation(),
+                    ResponseConfig(response_window_ticks=3),
+                ),
+            )
+        )
+
+        self.assertEqual(summary.labels, ("source_counterattack_risk",))
+        self.assertIs(summary.source_counterattack_risk, True)
+        self.assertEqual(summary.counterattack_arrives_by_window_count, 1)
+
+    def test_response_summary_labels_third_party_benefit_possible(self) -> None:
+        summary = response_summary_facts(
+            MissionResponseFacts(
+                third_party_benefit=third_party_benefit_facts(
+                    ffa_state(),
+                    third_party_mission_evaluation(),
+                ),
+            )
+        )
+
+        self.assertEqual(summary.labels, ("third_party_benefit_possible",))
+        self.assertIs(summary.third_party_benefit_possible, True)
+        self.assertEqual(summary.third_party_owner_count, 2)
+
+    def test_response_summary_labels_have_stable_order(self) -> None:
+        summary = response_summary_facts(
+            MissionResponseFacts(
+                target_reinforcement=TargetReinforcementFacts(
+                    feasible_source_count=1,
+                ),
+                target_race=TargetRaceFacts(
+                    source_facts=(
+                        RaceSourceFacts(
+                            planet_id=3,
+                            owner=1,
+                            ships=4,
+                            distance_to_target=3.0,
+                            travel_ticks=2,
+                            can_arrive_before_earliest=True,
+                            can_arrive_by_earliest=True,
+                            can_arrive_by_latest=True,
+                            target_ships_before=1,
+                            source_has_more_ships_than_target_before=True,
+                        ),
+                    ),
+                ),
+                source_counterattacks=source_counterattack_facts(
+                    counterattack_state(),
+                    source_mission_evaluation(),
+                    ResponseConfig(response_window_ticks=3),
+                ),
+                third_party_benefit=third_party_benefit_facts(
+                    ffa_state(),
+                    third_party_mission_evaluation(),
+                ),
+            )
+        )
+
+        self.assertEqual(
+            summary.labels,
+            (
+                "target_reinforcement_feasible",
+                "target_race_risk",
+                "source_counterattack_risk",
+                "third_party_benefit_possible",
+            ),
+        )
+
+    def test_evaluate_responses_attaches_response_summary_labels(self) -> None:
+        (response,) = evaluate_responses(
+            ffa_state(),
+            (third_party_mission_evaluation(),),
+        )
+
+        self.assertEqual(
+            response.facts.response_labels,
+            response.facts.response_summary.labels,
+        )
+        self.assertIn("third_party_benefit_possible", response.facts.response_labels)
+        self.assertIs(response.facts.response_summary.third_party_benefit_possible, True)
 
     def test_reinforcement_facts_are_unavailable_when_timing_is_incomplete(self) -> None:
         evaluation = mission_evaluation(

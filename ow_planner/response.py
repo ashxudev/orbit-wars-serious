@@ -4,8 +4,8 @@ Opponent Response Model Cycle 0 defines immutable response-evaluation
 containers and a structural public API. Cycle 1 adds deterministic opponent
 reinforcement feasibility facts. Cycle 2 adds deterministic target race-risk
 facts. Cycle 3 adds deterministic source counterattack-risk facts. Cycle 4 adds
-deterministic FFA third-party benefit facts. It does not model scoring,
-ranking, pruning, or selection.
+deterministic FFA third-party benefit facts. Cycle 5 adds deterministic response
+summary labels. It does not model scoring, ranking, pruning, or selection.
 """
 
 from __future__ import annotations
@@ -161,6 +161,22 @@ class ThirdPartyBenefitFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class ResponseSummaryFacts:
+    """Deterministic summary labels and counts for response facts."""
+
+    labels: tuple[str, ...] = ()
+    target_reinforcement_feasible: bool = False
+    target_race_risk: bool = False
+    source_counterattack_risk: bool = False
+    third_party_benefit_possible: bool = False
+    reinforcement_feasible_source_count: int = 0
+    race_by_earliest_source_count: int = 0
+    counterattack_arrives_by_window_count: int = 0
+    third_party_owner_count: int = 0
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class MissionResponseFacts:
     """Deterministic response facts for one mission evaluation."""
 
@@ -173,6 +189,7 @@ class MissionResponseFacts:
     third_party_benefit: ThirdPartyBenefitFacts = field(
         default_factory=ThirdPartyBenefitFacts
     )
+    response_summary: ResponseSummaryFacts = field(default_factory=ResponseSummaryFacts)
     notes: tuple[str, ...] = ()
 
 
@@ -231,15 +248,24 @@ def evaluate_responses(
             evaluation,
             effective_config,
         )
+        facts = MissionResponseFacts(
+            target_reinforcement=target_reinforcement,
+            target_race=target_race,
+            source_counterattacks=source_counterattacks,
+            third_party_benefit=third_party_benefit,
+        )
+        response_summary = response_summary_facts(facts)
         response_evaluations.append(
             MissionResponseEvaluation(
                 evaluation=evaluation,
                 status=ResponseEvaluationStatus.EVALUATED,
                 facts=MissionResponseFacts(
+                    response_labels=response_summary.labels,
                     target_reinforcement=target_reinforcement,
                     target_race=target_race,
                     source_counterattacks=source_counterattacks,
                     third_party_benefit=third_party_benefit,
+                    response_summary=response_summary,
                 ),
             )
         )
@@ -475,6 +501,58 @@ def third_party_benefit_facts(
             if owner_facts.unaffected_by_target_ownership_change
         ),
         notes=tuple(notes),
+    )
+
+
+def response_summary_facts(
+    response_facts: MissionResponseFacts,
+) -> ResponseSummaryFacts:
+    """Return deterministic labels and counts from response facts."""
+
+    reinforcement_count = response_facts.target_reinforcement.feasible_source_count
+    race_by_earliest_count = sum(
+        1
+        for source in response_facts.target_race.source_facts
+        if source.can_arrive_by_earliest
+    )
+    counterattack_by_window_count = sum(
+        1
+        for source_facts in response_facts.source_counterattacks
+        for source in source_facts.counterattack_sources
+        if source.arrives_by_response_window
+    )
+    third_party_owner_count = (
+        response_facts.third_party_benefit.unaffected_non_player_owner_count
+    )
+
+    target_reinforcement_feasible = reinforcement_count > 0
+    target_race_risk = race_by_earliest_count > 0
+    source_counterattack_risk = counterattack_by_window_count > 0
+    third_party_benefit_possible = (
+        response_facts.third_party_benefit.target_owner_damaged_by_mission is True
+        and third_party_owner_count > 0
+    )
+
+    labels: list[str] = []
+    if target_reinforcement_feasible:
+        labels.append("target_reinforcement_feasible")
+    if target_race_risk:
+        labels.append("target_race_risk")
+    if source_counterattack_risk:
+        labels.append("source_counterattack_risk")
+    if third_party_benefit_possible:
+        labels.append("third_party_benefit_possible")
+
+    return ResponseSummaryFacts(
+        labels=tuple(labels),
+        target_reinforcement_feasible=target_reinforcement_feasible,
+        target_race_risk=target_race_risk,
+        source_counterattack_risk=source_counterattack_risk,
+        third_party_benefit_possible=third_party_benefit_possible,
+        reinforcement_feasible_source_count=reinforcement_count,
+        race_by_earliest_source_count=race_by_earliest_count,
+        counterattack_arrives_by_window_count=counterattack_by_window_count,
+        third_party_owner_count=third_party_owner_count,
     )
 
 
@@ -745,12 +823,14 @@ __all__ = (
     "ReinforcementSourceFacts",
     "ResponseConfig",
     "ResponseEvaluationStatus",
+    "ResponseSummaryFacts",
     "SourceCounterattackFacts",
     "TargetRaceFacts",
     "TargetReinforcementFacts",
     "ThirdPartyBenefitFacts",
     "ThirdPartyOwnerFacts",
     "evaluate_responses",
+    "response_summary_facts",
     "source_counterattack_facts",
     "target_race_facts",
     "target_reinforcement_facts",
