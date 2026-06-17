@@ -13,6 +13,7 @@ Mission Evaluation Cycle 2 adds before-state planet lookup facts.
 Mission Evaluation Cycle 3 adds idle baseline future lookup facts.
 Mission Evaluation Cycle 4 adds mechanical candidate future lookup facts.
 Mission Evaluation Cycle 5 adds deterministic mission-vs-baseline deltas.
+Mission Evaluation Cycle 6 adds deterministic mission value feature facts.
 Strategy and scoring are intentionally deferred.
 """
 
@@ -66,6 +67,7 @@ from .evaluation import (
     MissionEvaluationFacts,
     MissionEvaluationStatus,
     MissionFutureDeltaFacts,
+    MissionValueFacts,
     PlanetEvaluationFacts,
     PlanetFutureDeltaFacts,
     ScoreComponent,
@@ -74,6 +76,7 @@ from .evaluation import (
     evaluate_candidates,
     extract_candidate_facts,
     mission_future_delta_facts,
+    mission_value_facts,
     planet_evaluation_facts,
     planet_future_delta_facts,
 )
@@ -93,6 +96,7 @@ __all__ = (
     "MissionEvaluationFacts",
     "MissionEvaluationStatus",
     "MissionFutureDeltaFacts",
+    "MissionValueFacts",
     "MissionType",
     "NearestTarget",
     "OwnerTotals",
@@ -122,6 +126,7 @@ __all__ = (
     "mission_candidate_to_actions",
     "mission_candidate_to_orders",
     "mission_future_delta_facts",
+    "mission_value_facts",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
     "validate_estimated_pair_outcome",

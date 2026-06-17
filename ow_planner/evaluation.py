@@ -1,9 +1,9 @@
 """Planner mission evaluation contracts.
 
-Mission Evaluation Cycle 5 extracts deterministic candidate facts, before-state
+Mission Evaluation Cycle 6 extracts deterministic candidate facts, before-state
 source/target lookups, idle baseline future lookups, mechanical candidate
-future lookups, and mission-vs-baseline delta facts. It does not score, rank,
-prune, or select missions.
+future lookups, mission-vs-baseline delta facts, and deterministic value
+feature facts. It does not score, rank, prune, or select missions.
 """
 
 from __future__ import annotations
@@ -93,6 +93,27 @@ class MissionFutureDeltaFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class MissionValueFacts:
+    """Deterministic mission value features without weights or scores."""
+
+    target_owner_before: int | None = None
+    target_owner_baseline: int | None = None
+    target_owner_mission: int | None = None
+    target_captured_by_player: bool | None = None
+    target_retained_by_player: bool | None = None
+    target_lost_by_player: bool | None = None
+    target_production_before: int | None = None
+    target_production_baseline_controlled_by_player: int | None = None
+    target_production_mission_controlled_by_player: int | None = None
+    production_delta_vs_baseline: int | None = None
+    target_ship_delta_vs_baseline: int | None = None
+    total_source_ship_delta_vs_baseline: int | None = None
+    total_source_ship_delta_vs_before: int | None = None
+    ships_spent: int = 0
+    mission_valid_for_value: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class MissionEvaluationFacts:
     """Deterministic candidate facts plus before-state planet lookups."""
 
@@ -119,6 +140,7 @@ class MissionEvaluationFacts:
     missing_mission_source_planet_ids: tuple[int, ...] = ()
     mission_simulation_error: str | None = None
     future_delta: MissionFutureDeltaFacts = field(default_factory=MissionFutureDeltaFacts)
+    value_facts: MissionValueFacts = field(default_factory=MissionValueFacts)
     notes: tuple[str, ...] = ()
 
 
@@ -141,8 +163,9 @@ def evaluate_candidates(
 ) -> tuple[MissionEvaluation, ...]:
     """Return candidate-fact evaluations for ``candidates``.
 
-    Cycle 5 adds shared idle baseline facts, per-candidate mechanical mission
-    future facts, and mission-vs-baseline delta facts. Input order is preserved.
+    Cycle 6 adds shared idle baseline facts, per-candidate mechanical mission
+    future facts, mission-vs-baseline delta facts, and deterministic value
+    feature facts. Input order is preserved.
     """
 
     effective_config = config or EvaluationConfig()
@@ -179,6 +202,7 @@ def evaluate_candidates(
                     mission_state=mission_state,
                     mission_horizon_ticks=horizon_ticks,
                     mission_simulation_error=mission_simulation_error,
+                    player_id=state.player_id,
                 ),
             ),
         )
@@ -194,6 +218,7 @@ def extract_candidate_facts(
     mission_state: GameState | None = None,
     mission_horizon_ticks: int = 0,
     mission_simulation_error: str | None = None,
+    player_id: int | None = None,
 ) -> MissionEvaluationFacts:
     """Return deterministic candidate facts and optional state lookups."""
 
@@ -220,6 +245,15 @@ def extract_candidate_facts(
         sources_baseline=baseline_lookup.sources,
         sources_mission=mission_lookup.sources,
     )
+    value_facts = mission_value_facts(
+        player_id=player_id,
+        target_before=before_lookup.target,
+        target_baseline=baseline_lookup.target,
+        target_mission=mission_lookup.target,
+        future_delta=future_delta,
+        ships_spent=sum(launch.ships for launch in candidate.launches),
+        mission_simulation_error=mission_simulation_error,
+    )
 
     return MissionEvaluationFacts(
         mission_type=candidate.mission_type,
@@ -245,6 +279,7 @@ def extract_candidate_facts(
         missing_mission_source_planet_ids=mission_lookup.missing_source_planet_ids,
         mission_simulation_error=mission_simulation_error,
         future_delta=future_delta,
+        value_facts=value_facts,
     )
 
 
@@ -375,6 +410,78 @@ def mission_future_delta_facts(
     )
 
 
+def mission_value_facts(
+    *,
+    player_id: int | None,
+    target_before: PlanetEvaluationFacts | None,
+    target_baseline: PlanetEvaluationFacts | None,
+    target_mission: PlanetEvaluationFacts | None,
+    future_delta: MissionFutureDeltaFacts,
+    ships_spent: int,
+    mission_simulation_error: str | None = None,
+) -> MissionValueFacts:
+    """Return deterministic value features derived from evaluation facts."""
+
+    baseline_controlled_production = _controlled_production(
+        target_baseline,
+        player_id,
+    )
+    mission_controlled_production = _controlled_production(
+        target_mission,
+        player_id,
+    )
+    return MissionValueFacts(
+        target_owner_before=None if target_before is None else target_before.owner,
+        target_owner_baseline=None if target_baseline is None else target_baseline.owner,
+        target_owner_mission=None if target_mission is None else target_mission.owner,
+        target_captured_by_player=_target_captured_by_player(
+            target_baseline,
+            target_mission,
+            player_id,
+        ),
+        target_retained_by_player=_target_retained_by_player(
+            target_baseline,
+            target_mission,
+            player_id,
+        ),
+        target_lost_by_player=_target_lost_by_player(
+            target_baseline,
+            target_mission,
+            player_id,
+        ),
+        target_production_before=(
+            None if target_before is None else target_before.production
+        ),
+        target_production_baseline_controlled_by_player=baseline_controlled_production,
+        target_production_mission_controlled_by_player=mission_controlled_production,
+        production_delta_vs_baseline=_int_delta(
+            mission_controlled_production,
+            baseline_controlled_production,
+        ),
+        target_ship_delta_vs_baseline=(
+            None
+            if future_delta.target is None
+            else future_delta.target.mission_ship_delta_vs_baseline
+        ),
+        total_source_ship_delta_vs_baseline=(
+            future_delta.total_source_ship_delta_vs_baseline
+        ),
+        total_source_ship_delta_vs_before=future_delta.total_source_ship_delta_vs_before,
+        ships_spent=ships_spent,
+        mission_valid_for_value=(
+            mission_simulation_error is None
+            and player_id is not None
+            and target_before is not None
+            and target_baseline is not None
+            and target_mission is not None
+            and future_delta.target is not None
+            and future_delta.target.mission_ship_delta_vs_baseline is not None
+            and future_delta.total_source_ship_delta_vs_baseline is not None
+            and future_delta.total_source_ship_delta_vs_before is not None
+        ),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _CandidatePlanetLookup:
     target: PlanetEvaluationFacts | None
@@ -471,12 +578,63 @@ def _first_non_none(*values: int | None) -> int | None:
     return None
 
 
+def _controlled_production(
+    target: PlanetEvaluationFacts | None,
+    player_id: int | None,
+) -> int | None:
+    if target is None or player_id is None:
+        return None
+    if target.owner == player_id:
+        return target.production
+    return 0
+
+
+def _int_delta(
+    mission_value: int | None,
+    baseline_value: int | None,
+) -> int | None:
+    if mission_value is None or baseline_value is None:
+        return None
+    return mission_value - baseline_value
+
+
+def _target_captured_by_player(
+    baseline: PlanetEvaluationFacts | None,
+    mission: PlanetEvaluationFacts | None,
+    player_id: int | None,
+) -> bool | None:
+    if baseline is None or mission is None or player_id is None:
+        return None
+    return baseline.owner != player_id and mission.owner == player_id
+
+
+def _target_retained_by_player(
+    baseline: PlanetEvaluationFacts | None,
+    mission: PlanetEvaluationFacts | None,
+    player_id: int | None,
+) -> bool | None:
+    if baseline is None or mission is None or player_id is None:
+        return None
+    return baseline.owner == player_id and mission.owner == player_id
+
+
+def _target_lost_by_player(
+    baseline: PlanetEvaluationFacts | None,
+    mission: PlanetEvaluationFacts | None,
+    player_id: int | None,
+) -> bool | None:
+    if baseline is None or mission is None or player_id is None:
+        return None
+    return baseline.owner == player_id and mission.owner != player_id
+
+
 __all__ = (
     "EvaluationConfig",
     "MissionEvaluation",
     "MissionEvaluationFacts",
     "MissionEvaluationStatus",
     "MissionFutureDeltaFacts",
+    "MissionValueFacts",
     "PlanetEvaluationFacts",
     "PlanetFutureDeltaFacts",
     "ScoreComponent",
@@ -485,6 +643,7 @@ __all__ = (
     "evaluate_candidates",
     "extract_candidate_facts",
     "mission_future_delta_facts",
+    "mission_value_facts",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
 )
