@@ -28,6 +28,7 @@ Opponent Response Model Cycle 4 adds FFA third-party benefit facts.
 Opponent Response Model Cycle 5 adds deterministic response summary labels.
 Opponent Response Model Cycle 6 adds pinned/threatened response-source facts.
 Opponent Response Model Cycle 7 adds first-pass response classification labels.
+Commitment Policy Cycle 0 adds structural commitment option contracts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -44,6 +45,14 @@ from .candidates import (
     MissionCandidate,
     MissionType,
     generate_candidates,
+)
+from .commitment import (
+    CandidateCommitmentOptions,
+    CommitmentOption,
+    CommitmentOptionStatus,
+    CommitmentOptionType,
+    CommitmentPolicyConfig,
+    commitment_options_for_candidates,
 )
 from .features import (
     BoardFeatures,
@@ -137,9 +146,14 @@ from .response_classification import (
 __all__ = (
     "BoardFeatures",
     "CandidateGenerationConfig",
+    "CandidateCommitmentOptions",
     "CandidateOutcome",
     "CandidateOutcomeReport",
     "CandidateValidationStatus",
+    "CommitmentOption",
+    "CommitmentOptionStatus",
+    "CommitmentOptionType",
+    "CommitmentPolicyConfig",
     "CounterattackSourceFacts",
     "DEFAULT_CAPTURE_BUFFER_SHIPS",
     "EstimatedPair",
@@ -184,6 +198,7 @@ __all__ = (
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "classify_response_facts",
+    "commitment_options_for_candidates",
     "extract_board_features",
     "enumerate_source_target_pairs",
     "enumerate_source_target_pairs_from_features",
