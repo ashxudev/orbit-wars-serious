@@ -5,6 +5,7 @@ empty generation boundary. Mission Generation Cycle 1 adds legal action
 conversion helpers. Mission Generation Cycle 2 adds board feature extraction.
 Mission Generation Cycle 3 adds factual source-target pair enumeration.
 Mission Generation Cycle 4 adds first-pass required ship estimation.
+Mission Generation Cycle 5 adds simulator-backed factual outcome validation.
 Strategy and scoring are intentionally deferred.
 """
 
@@ -46,11 +47,19 @@ from .estimation import (
     estimate_source_target_pairs,
     launch_candidate_from_pair,
 )
+from .outcomes import (
+    CandidateOutcomeReport,
+    CandidateValidationStatus,
+    validate_estimated_pair_outcome,
+    validate_estimated_pair_outcomes,
+)
 
 __all__ = (
     "BoardFeatures",
     "CandidateGenerationConfig",
     "CandidateOutcome",
+    "CandidateOutcomeReport",
+    "CandidateValidationStatus",
     "DEFAULT_CAPTURE_BUFFER_SHIPS",
     "EstimatedPair",
     "LaunchCandidate",
@@ -76,4 +85,6 @@ __all__ = (
     "launch_candidate_from_pair",
     "mission_candidate_to_actions",
     "mission_candidate_to_orders",
+    "validate_estimated_pair_outcome",
+    "validate_estimated_pair_outcomes",
 )
