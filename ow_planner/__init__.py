@@ -101,9 +101,12 @@ from .scoring import (
 from .response import (
     MissionResponseEvaluation,
     MissionResponseFacts,
+    ReinforcementSourceFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    TargetReinforcementFacts,
     evaluate_responses,
+    target_reinforcement_facts,
 )
 
 __all__ = (
@@ -134,6 +137,7 @@ __all__ = (
     "PlanetFutureDeltaFacts",
     "PlanetFacts",
     "ROUGH_TRAVEL_SHIPS",
+    "ReinforcementSourceFacts",
     "ResponseConfig",
     "ResponseEvaluationStatus",
     "ScoreComponent",
@@ -141,6 +145,7 @@ __all__ = (
     "ShipEstimateStatus",
     "SourceTargetPair",
     "TargetCategory",
+    "TargetReinforcementFacts",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "extract_board_features",
@@ -168,6 +173,7 @@ __all__ = (
     "score_mission_timing_facts",
     "score_mission_value_facts",
     "score_source_opportunity_facts",
+    "target_reinforcement_facts",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",
 )

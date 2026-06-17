@@ -16,18 +16,75 @@ from ow_planner import (
     MissionEvaluationStatus,
     MissionResponseEvaluation,
     MissionResponseFacts,
+    MissionTimingFacts,
     MissionType,
+    ReinforcementSourceFacts,
     ResponseConfig,
     ResponseEvaluationStatus,
+    TargetReinforcementFacts,
     evaluate_responses,
+    target_reinforcement_facts,
 )
-from ow_sim.state import GameState
+from ow_sim.state import GameState, Planet
 
 
 def response_state() -> GameState:
     return GameState(
         tick=7,
         player_id=0,
+        raw_observation={"step": 7, "player": 0},
+    )
+
+
+def planet(
+    planet_id: int,
+    owner: int,
+    x: float,
+    y: float,
+    ships: int,
+    *,
+    is_comet: bool = False,
+) -> Planet:
+    return Planet(
+        planet_id=planet_id,
+        owner=owner,
+        x=x,
+        y=y,
+        radius=1.0,
+        ships=ships,
+        production=0,
+        is_comet=is_comet,
+        raw=(planet_id, owner, x, y, 1.0, ships, 0),
+    )
+
+
+def reinforcement_state() -> GameState:
+    return GameState(
+        tick=7,
+        player_id=0,
+        planets=(
+            planet(2, -1, 0.0, 0.0, 0),
+            planet(3, 1, 3.0, 0.0, 1),
+            planet(4, 1, 10.0, 0.0, 1),
+            planet(5, -1, 1.0, 1.0, 10),
+            planet(6, 0, 2.0, 2.0, 10),
+            planet(7, 2, 2.0, 0.0, 10, is_comet=True),
+            planet(8, 2, 1.0, 0.0, 0),
+        ),
+        raw_observation={"step": 7, "player": 0},
+    )
+
+
+def no_reinforcement_state() -> GameState:
+    return GameState(
+        tick=7,
+        player_id=0,
+        planets=(
+            planet(2, -1, 0.0, 0.0, 0),
+            planet(5, -1, 1.0, 1.0, 10),
+            planet(6, 0, 2.0, 2.0, 10),
+            planet(7, 2, 2.0, 0.0, 10, is_comet=True),
+        ),
         raw_observation={"step": 7, "player": 0},
     )
 
@@ -41,8 +98,18 @@ def mission_candidate(target_planet_id: int = 2) -> MissionCandidate:
     )
 
 
-def mission_evaluation(target_planet_id: int = 2) -> MissionEvaluation:
+def mission_evaluation(
+    target_planet_id: int = 2,
+    timing_facts: MissionTimingFacts | None = None,
+) -> MissionEvaluation:
     candidate = mission_candidate(target_planet_id)
+    if timing_facts is None:
+        timing_facts = MissionTimingFacts(
+            launch_arrival_ticks=(5,),
+            min_arrival_ticks=5,
+            max_arrival_ticks=5,
+            timing_complete=True,
+        )
     facts = MissionEvaluationFacts(
         mission_type=candidate.mission_type,
         target_planet_id=candidate.target_planet_id,
@@ -51,6 +118,7 @@ def mission_evaluation(target_planet_id: int = 2) -> MissionEvaluation:
         ships_spent=0,
         launch_angles=(),
         candidate_outcome=candidate.outcome,
+        timing_facts=timing_facts,
     )
     return MissionEvaluation(
         candidate=candidate,
@@ -67,7 +135,10 @@ class PlannerResponseTests(unittest.TestCase):
         self.assertIs(ResponseEvaluationStatus, ResponseEvaluationStatus)
         self.assertIs(MissionResponseFacts, MissionResponseFacts)
         self.assertIs(MissionResponseEvaluation, MissionResponseEvaluation)
+        self.assertIs(ReinforcementSourceFacts, ReinforcementSourceFacts)
+        self.assertIs(TargetReinforcementFacts, TargetReinforcementFacts)
         self.assertIsNotNone(evaluate_responses)
+        self.assertIsNotNone(target_reinforcement_facts)
 
     def test_response_status_enum_values_are_stable(self) -> None:
         self.assertEqual(ResponseEvaluationStatus.UNEVALUATED.value, "unevaluated")
@@ -79,6 +150,22 @@ class PlannerResponseTests(unittest.TestCase):
         config = ResponseConfig(response_window_ticks=3)
         facts = MissionResponseFacts(
             response_labels=("placeholder",),
+            target_reinforcement=TargetReinforcementFacts(
+                target_planet_id=2,
+                arrival_window_ticks=5,
+                timing_complete=True,
+                source_facts=(
+                    ReinforcementSourceFacts(
+                        planet_id=3,
+                        owner=1,
+                        ships=4,
+                        distance_to_target=3.0,
+                        travel_ticks=2,
+                        arrives_by_window=True,
+                    ),
+                ),
+                feasible_source_count=1,
+            ),
             notes=("structural",),
         )
         response = MissionResponseEvaluation(
@@ -90,11 +177,14 @@ class PlannerResponseTests(unittest.TestCase):
 
         self.assertEqual(config.response_window_ticks, 3)
         self.assertEqual(facts.response_labels, ("placeholder",))
+        self.assertEqual(facts.target_reinforcement.feasible_source_count, 1)
         self.assertIs(response.evaluation, evaluation)
         with self.assertRaises(FrozenInstanceError):
             config.response_window_ticks = 1
         with self.assertRaises(FrozenInstanceError):
             facts.notes = ()
+        with self.assertRaises(FrozenInstanceError):
+            facts.target_reinforcement.feasible_source_count = 2
         with self.assertRaises(FrozenInstanceError):
             response.note = None
 
@@ -111,7 +201,7 @@ class PlannerResponseTests(unittest.TestCase):
         first = mission_evaluation(2)
         second = mission_evaluation(3)
 
-        responses = evaluate_responses(response_state(), (first, second))
+        responses = evaluate_responses(reinforcement_state(), (first, second))
 
         self.assertEqual(
             tuple(response.evaluation for response in responses),
@@ -126,11 +216,9 @@ class PlannerResponseTests(unittest.TestCase):
                 ResponseEvaluationStatus.EVALUATED,
             ),
         )
-        self.assertEqual(
-            tuple(response.facts for response in responses),
-            (MissionResponseFacts(), MissionResponseFacts()),
-        )
         self.assertEqual(tuple(response.note for response in responses), (None, None))
+        self.assertEqual(responses[0].facts.target_reinforcement.target_planet_id, 2)
+        self.assertEqual(responses[1].facts.target_reinforcement.target_planet_id, 3)
 
     def test_evaluate_responses_marks_missing_facts_incomplete(self) -> None:
         evaluation = MissionEvaluation(candidate=mission_candidate(), facts=None)
@@ -144,6 +232,117 @@ class PlannerResponseTests(unittest.TestCase):
             MissionResponseFacts(notes=("mission facts are missing",)),
         )
         self.assertEqual(response.note, "mission facts are missing")
+
+    def test_target_reinforcement_facts_identify_candidate_enemy_sources(self) -> None:
+        facts = target_reinforcement_facts(
+            reinforcement_state(),
+            mission_evaluation(),
+        )
+
+        self.assertEqual(facts.target_planet_id, 2)
+        self.assertEqual(facts.arrival_window_ticks, 5)
+        self.assertIs(facts.timing_complete, True)
+        self.assertEqual(
+            facts.source_facts,
+            (
+                ReinforcementSourceFacts(
+                    planet_id=3,
+                    owner=1,
+                    ships=1,
+                    distance_to_target=3.0,
+                    travel_ticks=3,
+                    arrives_by_window=True,
+                ),
+                ReinforcementSourceFacts(
+                    planet_id=4,
+                    owner=1,
+                    ships=1,
+                    distance_to_target=10.0,
+                    travel_ticks=10,
+                    arrives_by_window=False,
+                ),
+            ),
+        )
+        self.assertEqual(facts.feasible_source_count, 1)
+        self.assertEqual(facts.notes, ())
+
+    def test_response_window_extends_reinforcement_feasibility(self) -> None:
+        facts = target_reinforcement_facts(
+            reinforcement_state(),
+            mission_evaluation(),
+            ResponseConfig(response_window_ticks=5),
+        )
+
+        self.assertEqual(facts.arrival_window_ticks, 10)
+        self.assertEqual(
+            tuple(source.arrives_by_window for source in facts.source_facts),
+            (True, True),
+        )
+        self.assertEqual(facts.feasible_source_count, 2)
+
+    def test_evaluate_responses_attaches_reinforcement_facts(self) -> None:
+        (response,) = evaluate_responses(
+            reinforcement_state(),
+            (mission_evaluation(),),
+        )
+
+        self.assertEqual(response.status, ResponseEvaluationStatus.EVALUATED)
+        self.assertEqual(response.facts.response_labels, ())
+        self.assertEqual(response.facts.target_reinforcement.feasible_source_count, 1)
+        self.assertEqual(
+            tuple(source.planet_id for source in response.facts.target_reinforcement.source_facts),
+            (3, 4),
+        )
+
+    def test_reinforcement_excludes_target_neutral_player_comet_and_zero_ship_planets(self) -> None:
+        facts = target_reinforcement_facts(
+            reinforcement_state(),
+            mission_evaluation(),
+        )
+
+        self.assertEqual(
+            tuple(source.planet_id for source in facts.source_facts),
+            (3, 4),
+        )
+
+    def test_reinforcement_facts_are_unavailable_when_timing_is_incomplete(self) -> None:
+        evaluation = mission_evaluation(
+            timing_facts=MissionTimingFacts(
+                launch_arrival_ticks=(None,),
+                timing_complete=False,
+            )
+        )
+
+        facts = target_reinforcement_facts(reinforcement_state(), evaluation)
+
+        self.assertEqual(facts.target_planet_id, 2)
+        self.assertIsNone(facts.arrival_window_ticks)
+        self.assertIs(facts.timing_complete, False)
+        self.assertEqual(facts.source_facts, ())
+        self.assertEqual(facts.feasible_source_count, 0)
+        self.assertEqual(facts.notes, ("mission arrival timing is incomplete",))
+
+    def test_reinforcement_facts_are_unavailable_when_target_is_missing(self) -> None:
+        evaluation = mission_evaluation(target_planet_id=99)
+
+        facts = target_reinforcement_facts(reinforcement_state(), evaluation)
+
+        self.assertEqual(facts.target_planet_id, 99)
+        self.assertEqual(facts.arrival_window_ticks, 5)
+        self.assertIs(facts.timing_complete, True)
+        self.assertEqual(facts.source_facts, ())
+        self.assertEqual(facts.feasible_source_count, 0)
+        self.assertEqual(facts.notes, ("target planet is missing",))
+
+    def test_reinforcement_facts_note_when_no_candidate_sources_exist(self) -> None:
+        facts = target_reinforcement_facts(
+            no_reinforcement_state(),
+            mission_evaluation(),
+        )
+
+        self.assertEqual(facts.source_facts, ())
+        self.assertEqual(facts.feasible_source_count, 0)
+        self.assertEqual(facts.notes, ("no candidate reinforcing planets",))
 
     def test_evaluate_responses_does_not_mutate_state_or_evaluations(self) -> None:
         state = response_state()
