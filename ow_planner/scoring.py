@@ -2,8 +2,9 @@
 
 Mission Evaluation Cycle 7 consumes deterministic ``MissionValueFacts`` and
 returns tunable score components. Mission Evaluation Cycle 10 adds timing-aware
-components from deterministic ``MissionTimingFacts``. This module does not
-generate, rank, prune, select, simulate, or mutate missions.
+components from deterministic ``MissionTimingFacts``. Mission Evaluation Cycle
+11 adds explicit capture-outcome components. This module does not generate,
+rank, prune, select, simulate, or mutate missions.
 """
 
 from __future__ import annotations
@@ -31,6 +32,9 @@ class MissionScoringConfig:
     invalid_mission_penalty: float = -1000.0
     arrival_tick_weight: float = -0.05
     incomplete_timing_penalty: float = -25.0
+    capture_success_weight: float = 5.0
+    retain_control_weight: float = 2.0
+    target_loss_penalty: float = -10.0
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -41,6 +45,9 @@ class MissionScoringConfig:
             "invalid_mission_penalty",
             "arrival_tick_weight",
             "incomplete_timing_penalty",
+            "capture_success_weight",
+            "retain_control_weight",
+            "target_loss_penalty",
         ):
             _validate_weight(getattr(self, field_name), field_name)
 
@@ -85,6 +92,46 @@ def score_mission_value_facts(
         ),
     )
     return (components, _total_score(components))
+
+
+def score_mission_outcome_facts(
+    value_facts: MissionValueFacts,
+    config: MissionScoringConfig | None = None,
+) -> tuple[tuple[ScoreComponent, ...], float]:
+    """Return capture-outcome score components for deterministic value facts."""
+
+    if not value_facts.mission_valid_for_value:
+        return ((), 0.0)
+
+    effective_config = config or MissionScoringConfig()
+    components: list[ScoreComponent] = []
+    if value_facts.target_captured_by_player is True:
+        components.append(
+            ScoreComponent(
+                name="target_captured_by_player",
+                value=1.0,
+                weight=effective_config.capture_success_weight,
+            )
+        )
+    if value_facts.target_retained_by_player is True:
+        components.append(
+            ScoreComponent(
+                name="target_retained_by_player",
+                value=1.0,
+                weight=effective_config.retain_control_weight,
+            )
+        )
+    if value_facts.target_lost_by_player is True:
+        components.append(
+            ScoreComponent(
+                name="target_lost_by_player",
+                value=1.0,
+                weight=effective_config.target_loss_penalty,
+            )
+        )
+
+    outcome_components = tuple(components)
+    return (outcome_components, _total_score(outcome_components))
 
 
 def score_mission_timing_facts(
@@ -140,8 +187,12 @@ def score_evaluations(
                 evaluation.facts.timing_facts,
                 config=config,
             )
-            components = value_components + timing_components
-            total_score = value_total + timing_total
+            outcome_components, outcome_total = score_mission_outcome_facts(
+                value_facts,
+                config=config,
+            )
+            components = value_components + timing_components + outcome_components
+            total_score = value_total + timing_total + outcome_total
         scored.append(
             replace(
                 evaluation,
@@ -172,6 +223,7 @@ def _validate_weight(value: object, field_name: str) -> None:
 __all__ = (
     "MissionScoringConfig",
     "score_evaluations",
+    "score_mission_outcome_facts",
     "score_mission_timing_facts",
     "score_mission_value_facts",
 )

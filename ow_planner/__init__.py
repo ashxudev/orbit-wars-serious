@@ -18,6 +18,7 @@ Mission Evaluation Cycle 7 adds an isolated first-pass scoring policy.
 Mission Evaluation Cycle 8 adds evaluated-and-scored composition.
 Mission Evaluation Cycle 9 adds deterministic arrival timing facts.
 Mission Evaluation Cycle 10 adds timing-aware scoring components.
+Mission Evaluation Cycle 11 adds capture-outcome scoring components.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -90,6 +91,7 @@ from .evaluation import (
 from .scoring import (
     MissionScoringConfig,
     score_evaluations,
+    score_mission_outcome_facts,
     score_mission_timing_facts,
     score_mission_value_facts,
 )
@@ -147,6 +149,7 @@ __all__ = (
     "planet_evaluation_facts",
     "planet_future_delta_facts",
     "score_evaluations",
+    "score_mission_outcome_facts",
     "score_mission_timing_facts",
     "score_mission_value_facts",
     "validate_estimated_pair_outcome",

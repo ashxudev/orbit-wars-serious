@@ -1299,13 +1299,18 @@ class PlannerEvaluationTests(unittest.TestCase):
                 "source_ship_delta_vs_baseline",
                 "ships_spent",
                 "max_arrival_ticks",
+                "target_captured_by_player",
             ),
         )
         self.assertEqual(
-            evaluation.score_components[-1],
+            evaluation.score_components[-2],
             ScoreComponent("max_arrival_ticks", 1.0, -0.05),
         )
-        self.assertAlmostEqual(evaluation.total_score, 29.7)
+        self.assertEqual(
+            evaluation.score_components[-1],
+            ScoreComponent("target_captured_by_player", 1.0, 5.0),
+        )
+        self.assertAlmostEqual(evaluation.total_score, 34.7)
 
     def test_evaluate_and_score_candidates_applies_custom_scoring_config(self) -> None:
         state = launch_test_state(target_owner=-1, target_ships=0, target_production=3)
@@ -1324,7 +1329,7 @@ class PlannerEvaluationTests(unittest.TestCase):
             ),
         )
 
-        self.assertAlmostEqual(evaluation.total_score, 1.95)
+        self.assertAlmostEqual(evaluation.total_score, 6.95)
 
     def test_evaluate_and_score_candidates_propagates_invalid_penalty(self) -> None:
         state = launch_test_state(source_ships=1)
