@@ -9,6 +9,7 @@ Mission Generation Cycle 5 adds simulator-backed factual outcome validation.
 Mission Generation Cycle 6 adds the bounded public generation API.
 Mission Evaluation Cycle 0 adds structural evaluation contracts.
 Mission Evaluation Cycle 1 adds candidate-derived evaluation facts.
+Mission Evaluation Cycle 2 adds before-state planet lookup facts.
 Strategy and scoring are intentionally deferred.
 """
 
@@ -61,9 +62,11 @@ from .evaluation import (
     MissionEvaluation,
     MissionEvaluationFacts,
     MissionEvaluationStatus,
+    PlanetEvaluationFacts,
     ScoreComponent,
     evaluate_candidates,
     extract_candidate_facts,
+    planet_evaluation_facts,
 )
 
 __all__ = (
@@ -84,6 +87,7 @@ __all__ = (
     "NearestTarget",
     "OwnerTotals",
     "PlanetDistance",
+    "PlanetEvaluationFacts",
     "PlanetFacts",
     "ROUGH_TRAVEL_SHIPS",
     "ScoreComponent",
@@ -104,6 +108,7 @@ __all__ = (
     "launch_candidate_from_pair",
     "mission_candidate_to_actions",
     "mission_candidate_to_orders",
+    "planet_evaluation_facts",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",
 )
