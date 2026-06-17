@@ -7,6 +7,7 @@ Mission Generation Cycle 3 adds factual source-target pair enumeration.
 Mission Generation Cycle 4 adds first-pass required ship estimation.
 Mission Generation Cycle 5 adds simulator-backed factual outcome validation.
 Mission Generation Cycle 6 adds the bounded public generation API.
+Mission Evaluation Cycle 0 adds structural evaluation contracts.
 Strategy and scoring are intentionally deferred.
 """
 
@@ -54,6 +55,14 @@ from .outcomes import (
     validate_estimated_pair_outcome,
     validate_estimated_pair_outcomes,
 )
+from .evaluation import (
+    EvaluationConfig,
+    MissionEvaluation,
+    MissionEvaluationFacts,
+    MissionEvaluationStatus,
+    ScoreComponent,
+    evaluate_candidates,
+)
 
 __all__ = (
     "BoardFeatures",
@@ -63,14 +72,19 @@ __all__ = (
     "CandidateValidationStatus",
     "DEFAULT_CAPTURE_BUFFER_SHIPS",
     "EstimatedPair",
+    "EvaluationConfig",
     "LaunchCandidate",
     "MissionCandidate",
+    "MissionEvaluation",
+    "MissionEvaluationFacts",
+    "MissionEvaluationStatus",
     "MissionType",
     "NearestTarget",
     "OwnerTotals",
     "PlanetDistance",
     "PlanetFacts",
     "ROUGH_TRAVEL_SHIPS",
+    "ScoreComponent",
     "ShipEstimate",
     "ShipEstimateStatus",
     "SourceTargetPair",
@@ -80,6 +94,7 @@ __all__ = (
     "enumerate_source_target_pairs_from_features",
     "estimate_required_ships_for_pair",
     "estimate_source_target_pairs",
+    "evaluate_candidates",
     "generate_candidates",
     "launch_candidate_to_action",
     "launch_candidate_to_order",
