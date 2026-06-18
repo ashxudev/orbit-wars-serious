@@ -1,9 +1,9 @@
 """Local evaluation harness contracts and runners for Orbit Wars.
 
 The harness supports typed match contracts, local official-environment smoke
-runs, reusable agent loading, and deterministic built-in baselines. Replay
-capture, artifact writing, scoreboards, and live submission automation remain
-deferred.
+runs, reusable agent loading, deterministic built-in baselines, and optional
+single-match artifact capture. Scoreboards, batch runs, and live submission
+automation remain deferred.
 """
 
 from .contracts import (
@@ -17,6 +17,11 @@ from .contracts import (
     PlayerCount,
 )
 from .agent_loading import KaggleAgent, load_agent_callable
+from .artifacts import (
+    EvaluationArtifactConfig,
+    write_match_result_artifact,
+    write_replay_artifact,
+)
 from .baselines import (
     BaselineName,
     available_builtin_baselines,
@@ -30,6 +35,7 @@ __all__ = (
     "AgentSpec",
     "BaselineName",
     "EvaluationStatus",
+    "EvaluationArtifactConfig",
     "KaggleAgent",
     "MatchConfig",
     "MatchMetrics",
@@ -41,4 +47,6 @@ __all__ = (
     "load_agent_callable",
     "load_builtin_baseline",
     "run_official_match",
+    "write_match_result_artifact",
+    "write_replay_artifact",
 )

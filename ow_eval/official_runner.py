@@ -8,10 +8,18 @@ Evaluation Harness Cycle 1 runs one ``MatchConfig`` through the local official
 from __future__ import annotations
 
 import io
+from collections.abc import Mapping, Sequence
 from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import replace
 from typing import Any
 
 from .agent_loading import KaggleAgent, load_agent_callable
+from .artifacts import (
+    EvaluationArtifactConfig,
+    artifact_paths_for_config,
+    write_match_result_artifact,
+    write_replay_artifact,
+)
 from .contracts import (
     AgentSpec,
     EvaluationStatus,
@@ -24,14 +32,24 @@ class AgentExecutionError(RuntimeError):
     """Raised when a loaded agent fails during official environment execution."""
 
 
-def run_official_match(config: MatchConfig) -> MatchResult:
+def run_official_match(
+    config: MatchConfig,
+    artifacts: EvaluationArtifactConfig | None = None,
+) -> MatchResult:
     """Run exactly one local official Orbit Wars match for ``config``."""
 
     try:
         agents = _agents_for_config(config)
     except Exception as exc:
-        return _match_result(config, EvaluationStatus.IMPORT_ERROR, exc)
+        result = _match_result(config, EvaluationStatus.IMPORT_ERROR, exc)
+        return _finalize_match_result(
+            result=result,
+            artifacts=artifacts,
+            env=None,
+            replay_allowed=False,
+        )
 
+    env: Any | None = None
     try:
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             from kaggle_environments import make
@@ -40,11 +58,28 @@ def run_official_match(config: MatchConfig) -> MatchResult:
             env.reset(config.player_count.value)
             env.run(list(agents))
     except AgentExecutionError as exc:
-        return _match_result(config, EvaluationStatus.AGENT_ERROR, exc)
+        result = _match_result(config, EvaluationStatus.AGENT_ERROR, exc)
+        return _finalize_match_result(
+            result=result,
+            artifacts=artifacts,
+            env=env,
+            replay_allowed=True,
+        )
     except Exception as exc:
-        return _match_result(config, EvaluationStatus.ENV_ERROR, exc)
+        result = _match_result(config, EvaluationStatus.ENV_ERROR, exc)
+        return _finalize_match_result(
+            result=result,
+            artifacts=artifacts,
+            env=env,
+            replay_allowed=True,
+        )
 
-    return MatchResult(config=config, status=EvaluationStatus.COMPLETED)
+    return _finalize_match_result(
+        result=MatchResult(config=config, status=EvaluationStatus.COMPLETED),
+        artifacts=artifacts,
+        env=env,
+        replay_allowed=True,
+    )
 
 
 def _agents_for_config(config: MatchConfig) -> tuple[KaggleAgent, ...]:
@@ -88,6 +123,68 @@ def _match_result(
 
 def _error_text(exc: Exception) -> str:
     return f"{type(exc).__name__}: {exc}"
+
+
+def _finalize_match_result(
+    *,
+    result: MatchResult,
+    artifacts: EvaluationArtifactConfig | None,
+    env: Any | None,
+    replay_allowed: bool,
+) -> MatchResult:
+    if artifacts is None:
+        return result
+
+    try:
+        return _write_requested_artifacts(
+            result=result,
+            artifact_config=artifacts,
+            env=env,
+            replay_allowed=replay_allowed,
+        )
+    except Exception as exc:
+        return MatchResult(
+            config=result.config,
+            status=EvaluationStatus.UNKNOWN_ERROR,
+            error_text=_error_text(exc),
+        )
+
+
+def _write_requested_artifacts(
+    *,
+    result: MatchResult,
+    artifact_config: EvaluationArtifactConfig,
+    env: Any | None,
+    replay_allowed: bool,
+) -> MatchResult:
+    replay_path, artifact_path = artifact_paths_for_config(result.config, artifact_config)
+
+    written_replay_path: str | None = None
+    if artifact_config.write_replay and replay_allowed and env is not None:
+        replay_payload = _safe_replay_payload(env)
+        if replay_payload is not None:
+            written_replay_path = str(write_replay_artifact(replay_payload, replay_path))
+
+    final_result = replace(
+        result,
+        replay_path=written_replay_path,
+        artifact_path=str(artifact_path) if artifact_config.write_result else None,
+    )
+    if artifact_config.write_result:
+        write_match_result_artifact(final_result, artifact_path)
+    return final_result
+
+
+def _safe_replay_payload(env: Any) -> Mapping[str, object] | Sequence[object] | None:
+    try:
+        payload = env.toJSON()
+    except Exception:
+        return None
+    if isinstance(payload, (str, bytes)):
+        return None
+    if not isinstance(payload, (Mapping, Sequence)):
+        return None
+    return payload
 
 
 __all__ = ("run_official_match",)
