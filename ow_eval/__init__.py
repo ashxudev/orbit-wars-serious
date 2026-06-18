@@ -24,6 +24,12 @@ from .contracts import (
     OpponentSpec,
     PlayerCount,
 )
+from .experiment_manifest import (
+    ExperimentManifest,
+    ExperimentScenario,
+    PromotionThresholds,
+    manifest_to_match_configs,
+)
 from .agent_loading import KaggleAgent, load_agent_callable
 from .artifacts import (
     EvaluationArtifactConfig,
@@ -83,6 +89,8 @@ __all__ = (
     "EvaluationBatchConfig",
     "EvaluationBatchResult",
     "EvaluationBatchSummary",
+    "ExperimentManifest",
+    "ExperimentScenario",
     "KaggleAgent",
     "FailureCategory",
     "FailureTriageItem",
@@ -95,6 +103,7 @@ __all__ = (
     "PlannerAnalysisItem",
     "PlannerAnalysisPack",
     "PlannerAnalysisPackConfig",
+    "PromotionThresholds",
     "RegressionGateConfig",
     "RegressionGateFailure",
     "RegressionGateResult",
@@ -110,6 +119,7 @@ __all__ = (
     "extract_match_metrics",
     "load_agent_callable",
     "load_builtin_baseline",
+    "manifest_to_match_configs",
     "read_scoreboard_records",
     "run_evaluation_batch",
     "run_official_match",
