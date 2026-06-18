@@ -46,6 +46,12 @@ from .experiment_runner import (
     ExperimentRunResult,
     run_experiment_manifest,
 )
+from .experiment_suite import (
+    ExperimentSuiteResult,
+    default_manifest_paths,
+    main as run_evaluation_suite_main,
+    run_evaluation_suite,
+)
 from .agent_loading import KaggleAgent, load_agent_callable
 from .artifacts import (
     EvaluationArtifactConfig,
@@ -116,6 +122,7 @@ __all__ = (
     "ExperimentRunConfig",
     "ExperimentRunResult",
     "ExperimentScenario",
+    "ExperimentSuiteResult",
     "KaggleAgent",
     "FailureCategory",
     "FailureTriageItem",
@@ -144,6 +151,7 @@ __all__ = (
     "build_experiment_report",
     "build_planner_analysis_pack",
     "builtin_baseline_spec",
+    "default_manifest_paths",
     "evaluate_promotion_gate",
     "extract_match_metrics",
     "load_agent_callable",
@@ -154,6 +162,8 @@ __all__ = (
     "run_evaluation_batch",
     "run_evaluation_experiment",
     "run_evaluation_experiment_main",
+    "run_evaluation_suite",
+    "run_evaluation_suite_main",
     "run_experiment_manifest",
     "run_official_match",
     "run_regression_gate",
