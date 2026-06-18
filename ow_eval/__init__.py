@@ -98,6 +98,12 @@ from .scoreboard import (
     read_scoreboard_records,
     write_scoreboard_record,
 )
+from .sharding import (
+    EvaluationShard,
+    EvaluationShardPlan,
+    ShardPlanConfig,
+    build_evaluation_shard_plan,
+)
 from .submission_preflight import (
     SubmissionPreflightCheck,
     SubmissionPreflightResult,
@@ -122,6 +128,8 @@ __all__ = (
     "EvaluationBatchConfig",
     "EvaluationBatchResult",
     "EvaluationBatchSummary",
+    "EvaluationShard",
+    "EvaluationShardPlan",
     "ExperimentCliResult",
     "ExperimentManifest",
     "ExperimentReport",
@@ -148,6 +156,7 @@ __all__ = (
     "RegressionGateFailure",
     "RegressionGateResult",
     "ScoreboardRecord",
+    "ShardPlanConfig",
     "SubmissionParityComparison",
     "SubmissionParityConfig",
     "SubmissionParityResult",
@@ -157,6 +166,7 @@ __all__ = (
     "append_scoreboard_record",
     "build_scoreboard_record",
     "build_experiment_report",
+    "build_evaluation_shard_plan",
     "build_planner_analysis_pack",
     "builtin_baseline_spec",
     "default_manifest_paths",
