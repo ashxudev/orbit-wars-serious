@@ -4,9 +4,16 @@ The harness supports typed match contracts, local official-environment smoke
 runs, reusable agent loading, deterministic built-in baselines, single-match
 metrics extraction, optional artifact capture, and sequential batch execution.
 Scoreboard records and a quick regression gate are available for local checks;
-live submission automation remains deferred.
+analysis packs can summarize completed results for planner improvement. Live
+submission automation remains deferred.
 """
 
+from .analysis_pack import (
+    PlannerAnalysisItem,
+    PlannerAnalysisPack,
+    PlannerAnalysisPackConfig,
+    build_planner_analysis_pack,
+)
 from .contracts import (
     AgentSourceKind,
     AgentSpec,
@@ -85,6 +92,9 @@ __all__ = (
     "MatchResult",
     "OpponentSpec",
     "PlayerCount",
+    "PlannerAnalysisItem",
+    "PlannerAnalysisPack",
+    "PlannerAnalysisPackConfig",
     "RegressionGateConfig",
     "RegressionGateFailure",
     "RegressionGateResult",
@@ -95,6 +105,7 @@ __all__ = (
     "available_builtin_baselines",
     "append_scoreboard_record",
     "build_scoreboard_record",
+    "build_planner_analysis_pack",
     "builtin_baseline_spec",
     "extract_match_metrics",
     "load_agent_callable",
