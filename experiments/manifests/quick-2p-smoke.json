@@ -1,0 +1,70 @@
+{
+  "candidate_agent": {
+    "callable_name": "agent",
+    "file_path": null,
+    "metadata": {},
+    "module_path": "agents.orbit_wars_agent",
+    "name": "orbit-wars-runtime",
+    "source_kind": "modular_agent"
+  },
+  "description": "Quick deterministic 2-player local smoke manifest",
+  "metadata": {
+    "suite": "quick-2p-smoke"
+  },
+  "name": "quick-2p-smoke",
+  "promotion_thresholds": {
+    "max_error_rate": 0.0,
+    "max_mean_rank": 2.0,
+    "min_completed_count": 2,
+    "min_win_rate": 0.0
+  },
+  "scenarios": [
+    {
+      "controlled_seat": 0,
+      "label": "quick-2p-seed-7-seat-0",
+      "metadata": {
+        "scenario": "quick-2p-seed-7-seat-0"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": null,
+            "metadata": {
+              "baseline": "noop"
+            },
+            "module_path": null,
+            "name": "seat-1-noop",
+            "source_kind": "builtin_baseline"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7
+    },
+    {
+      "controlled_seat": 0,
+      "label": "quick-2p-seed-8-seat-0",
+      "metadata": {
+        "scenario": "quick-2p-seed-8-seat-0"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": null,
+            "metadata": {
+              "baseline": "nearest_neutral"
+            },
+            "module_path": null,
+            "name": "seat-1-nearest-neutral",
+            "source_kind": "builtin_baseline"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 8
+    }
+  ],
+  "version": "v1"
+}

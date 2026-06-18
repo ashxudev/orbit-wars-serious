@@ -1,0 +1,117 @@
+{
+  "candidate_agent": {
+    "callable_name": "agent",
+    "file_path": null,
+    "metadata": {},
+    "module_path": "agents.orbit_wars_agent",
+    "name": "orbit-wars-runtime",
+    "source_kind": "modular_agent"
+  },
+  "description": "Mixed 2-player and 4-player deterministic local promotion smoke manifest",
+  "metadata": {
+    "suite": "promotion-smoke"
+  },
+  "name": "promotion-smoke",
+  "promotion_thresholds": {
+    "max_error_rate": 0.0,
+    "max_mean_rank": 4.0,
+    "min_completed_count": 3,
+    "min_win_rate": 0.0
+  },
+  "scenarios": [
+    {
+      "controlled_seat": 0,
+      "label": "promotion-2p-seed-7-seat-0",
+      "metadata": {
+        "scenario": "promotion-2p-seed-7-seat-0"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": null,
+            "metadata": {
+              "baseline": "noop"
+            },
+            "module_path": null,
+            "name": "seat-1-noop",
+            "source_kind": "builtin_baseline"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7
+    },
+    {
+      "controlled_seat": 1,
+      "label": "promotion-2p-seed-8-seat-1",
+      "metadata": {
+        "scenario": "promotion-2p-seed-8-seat-1"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": null,
+            "metadata": {
+              "baseline": "nearest_neutral"
+            },
+            "module_path": null,
+            "name": "seat-0-nearest-neutral",
+            "source_kind": "builtin_baseline"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 8
+    },
+    {
+      "controlled_seat": 0,
+      "label": "promotion-4p-seed-7-seat-0",
+      "metadata": {
+        "scenario": "promotion-4p-seed-7-seat-0"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": null,
+            "metadata": {
+              "baseline": "noop"
+            },
+            "module_path": null,
+            "name": "seat-1-noop",
+            "source_kind": "builtin_baseline"
+          }
+        },
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": null,
+            "metadata": {
+              "baseline": "nearest_neutral"
+            },
+            "module_path": null,
+            "name": "seat-2-nearest-neutral",
+            "source_kind": "builtin_baseline"
+          }
+        },
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": null,
+            "metadata": {
+              "baseline": "noop"
+            },
+            "module_path": null,
+            "name": "seat-3-noop",
+            "source_kind": "builtin_baseline"
+          }
+        }
+      ],
+      "player_count": 4,
+      "seed": 7
+    }
+  ],
+  "version": "v1"
+}
