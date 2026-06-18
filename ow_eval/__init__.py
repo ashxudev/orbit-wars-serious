@@ -44,6 +44,13 @@ from .parity import (
     run_submission_parity_check,
     submission_agent_spec,
 )
+from .scoreboard import (
+    ScoreboardRecord,
+    append_scoreboard_record,
+    build_scoreboard_record,
+    read_scoreboard_records,
+    write_scoreboard_record,
+)
 from .triage import (
     FailureCategory,
     FailureTriageItem,
@@ -71,14 +78,18 @@ __all__ = (
     "MatchResult",
     "OpponentSpec",
     "PlayerCount",
+    "ScoreboardRecord",
     "SubmissionParityComparison",
     "SubmissionParityConfig",
     "SubmissionParityResult",
     "available_builtin_baselines",
+    "append_scoreboard_record",
+    "build_scoreboard_record",
     "builtin_baseline_spec",
     "extract_match_metrics",
     "load_agent_callable",
     "load_builtin_baseline",
+    "read_scoreboard_records",
     "run_evaluation_batch",
     "run_official_match",
     "run_submission_parity_check",
@@ -87,6 +98,7 @@ __all__ = (
     "triage_evaluation_batch",
     "triage_match_result",
     "triage_match_results",
+    "write_scoreboard_record",
     "write_match_result_artifact",
     "write_replay_artifact",
 )
