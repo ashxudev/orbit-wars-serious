@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,15 @@ from ow_eval import (
     builtin_baseline_spec,
     load_agent_callable,
 )
+from scripts.build_submission import write_submission
+
+
+def _bundled_finder_module_names() -> tuple[str, ...]:
+    return tuple(
+        type(finder).__module__
+        for finder in sys.meta_path
+        if type(finder).__name__ == "_BundledFinder"
+    )
 
 
 class EvaluationAgentLoadingTests(unittest.TestCase):
@@ -95,6 +105,61 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
             agent = load_agent_callable(spec)
 
         self.assertEqual(agent({}, {}), [[2, 1.0, 4]])
+
+    def test_generated_submission_file_uses_bundled_agent_when_repo_agent_preloaded(
+        self,
+    ) -> None:
+        import agents.orbit_wars_agent as modular_agent
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_submission(Path(tmp) / "submission.py")
+            spec = AgentSpec(
+                name="submission",
+                source_kind=AgentSourceKind.SUBMISSION_FILE,
+                file_path=str(path),
+            )
+
+            agent = load_agent_callable(spec)
+
+        self.assertIsNot(agent, modular_agent.agent)
+        self.assertEqual(
+            agent.__globals__.get("__file__"),
+            "<orbit_wars_submission>/agents/orbit_wars_agent.py",
+        )
+        self.assertEqual(agent({"remainingOverageTime": 0.0}, {}), [])
+
+    def test_generated_submission_file_restores_meta_path_for_later_repo_imports(
+        self,
+    ) -> None:
+        import agents.orbit_wars_agent as modular_agent
+
+        original_meta_path = tuple(sys.meta_path)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_submission(Path(tmp) / "submission.py")
+            spec = AgentSpec(
+                name="submission",
+                source_kind=AgentSourceKind.SUBMISSION_FILE,
+                file_path=str(path),
+            )
+
+            load_agent_callable(spec)
+
+        self.assertEqual(tuple(sys.meta_path), original_meta_path)
+        self.assertEqual(_bundled_finder_module_names(), ())
+
+        sys.modules.pop("agents.orbit_wars_agent", None)
+        fresh_module = importlib.import_module("agents.orbit_wars_agent")
+        try:
+            self.assertIsNot(fresh_module.agent, modular_agent.agent)
+            self.assertNotEqual(
+                fresh_module.__file__,
+                "<orbit_wars_submission>/agents/orbit_wars_agent.py",
+            )
+            self.assertTrue(str(fresh_module.__file__).endswith(
+                "agents/orbit_wars_agent.py"
+            ))
+        finally:
+            sys.modules["agents.orbit_wars_agent"] = modular_agent
 
     def test_file_agent_uses_custom_callable_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

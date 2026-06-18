@@ -37,6 +37,13 @@ from .batch_runner import (
 )
 from .metrics import extract_match_metrics
 from .official_runner import run_official_match
+from .parity import (
+    SubmissionParityComparison,
+    SubmissionParityConfig,
+    SubmissionParityResult,
+    run_submission_parity_check,
+    submission_agent_spec,
+)
 
 __all__ = (
     "AgentSourceKind",
@@ -53,6 +60,9 @@ __all__ = (
     "MatchResult",
     "OpponentSpec",
     "PlayerCount",
+    "SubmissionParityComparison",
+    "SubmissionParityConfig",
+    "SubmissionParityResult",
     "available_builtin_baselines",
     "builtin_baseline_spec",
     "extract_match_metrics",
@@ -60,6 +70,8 @@ __all__ = (
     "load_builtin_baseline",
     "run_evaluation_batch",
     "run_official_match",
+    "run_submission_parity_check",
+    "submission_agent_spec",
     "summarize_match_results",
     "write_match_result_artifact",
     "write_replay_artifact",
