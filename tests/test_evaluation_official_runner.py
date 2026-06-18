@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -187,16 +188,75 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
         self.assertIsNotNone(result.error_text)
         self.assertIn("AttributeError", result.error_text)
 
-    def test_unsupported_opponent_source_returns_import_error(self) -> None:
-        config = candidate_config(
-            opponent_agents=(
-                OpponentSpec(
-                    AgentSpec(
-                        name="file-opponent",
-                        source_kind=AgentSourceKind.PYTHON_FILE,
-                        file_path="/tmp/opponent.py",
-                    )
+    def test_runner_places_candidate_and_file_opponents_in_seat_order(self) -> None:
+        fake_env = FakeOrbitWarsEnvironment()
+        fake_kaggle = types.ModuleType("kaggle_environments")
+
+        def make(name: str, configuration: dict[str, object], debug: bool = False):
+            return fake_env
+
+        fake_kaggle.make = make  # type: ignore[attr-defined]
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate_path = Path(tmp) / "candidate.py"
+            first_opponent_path = Path(tmp) / "first_opponent.py"
+            second_opponent_path = Path(tmp) / "second_opponent.py"
+            candidate_path.write_text(
+                "def agent(observation, configuration=None):\n"
+                "    return [['candidate']]\n",
+                encoding="utf-8",
+            )
+            first_opponent_path.write_text(
+                "def agent(observation, configuration=None):\n"
+                "    return [['first']]\n",
+                encoding="utf-8",
+            )
+            second_opponent_path.write_text(
+                "def agent(observation, configuration=None):\n"
+                "    return [['second']]\n",
+                encoding="utf-8",
+            )
+            config = candidate_config(
+                controlled_seat=1,
+                player_count=PlayerCount.FOUR_PLAYER,
+                candidate_agent=AgentSpec(
+                    name="candidate",
+                    source_kind=AgentSourceKind.SUBMISSION_FILE,
+                    file_path=str(candidate_path),
                 ),
+                opponent_agents=(
+                    OpponentSpec(
+                        AgentSpec(
+                            name="first",
+                            source_kind=AgentSourceKind.PYTHON_FILE,
+                            file_path=str(first_opponent_path),
+                        )
+                    ),
+                    builtin_opponent("idle"),
+                    OpponentSpec(
+                        AgentSpec(
+                            name="second",
+                            source_kind=AgentSourceKind.SUBMISSION_FILE,
+                            file_path=str(second_opponent_path),
+                        )
+                    ),
+                ),
+            )
+
+            with patch.dict(sys.modules, {"kaggle_environments": fake_kaggle}):
+                result = run_official_match(config)
+
+        self.assertEqual(result.status, EvaluationStatus.COMPLETED)
+        self.assertEqual(
+            fake_env.run_results,
+            [[["first"]], [["candidate"]], [], [["second"]]],
+        )
+
+    def test_missing_submission_file_candidate_returns_import_error(self) -> None:
+        config = candidate_config(
+            candidate_agent=AgentSpec(
+                name="submission",
+                source_kind=AgentSourceKind.SUBMISSION_FILE,
+                file_path="/tmp/missing-ow-eval-submission.py",
             )
         )
 
@@ -205,7 +265,8 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
         self.assertEqual(result.status, EvaluationStatus.IMPORT_ERROR)
         self.assertEqual(
             result.error_text,
-            "ValueError: opponent agent source kind must be builtin_baseline",
+            "ValueError: submission_file file not found: "
+            "/tmp/missing-ow-eval-submission.py",
         )
 
     def test_environment_creation_failure_returns_env_error(self) -> None:

@@ -15,16 +15,19 @@ from .contracts import (
     OpponentSpec,
     PlayerCount,
 )
+from .agent_loading import KaggleAgent, load_agent_callable
 from .official_runner import run_official_match
 
 __all__ = (
     "AgentSourceKind",
     "AgentSpec",
     "EvaluationStatus",
+    "KaggleAgent",
     "MatchConfig",
     "MatchMetrics",
     "MatchResult",
     "OpponentSpec",
     "PlayerCount",
+    "load_agent_callable",
     "run_official_match",
 )
