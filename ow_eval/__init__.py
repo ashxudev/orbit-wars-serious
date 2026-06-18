@@ -44,6 +44,14 @@ from .parity import (
     run_submission_parity_check,
     submission_agent_spec,
 )
+from .triage import (
+    FailureCategory,
+    FailureTriageItem,
+    FailureTriageReport,
+    triage_evaluation_batch,
+    triage_match_result,
+    triage_match_results,
+)
 
 __all__ = (
     "AgentSourceKind",
@@ -55,6 +63,9 @@ __all__ = (
     "EvaluationBatchResult",
     "EvaluationBatchSummary",
     "KaggleAgent",
+    "FailureCategory",
+    "FailureTriageItem",
+    "FailureTriageReport",
     "MatchConfig",
     "MatchMetrics",
     "MatchResult",
@@ -73,6 +84,9 @@ __all__ = (
     "run_submission_parity_check",
     "submission_agent_spec",
     "summarize_match_results",
+    "triage_evaluation_batch",
+    "triage_match_result",
+    "triage_match_results",
     "write_match_result_artifact",
     "write_replay_artifact",
 )
