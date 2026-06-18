@@ -98,6 +98,12 @@ from .scoreboard import (
     read_scoreboard_records,
     write_scoreboard_record,
 )
+from .submission_preflight import (
+    SubmissionPreflightCheck,
+    SubmissionPreflightResult,
+    main as run_submission_preflight_main,
+    run_submission_preflight,
+)
 from .triage import (
     FailureCategory,
     FailureTriageItem,
@@ -145,6 +151,8 @@ __all__ = (
     "SubmissionParityComparison",
     "SubmissionParityConfig",
     "SubmissionParityResult",
+    "SubmissionPreflightCheck",
+    "SubmissionPreflightResult",
     "available_builtin_baselines",
     "append_scoreboard_record",
     "build_scoreboard_record",
@@ -168,6 +176,8 @@ __all__ = (
     "run_official_match",
     "run_regression_gate",
     "run_submission_parity_check",
+    "run_submission_preflight",
+    "run_submission_preflight_main",
     "submission_agent_spec",
     "summarize_match_results",
     "triage_evaluation_batch",
