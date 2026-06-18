@@ -8,6 +8,8 @@ import unittest
 from unittest.mock import patch
 
 from agents import (
+    RuntimeBudgetConfig,
+    RuntimeBudgetStatus,
     RuntimePlannerConfig,
     RuntimePlannerResult,
     RuntimeTurnConfig,
@@ -66,6 +68,17 @@ def planner_result_fixture(state: GameState) -> RuntimePlannerResult:
     )
 
 
+class FakeClock:
+    def __init__(self, *times: float) -> None:
+        self._times = list(times)
+        self.last = times[-1] if times else 0.0
+
+    def __call__(self) -> float:
+        if self._times:
+            self.last = self._times.pop(0)
+        return self.last
+
+
 class RuntimeTurnTests(unittest.TestCase):
     def test_runtime_turn_module_imports_and_exports_are_available(self) -> None:
         module = importlib.import_module("agents.runtime_turn")
@@ -75,6 +88,11 @@ class RuntimeTurnTests(unittest.TestCase):
         self.assertIs(module.RuntimeTurnResult, RuntimeTurnResult)
         self.assertIs(module.run_runtime_turn, run_runtime_turn)
         self.assertIs(module.safe_actions_for_observation, safe_actions_for_observation)
+        self.assertEqual(RuntimeTurnStatus.LOW_BUDGET.value, "low_budget")
+        self.assertEqual(
+            RuntimeTurnStatus.BUDGET_EXHAUSTED.value,
+            "budget_exhausted",
+        )
 
     def test_successful_turn_with_actions_preserves_stage_order_and_config(self) -> None:
         observation = {"step": 0}
@@ -130,6 +148,8 @@ class RuntimeTurnTests(unittest.TestCase):
         self.assertIs(result.state, state)
         self.assertIs(result.planner_result, planner_result)
         self.assertIsNone(result.error)
+        self.assertIsNotNone(result.budget_check)
+        self.assertEqual(result.budget_check.status, RuntimeBudgetStatus.DISABLED)
         parse.assert_called_once()
         planner.assert_called_once()
         actions.assert_called_once()
@@ -228,6 +248,126 @@ class RuntimeTurnTests(unittest.TestCase):
         self.assertIs(result.planner_result, planner_result)
         self.assertEqual(result.error, "ValueError: invalid action")
         actions.assert_called_once()
+
+    def test_exhausted_budget_before_parse_skips_all_stages(self) -> None:
+        turn_config = RuntimeTurnConfig(
+            budget_config=RuntimeBudgetConfig(
+                turn_budget_seconds=0.0,
+                clock=FakeClock(10.0, 10.0),
+            ),
+        )
+
+        with (
+            patch(
+                "agents.runtime_turn.observation_to_game_state",
+                side_effect=AssertionError("observation_to_game_state called"),
+            ) as parse,
+            patch(
+                "agents.runtime_turn.run_planner_pipeline",
+                side_effect=AssertionError("run_planner_pipeline called"),
+            ) as planner,
+            patch(
+                "agents.runtime_turn.planner_result_to_actions",
+                side_effect=AssertionError("planner_result_to_actions called"),
+            ) as actions,
+        ):
+            result = run_runtime_turn({"step": 0}, config=turn_config)
+            second = run_runtime_turn({"step": 0}, config=turn_config)
+
+        self.assertEqual(result.status, RuntimeTurnStatus.BUDGET_EXHAUSTED)
+        self.assertEqual(result.actions, [])
+        self.assertEqual(second.actions, [])
+        self.assertIsNot(result.actions, second.actions)
+        self.assertIsNone(result.state)
+        self.assertIsNone(result.planner_result)
+        self.assertIsNotNone(result.budget_check)
+        self.assertEqual(result.budget_check.stage, "parse")
+        self.assertEqual(result.budget_check.status, RuntimeBudgetStatus.EXHAUSTED)
+        self.assertEqual(result.error, "budget exhausted before parse")
+        self.assertEqual(result.notes, ("budget exhausted before parse",))
+        parse.assert_not_called()
+        planner.assert_not_called()
+        actions.assert_not_called()
+
+    def test_low_budget_before_planner_skips_planner_and_actions(self) -> None:
+        state = state_fixture()
+        turn_config = RuntimeTurnConfig(
+            budget_config=RuntimeBudgetConfig(
+                turn_budget_seconds=1.0,
+                minimum_stage_start_seconds=0.2,
+                clock=FakeClock(10.0, 10.0, 10.9),
+            ),
+        )
+
+        with (
+            patch("agents.runtime_turn.observation_to_game_state", return_value=state)
+            as parse,
+            patch(
+                "agents.runtime_turn.run_planner_pipeline",
+                side_effect=AssertionError("run_planner_pipeline called"),
+            ) as planner,
+            patch(
+                "agents.runtime_turn.planner_result_to_actions",
+                side_effect=AssertionError("planner_result_to_actions called"),
+            ) as actions,
+        ):
+            result = run_runtime_turn({"step": 0}, config=turn_config)
+
+        self.assertEqual(result.status, RuntimeTurnStatus.LOW_BUDGET)
+        self.assertEqual(result.actions, [])
+        self.assertIs(result.state, state)
+        self.assertIsNone(result.planner_result)
+        self.assertIsNotNone(result.budget_check)
+        self.assertEqual(result.budget_check.stage, "planner")
+        self.assertEqual(result.budget_check.status, RuntimeBudgetStatus.LOW_BUDGET)
+        self.assertEqual(
+            result.error,
+            "budget below stage-start reserve before planner",
+        )
+        parse.assert_called_once()
+        planner.assert_not_called()
+        actions.assert_not_called()
+
+    def test_low_budget_before_actions_skips_action_conversion(self) -> None:
+        state = state_fixture()
+        planner_result = planner_result_fixture(state)
+        turn_config = RuntimeTurnConfig(
+            planner_config=RuntimePlannerConfig(),
+            budget_config=RuntimeBudgetConfig(
+                turn_budget_seconds=1.0,
+                minimum_stage_start_seconds=0.2,
+                clock=FakeClock(10.0, 10.0, 10.1, 10.9),
+            ),
+        )
+
+        with (
+            patch("agents.runtime_turn.observation_to_game_state", return_value=state)
+            as parse,
+            patch(
+                "agents.runtime_turn.run_planner_pipeline",
+                return_value=planner_result,
+            ) as planner,
+            patch(
+                "agents.runtime_turn.planner_result_to_actions",
+                side_effect=AssertionError("planner_result_to_actions called"),
+            ) as actions,
+        ):
+            result = run_runtime_turn({"step": 0}, config=turn_config)
+
+        self.assertEqual(result.status, RuntimeTurnStatus.LOW_BUDGET)
+        self.assertEqual(result.actions, [])
+        self.assertIs(result.state, state)
+        self.assertIs(result.planner_result, planner_result)
+        self.assertIsNotNone(result.budget_check)
+        self.assertEqual(result.budget_check.stage, "action conversion")
+        self.assertEqual(result.budget_check.status, RuntimeBudgetStatus.LOW_BUDGET)
+        self.assertEqual(
+            result.error,
+            "budget below stage-start reserve before action conversion",
+        )
+        parse.assert_called_once()
+        planner.assert_called_once()
+        actions.assert_not_called()
 
     def test_safe_actions_for_observation_returns_only_action_list(self) -> None:
         expected_actions = [[1, 0.0, 1]]

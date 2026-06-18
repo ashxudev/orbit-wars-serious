@@ -1,8 +1,8 @@
 """Orbit Wars runtime entrypoint.
 
-Runtime / Submission Cycle 4 delegates the Kaggle-callable ``agent`` function
-through the safe runtime turn boundary. Timing budgets and submission bundling
-remain deferred to later runtime cycles.
+The Kaggle-callable ``agent`` delegates through the safe runtime turn boundary,
+which owns parser/planner/action fallback behavior and optional stage-start
+budget guards. Submission bundling remains deferred to later runtime cycles.
 """
 
 from __future__ import annotations
