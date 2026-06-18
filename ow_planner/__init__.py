@@ -43,6 +43,7 @@ Strategy Modes Cycle 4 adds first-pass two-player direct-advantage selection.
 Strategy Modes Cycle 5 adds deterministic four-player board/rank facts.
 Strategy Modes Cycle 6 adds deterministic four-player mission/target facts.
 Strategy Modes Cycle 7 adds first-pass four-player strategy selection.
+Strategy Modes Cycle 8 adds unified strategy-mode dispatch.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -191,6 +192,10 @@ from .strategy_decisions import (
     rejected_strategy_result,
     selected_strategy_result,
 )
+from .strategy_dispatch import (
+    StrategyDispatchConfig,
+    select_strategy_for_mode,
+)
 from .two_player_strategy import (
     TwoPlayerAdvantageFacts,
     two_player_advantage_facts,
@@ -253,6 +258,7 @@ __all__ = (
     "ShipEstimateStatus",
     "SourceCounterattackFacts",
     "SourceTargetPair",
+    "StrategyDispatchConfig",
     "StrategyMode",
     "StrategyModeFacts",
     "StrategySelectionResult",
@@ -307,6 +313,7 @@ __all__ = (
     "score_source_opportunity_facts",
     "selected_strategy_result",
     "select_four_player_strategy",
+    "select_strategy_for_mode",
     "select_two_player_direct_advantage",
     "reserve_preserving_commitment_option",
     "response_source_pressure_facts",
