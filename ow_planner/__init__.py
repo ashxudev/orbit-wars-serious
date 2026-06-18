@@ -41,6 +41,7 @@ Strategy Modes Cycle 2 adds structural strategy-selection results.
 Strategy Modes Cycle 3 adds deterministic two-player direct-advantage facts.
 Strategy Modes Cycle 4 adds first-pass two-player direct-advantage selection.
 Strategy Modes Cycle 5 adds deterministic four-player board/rank facts.
+Strategy Modes Cycle 6 adds deterministic four-player mission/target facts.
 Strategy, ranking, pruning, and selection are intentionally deferred.
 """
 
@@ -84,6 +85,11 @@ from .four_player_strategy import (
     FourPlayerBoardFacts,
     FourPlayerStandingFacts,
     four_player_board_facts,
+)
+from .four_player_missions import (
+    FourPlayerMissionFacts,
+    four_player_mission_facts,
+    four_player_mission_facts_for_bundles,
 )
 from .enumeration import (
     ROUGH_TRAVEL_SHIPS,
@@ -206,6 +212,7 @@ __all__ = (
     "EstimatedPair",
     "EvaluationConfig",
     "FourPlayerBoardFacts",
+    "FourPlayerMissionFacts",
     "FourPlayerStandingFacts",
     "LaunchCandidate",
     "MissionCandidate",
@@ -268,6 +275,8 @@ __all__ = (
     "evaluate_responses",
     "extract_candidate_facts",
     "four_player_board_facts",
+    "four_player_mission_facts",
+    "four_player_mission_facts_for_bundles",
     "full_source_commitment_option",
     "generate_candidates",
     "launch_candidate_to_action",
