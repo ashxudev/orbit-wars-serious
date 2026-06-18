@@ -14,11 +14,13 @@ from agents import RuntimeBudgetConfig, RuntimeTurnConfig
 from ow_eval import (
     AgentSourceKind,
     AgentSpec,
+    BaselineName,
     EvaluationStatus,
     MatchConfig,
     MatchResult,
     OpponentSpec,
     PlayerCount,
+    builtin_baseline_spec,
     run_official_match,
 )
 
@@ -115,6 +117,27 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
         self.assertIsNone(result.error_text)
         self.assertIsNone(result.replay_path)
         self.assertIsNone(result.artifact_path)
+
+    def test_real_builtin_baseline_official_match_completes(self) -> None:
+        config = candidate_config(
+            candidate_agent=builtin_baseline_spec(
+                BaselineName.NOOP,
+                name="candidate-noop",
+            ),
+            opponent_agents=(
+                OpponentSpec(
+                    builtin_baseline_spec(
+                        BaselineName.NEAREST_NEUTRAL,
+                        name="nearest-neutral",
+                    )
+                ),
+            ),
+        )
+
+        result = run_official_match(config)
+
+        self.assertEqual(result.status, EvaluationStatus.COMPLETED)
+        self.assertIsNone(result.error_text)
 
     def test_runner_respects_controlled_seat_when_building_players(self) -> None:
         fake_env = FakeOrbitWarsEnvironment()

@@ -13,6 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from .baselines import load_builtin_baseline
 from .contracts import AgentSourceKind, AgentSpec
 
 
@@ -25,7 +26,7 @@ def load_agent_callable(agent_spec: AgentSpec) -> KaggleAgent:
     if agent_spec.source_kind is AgentSourceKind.MODULAR_AGENT:
         return _load_modular_agent(agent_spec)
     if agent_spec.source_kind is AgentSourceKind.BUILTIN_BASELINE:
-        return _noop_baseline_agent
+        return load_builtin_baseline(agent_spec)
     if agent_spec.source_kind in (
         AgentSourceKind.PYTHON_FILE,
         AgentSourceKind.SUBMISSION_FILE,
@@ -76,14 +77,6 @@ def _module_name_for_file(path: Path, source_kind: str) -> str:
         for character in path.stem
     )
     return f"_ow_eval_{source_kind}_{stem}_{digest}"
-
-
-def _noop_baseline_agent(
-    observation: Any,
-    configuration: Any = None,
-) -> list[list[int | float]]:
-    _ = observation, configuration
-    return []
 
 
 __all__ = (

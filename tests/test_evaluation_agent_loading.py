@@ -7,7 +7,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ow_eval import AgentSourceKind, AgentSpec, load_agent_callable
+from ow_eval import (
+    AgentSourceKind,
+    AgentSpec,
+    BaselineName,
+    builtin_baseline_spec,
+    load_agent_callable,
+)
 
 
 class EvaluationAgentLoadingTests(unittest.TestCase):
@@ -36,6 +42,23 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
 
         self.assertEqual(agent({"step": 0}, {}), [])
         self.assertIsNot(agent({"step": 0}, {}), agent({"step": 1}, {}))
+
+    def test_loads_explicit_builtin_baseline_from_registry(self) -> None:
+        spec = builtin_baseline_spec(BaselineName.NEAREST_NEUTRAL)
+
+        agent = load_agent_callable(spec)
+
+        self.assertEqual(agent({"planets": [[1]]}, {}), [])
+
+    def test_explicit_unknown_builtin_baseline_raises_value_error(self) -> None:
+        spec = AgentSpec(
+            name="bad",
+            source_kind=AgentSourceKind.BUILTIN_BASELINE,
+            metadata=(("baseline", "unknown"),),
+        )
+
+        with self.assertRaisesRegex(ValueError, "unknown builtin baseline: unknown"):
+            load_agent_callable(spec)
 
     def test_loads_python_file_agent_without_sys_path_parent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
