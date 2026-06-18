@@ -141,9 +141,12 @@ class EvaluationContractTests(unittest.TestCase):
                 final_score=12.5,
                 final_planets=8,
                 final_ships=150,
+                final_production=24,
                 turns_survived=400,
                 no_action_count=3,
                 error_count=0,
+                invalid_action_count=0,
+                timeout_count=0,
             ),
         )
         errored = MatchResult(
@@ -154,7 +157,10 @@ class EvaluationContractTests(unittest.TestCase):
 
         self.assertEqual(not_run.status, EvaluationStatus.NOT_RUN)
         self.assertEqual(completed.metrics.final_rank, 1)
+        self.assertEqual(completed.metrics.final_production, 24)
         self.assertEqual(completed.metrics.error_count, 0)
+        self.assertEqual(completed.metrics.invalid_action_count, 0)
+        self.assertEqual(completed.metrics.timeout_count, 0)
         self.assertEqual(errored.status, EvaluationStatus.IMPORT_ERROR)
         self.assertEqual(errored.error_text, "ImportError: missing agent")
 
@@ -234,7 +240,13 @@ class EvaluationContractTests(unittest.TestCase):
         result = MatchResult(
             config=config,
             status=EvaluationStatus.UNKNOWN_ERROR,
-            metrics=MatchMetrics(final_rank=4, error_count=1),
+            metrics=MatchMetrics(
+                final_rank=4,
+                final_production=10,
+                error_count=1,
+                invalid_action_count=1,
+                timeout_count=0,
+            ),
             error_text="RuntimeError: test",
             replay_path="replay.json",
             artifact_path="result.json",

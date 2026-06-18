@@ -1,7 +1,8 @@
 """Single-match official environment smoke runner.
 
-Evaluation Harness Cycle 1 runs one ``MatchConfig`` through the local official
-``kaggle_environments`` Orbit Wars environment. This module avoids importing
+This module runs one ``MatchConfig`` through the local official
+``kaggle_environments`` Orbit Wars environment, extracts deterministic metrics
+from safe replay payloads, and optionally writes artifacts. It avoids importing
 ``kaggle_environments`` until ``run_official_match`` is called.
 """
 
@@ -26,6 +27,7 @@ from .contracts import (
     MatchConfig,
     MatchResult,
 )
+from .metrics import extract_match_metrics
 
 
 class AgentExecutionError(RuntimeError):
@@ -132,6 +134,21 @@ def _finalize_match_result(
     env: Any | None,
     replay_allowed: bool,
 ) -> MatchResult:
+    replay_payload = (
+        _safe_replay_payload(env)
+        if replay_allowed and env is not None
+        else None
+    )
+
+    try:
+        result = _result_with_metrics(result, replay_payload)
+    except Exception as exc:
+        return MatchResult(
+            config=result.config,
+            status=EvaluationStatus.UNKNOWN_ERROR,
+            error_text=_error_text(exc),
+        )
+
     if artifacts is None:
         return result
 
@@ -139,8 +156,7 @@ def _finalize_match_result(
         return _write_requested_artifacts(
             result=result,
             artifact_config=artifacts,
-            env=env,
-            replay_allowed=replay_allowed,
+            replay_payload=replay_payload,
         )
     except Exception as exc:
         return MatchResult(
@@ -154,16 +170,13 @@ def _write_requested_artifacts(
     *,
     result: MatchResult,
     artifact_config: EvaluationArtifactConfig,
-    env: Any | None,
-    replay_allowed: bool,
+    replay_payload: Mapping[str, object] | Sequence[object] | None,
 ) -> MatchResult:
     replay_path, artifact_path = artifact_paths_for_config(result.config, artifact_config)
 
     written_replay_path: str | None = None
-    if artifact_config.write_replay and replay_allowed and env is not None:
-        replay_payload = _safe_replay_payload(env)
-        if replay_payload is not None:
-            written_replay_path = str(write_replay_artifact(replay_payload, replay_path))
+    if artifact_config.write_replay and replay_payload is not None:
+        written_replay_path = str(write_replay_artifact(replay_payload, replay_path))
 
     final_result = replace(
         result,
@@ -173,6 +186,21 @@ def _write_requested_artifacts(
     if artifact_config.write_result:
         write_match_result_artifact(final_result, artifact_path)
     return final_result
+
+
+def _result_with_metrics(
+    result: MatchResult,
+    replay_payload: Mapping[str, object] | Sequence[object] | None,
+) -> MatchResult:
+    if not isinstance(replay_payload, Mapping):
+        return result
+    return replace(
+        result,
+        metrics=extract_match_metrics(
+            replay_payload,
+            result.config.controlled_seat,
+        ),
+    )
 
 
 def _safe_replay_payload(env: Any) -> Mapping[str, object] | Sequence[object] | None:

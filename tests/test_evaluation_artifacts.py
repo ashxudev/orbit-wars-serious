@@ -54,7 +54,7 @@ class FakeOrbitWarsEnvironment:
     def __init__(self, replay_payload: object | None = None) -> None:
         self.reset_players: int | None = None
         self.run_called = False
-        self.replay_payload = replay_payload or {"steps": [{"status": "done"}]}
+        self.replay_payload = replay_payload or fake_replay_payload()
 
     def reset(self, players: int) -> None:
         self.reset_players = players
@@ -309,6 +309,42 @@ def fake_kaggle_module(fake_env: FakeOrbitWarsEnvironment) -> types.ModuleType:
 
     module.make = make  # type: ignore[attr-defined]
     return module
+
+
+def fake_replay_payload() -> dict[str, object]:
+    observation = {
+        "step": 0,
+        "player": 0,
+        "planets": [
+            [1, 0, 0.0, 0.0, 0.5, 5, 1],
+            [2, 1, 1.0, 0.0, 0.5, 5, 1],
+        ],
+        "fleets": [],
+        "initial_planets": [
+            [1, 0, 0.0, 0.0, 0.5, 5, 1],
+            [2, 1, 1.0, 0.0, 0.5, 5, 1],
+        ],
+        "remainingOverageTime": 60.0,
+    }
+    return {
+        "rewards": [1, 0],
+        "steps": [
+            [
+                {
+                    "status": "DONE",
+                    "reward": 1,
+                    "action": [],
+                    "observation": observation,
+                },
+                {
+                    "status": "DONE",
+                    "reward": 0,
+                    "action": [],
+                    "observation": {**observation, "player": 1},
+                },
+            ]
+        ],
+    }
 
 
 if __name__ == "__main__":

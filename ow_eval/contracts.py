@@ -188,15 +188,18 @@ class MatchConfig:
 
 @dataclass(frozen=True, slots=True)
 class MatchMetrics:
-    """Placeholder summary metrics for a future completed local match."""
+    """Summary metrics extracted from one local official match replay."""
 
     final_rank: int | None = None
     final_score: float | None = None
     final_planets: int | None = None
     final_ships: int | None = None
+    final_production: int | None = None
     turns_survived: int | None = None
     no_action_count: int | None = None
     error_count: int | None = None
+    invalid_action_count: int | None = None
+    timeout_count: int | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic plain dictionary representation."""
@@ -206,9 +209,12 @@ class MatchMetrics:
             "final_score": self.final_score,
             "final_planets": self.final_planets,
             "final_ships": self.final_ships,
+            "final_production": self.final_production,
             "turns_survived": self.turns_survived,
             "no_action_count": self.no_action_count,
             "error_count": self.error_count,
+            "invalid_action_count": self.invalid_action_count,
+            "timeout_count": self.timeout_count,
         }
 
     @classmethod
@@ -220,6 +226,10 @@ class MatchMetrics:
             final_score=_optional_float(data.get("final_score"), "final_score"),
             final_planets=_optional_int(data.get("final_planets"), "final_planets"),
             final_ships=_optional_int(data.get("final_ships"), "final_ships"),
+            final_production=_optional_int(
+                data.get("final_production"),
+                "final_production",
+            ),
             turns_survived=_optional_int(
                 data.get("turns_survived"),
                 "turns_survived",
@@ -229,6 +239,11 @@ class MatchMetrics:
                 "no_action_count",
             ),
             error_count=_optional_int(data.get("error_count"), "error_count"),
+            invalid_action_count=_optional_int(
+                data.get("invalid_action_count"),
+                "invalid_action_count",
+            ),
+            timeout_count=_optional_int(data.get("timeout_count"), "timeout_count"),
         )
 
 
