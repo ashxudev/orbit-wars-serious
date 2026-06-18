@@ -30,6 +30,11 @@ from .experiment_manifest import (
     PromotionThresholds,
     manifest_to_match_configs,
 )
+from .experiment_runner import (
+    ExperimentRunConfig,
+    ExperimentRunResult,
+    run_experiment_manifest,
+)
 from .agent_loading import KaggleAgent, load_agent_callable
 from .artifacts import (
     EvaluationArtifactConfig,
@@ -90,6 +95,8 @@ __all__ = (
     "EvaluationBatchResult",
     "EvaluationBatchSummary",
     "ExperimentManifest",
+    "ExperimentRunConfig",
+    "ExperimentRunResult",
     "ExperimentScenario",
     "KaggleAgent",
     "FailureCategory",
@@ -122,6 +129,7 @@ __all__ = (
     "manifest_to_match_configs",
     "read_scoreboard_records",
     "run_evaluation_batch",
+    "run_experiment_manifest",
     "run_official_match",
     "run_regression_gate",
     "run_submission_parity_check",
