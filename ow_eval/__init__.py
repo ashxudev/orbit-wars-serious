@@ -63,6 +63,11 @@ from .parity import (
     run_submission_parity_check,
     submission_agent_spec,
 )
+from .promotion_gate import (
+    PromotionGateDecision,
+    PromotionGateFailure,
+    evaluate_promotion_gate,
+)
 from .regression_gate import (
     RegressionGateConfig,
     RegressionGateFailure,
@@ -110,6 +115,8 @@ __all__ = (
     "PlannerAnalysisItem",
     "PlannerAnalysisPack",
     "PlannerAnalysisPackConfig",
+    "PromotionGateDecision",
+    "PromotionGateFailure",
     "PromotionThresholds",
     "RegressionGateConfig",
     "RegressionGateFailure",
@@ -123,6 +130,7 @@ __all__ = (
     "build_scoreboard_record",
     "build_planner_analysis_pack",
     "builtin_baseline_spec",
+    "evaluate_promotion_gate",
     "extract_match_metrics",
     "load_agent_callable",
     "load_builtin_baseline",
