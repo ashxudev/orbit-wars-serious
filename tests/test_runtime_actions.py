@@ -318,15 +318,15 @@ class RuntimeActionConversionTests(unittest.TestCase):
         self.assertEqual(selection, selection_before)
         self.assertEqual(option, option_before)
 
-    def test_agent_remains_no_action_and_does_not_call_runtime_actions(self) -> None:
+    def test_agent_delegates_to_safe_turn_boundary_not_actions_directly(self) -> None:
         with patch(
-            "agents.runtime_actions.selected_commitment_to_actions",
-            side_effect=AssertionError("selected_commitment_to_actions called"),
-        ) as selected_commitment_to_actions_patch:
+            "agents.orbit_wars_agent.safe_actions_for_observation",
+            return_value=[],
+        ) as safe_actions:
             result = agent({}, {})
 
         self.assertEqual(result, [])
-        selected_commitment_to_actions_patch.assert_not_called()
+        safe_actions.assert_called_once_with({}, {})
 
 
 if __name__ == "__main__":

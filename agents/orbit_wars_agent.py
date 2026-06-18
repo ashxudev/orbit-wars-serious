@@ -1,26 +1,26 @@
-"""Minimal Orbit Wars runtime entrypoint boundary.
+"""Orbit Wars runtime entrypoint.
 
-Runtime / Submission Cycle 0 exposes the Kaggle-callable ``agent`` function
-and intentionally returns safe no-action output. Planner wiring, observation
-parsing, action conversion, timing budgets, and submission bundling are
-deferred to later runtime cycles.
+Runtime / Submission Cycle 4 delegates the Kaggle-callable ``agent`` function
+through the safe runtime turn boundary. Timing budgets and submission bundling
+remain deferred to later runtime cycles.
 """
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Mapping
 
+from ow_planner.actions import KaggleActionRow
 
-KaggleActionRow: TypeAlias = list[int | float]
+from .runtime_turn import safe_actions_for_observation
 
 
 def agent(
-    observation: object,
+    observation: Mapping[str, object],
     configuration: object | None = None,
 ) -> list[KaggleActionRow]:
-    """Return a fresh no-action list for the current runtime boundary."""
+    """Return safe Kaggle action rows for one observation."""
 
-    return []
+    return safe_actions_for_observation(observation, configuration)
 
 
 __all__ = ("agent",)

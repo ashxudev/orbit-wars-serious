@@ -26,23 +26,37 @@ class RuntimeAgentEntrypointTests(unittest.TestCase):
 
         self.assertIs(module.agent, agent)
 
-    def test_agent_returns_empty_action_list_for_standard_call_shape(self) -> None:
-        result = agent({}, {})
+    def test_agent_delegates_standard_call_shape_to_safe_runtime_turn(self) -> None:
+        with patch(
+            "agents.orbit_wars_agent.safe_actions_for_observation",
+            return_value=[],
+        ) as safe_actions:
+            result = agent({}, {})
 
         self.assertEqual(result, [])
         self.assertIsInstance(result, list)
+        safe_actions.assert_called_once_with({}, {})
 
-    def test_agent_returns_empty_action_list_for_fixture_observation(self) -> None:
+    def test_agent_delegates_fixture_observation_to_safe_runtime_turn(self) -> None:
         observation = load_fixture("kaggle_seed7_2p_step0.json")
         configuration = {"episodeSteps": 400}
 
-        result = agent(observation, configuration)
+        with patch(
+            "agents.orbit_wars_agent.safe_actions_for_observation",
+            return_value=[],
+        ) as safe_actions:
+            result = agent(observation, configuration)
 
         self.assertEqual(result, [])
+        safe_actions.assert_called_once_with(observation, configuration)
 
     def test_agent_returns_fresh_list_each_call(self) -> None:
-        first = agent({}, {})
-        second = agent({}, {})
+        with patch(
+            "agents.orbit_wars_agent.safe_actions_for_observation",
+            side_effect=lambda observation, configuration=None: [],
+        ):
+            first = agent({}, {})
+            second = agent({}, {})
 
         self.assertEqual(first, [])
         self.assertEqual(second, [])
@@ -54,40 +68,44 @@ class RuntimeAgentEntrypointTests(unittest.TestCase):
         observation_before = copy.deepcopy(observation)
         configuration_before = copy.deepcopy(configuration)
 
-        agent(observation, configuration)
+        with patch(
+            "agents.orbit_wars_agent.safe_actions_for_observation",
+            return_value=[],
+        ):
+            agent(observation, configuration)
 
         self.assertEqual(observation, observation_before)
         self.assertEqual(configuration, configuration_before)
 
-    def test_agent_does_not_call_deferred_planner_or_simulator_layers(self) -> None:
+    def test_agent_uses_safe_turn_boundary_instead_of_direct_runtime_stages(self) -> None:
         observation = load_fixture("kaggle_seed7_2p_step0.json")
         configuration = {"episodeSteps": 400}
 
         with (
             patch(
-                "ow_sim.state.GameState.from_obs",
-                side_effect=AssertionError("GameState.from_obs called"),
-            ) as from_obs,
+                "agents.orbit_wars_agent.safe_actions_for_observation",
+                return_value=[],
+            ) as safe_actions,
             patch(
-                "ow_planner.candidates.generate_candidates",
-                side_effect=AssertionError("generate_candidates called"),
-            ) as generate_candidates,
+                "agents.runtime_state.observation_to_game_state",
+                side_effect=AssertionError("observation_to_game_state called"),
+            ) as observation_to_game_state,
             patch(
-                "ow_planner.strategy_dispatch.select_strategy_for_mode",
-                side_effect=AssertionError("select_strategy_for_mode called"),
-            ) as select_strategy_for_mode,
+                "agents.runtime_planner.run_planner_pipeline",
+                side_effect=AssertionError("run_planner_pipeline called"),
+            ) as run_planner_pipeline,
             patch(
-                "ow_planner.actions.mission_candidate_to_actions",
-                side_effect=AssertionError("mission_candidate_to_actions called"),
-            ) as mission_candidate_to_actions,
+                "agents.runtime_actions.planner_result_to_actions",
+                side_effect=AssertionError("planner_result_to_actions called"),
+            ) as planner_result_to_actions,
         ):
             result = agent(observation, configuration)
 
         self.assertEqual(result, [])
-        from_obs.assert_not_called()
-        generate_candidates.assert_not_called()
-        select_strategy_for_mode.assert_not_called()
-        mission_candidate_to_actions.assert_not_called()
+        safe_actions.assert_called_once_with(observation, configuration)
+        observation_to_game_state.assert_not_called()
+        run_planner_pipeline.assert_not_called()
+        planner_result_to_actions.assert_not_called()
 
 
 if __name__ == "__main__":
