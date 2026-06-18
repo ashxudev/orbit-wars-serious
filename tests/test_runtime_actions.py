@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from agents import (
     RuntimePlannerResult,
+    RuntimeTurnConfig,
     agent,
     planner_result_to_actions,
     selected_commitment_to_actions,
@@ -326,7 +327,9 @@ class RuntimeActionConversionTests(unittest.TestCase):
             result = agent({}, {})
 
         self.assertEqual(result, [])
-        safe_actions.assert_called_once_with({}, {})
+        safe_actions.assert_called_once()
+        self.assertEqual(safe_actions.call_args.args[:2], ({}, {}))
+        self.assertIsInstance(safe_actions.call_args.args[2], RuntimeTurnConfig)
 
 
 if __name__ == "__main__":

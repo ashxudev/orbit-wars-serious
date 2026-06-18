@@ -11,6 +11,7 @@ from typing import Mapping
 
 from ow_planner.actions import KaggleActionRow
 
+from .runtime_config import runtime_turn_config_for_observation
 from .runtime_turn import safe_actions_for_observation
 
 
@@ -20,7 +21,8 @@ def agent(
 ) -> list[KaggleActionRow]:
     """Return safe Kaggle action rows for one observation."""
 
-    return safe_actions_for_observation(observation, configuration)
+    config = runtime_turn_config_for_observation(observation, configuration)
+    return safe_actions_for_observation(observation, configuration, config)
 
 
 __all__ = ("agent",)
