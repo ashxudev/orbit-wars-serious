@@ -2,8 +2,8 @@
 
 The harness supports typed match contracts, local official-environment smoke
 runs, reusable agent loading, deterministic built-in baselines, single-match
-metrics extraction, and optional artifact capture. Scoreboards, batch runs, and
-live submission automation remain deferred.
+metrics extraction, optional artifact capture, and sequential batch execution.
+Scoreboards, regression gates, and live submission automation remain deferred.
 """
 
 from .contracts import (
@@ -28,6 +28,13 @@ from .baselines import (
     builtin_baseline_spec,
     load_builtin_baseline,
 )
+from .batch_runner import (
+    EvaluationBatchConfig,
+    EvaluationBatchResult,
+    EvaluationBatchSummary,
+    run_evaluation_batch,
+    summarize_match_results,
+)
 from .metrics import extract_match_metrics
 from .official_runner import run_official_match
 
@@ -37,6 +44,9 @@ __all__ = (
     "BaselineName",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
+    "EvaluationBatchConfig",
+    "EvaluationBatchResult",
+    "EvaluationBatchSummary",
     "KaggleAgent",
     "MatchConfig",
     "MatchMetrics",
@@ -48,7 +58,9 @@ __all__ = (
     "extract_match_metrics",
     "load_agent_callable",
     "load_builtin_baseline",
+    "run_evaluation_batch",
     "run_official_match",
+    "summarize_match_results",
     "write_match_result_artifact",
     "write_replay_artifact",
 )
