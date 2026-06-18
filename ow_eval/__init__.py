@@ -30,6 +30,12 @@ from .experiment_manifest import (
     PromotionThresholds,
     manifest_to_match_configs,
 )
+from .experiment_report import (
+    ExperimentReport,
+    build_experiment_report,
+    read_experiment_report,
+    write_experiment_report,
+)
 from .experiment_runner import (
     ExperimentRunConfig,
     ExperimentRunResult,
@@ -100,6 +106,7 @@ __all__ = (
     "EvaluationBatchResult",
     "EvaluationBatchSummary",
     "ExperimentManifest",
+    "ExperimentReport",
     "ExperimentRunConfig",
     "ExperimentRunResult",
     "ExperimentScenario",
@@ -128,6 +135,7 @@ __all__ = (
     "available_builtin_baselines",
     "append_scoreboard_record",
     "build_scoreboard_record",
+    "build_experiment_report",
     "build_planner_analysis_pack",
     "builtin_baseline_spec",
     "evaluate_promotion_gate",
@@ -135,6 +143,7 @@ __all__ = (
     "load_agent_callable",
     "load_builtin_baseline",
     "manifest_to_match_configs",
+    "read_experiment_report",
     "read_scoreboard_records",
     "run_evaluation_batch",
     "run_experiment_manifest",
@@ -147,6 +156,7 @@ __all__ = (
     "triage_match_result",
     "triage_match_results",
     "write_scoreboard_record",
+    "write_experiment_report",
     "write_match_result_artifact",
     "write_replay_artifact",
 )
