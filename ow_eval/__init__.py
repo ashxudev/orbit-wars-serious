@@ -15,6 +15,7 @@ from .contracts import (
     OpponentSpec,
     PlayerCount,
 )
+from .official_runner import run_official_match
 
 __all__ = (
     "AgentSourceKind",
@@ -25,4 +26,5 @@ __all__ = (
     "MatchResult",
     "OpponentSpec",
     "PlayerCount",
+    "run_official_match",
 )
