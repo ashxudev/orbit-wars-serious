@@ -30,6 +30,11 @@ from .experiment_manifest import (
     PromotionThresholds,
     manifest_to_match_configs,
 )
+from .experiment_cli import (
+    ExperimentCliResult,
+    main as run_evaluation_experiment_main,
+    run_evaluation_experiment,
+)
 from .experiment_report import (
     ExperimentReport,
     build_experiment_report,
@@ -105,6 +110,7 @@ __all__ = (
     "EvaluationBatchConfig",
     "EvaluationBatchResult",
     "EvaluationBatchSummary",
+    "ExperimentCliResult",
     "ExperimentManifest",
     "ExperimentReport",
     "ExperimentRunConfig",
@@ -146,6 +152,8 @@ __all__ = (
     "read_experiment_report",
     "read_scoreboard_records",
     "run_evaluation_batch",
+    "run_evaluation_experiment",
+    "run_evaluation_experiment_main",
     "run_experiment_manifest",
     "run_official_match",
     "run_regression_gate",
