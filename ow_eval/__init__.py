@@ -3,7 +3,8 @@
 The harness supports typed match contracts, local official-environment smoke
 runs, reusable agent loading, deterministic built-in baselines, single-match
 metrics extraction, optional artifact capture, and sequential batch execution.
-Scoreboards, regression gates, and live submission automation remain deferred.
+Scoreboard records and a quick regression gate are available for local checks;
+live submission automation remains deferred.
 """
 
 from .contracts import (
@@ -44,6 +45,12 @@ from .parity import (
     run_submission_parity_check,
     submission_agent_spec,
 )
+from .regression_gate import (
+    RegressionGateConfig,
+    RegressionGateFailure,
+    RegressionGateResult,
+    run_regression_gate,
+)
 from .scoreboard import (
     ScoreboardRecord,
     append_scoreboard_record,
@@ -78,6 +85,9 @@ __all__ = (
     "MatchResult",
     "OpponentSpec",
     "PlayerCount",
+    "RegressionGateConfig",
+    "RegressionGateFailure",
+    "RegressionGateResult",
     "ScoreboardRecord",
     "SubmissionParityComparison",
     "SubmissionParityConfig",
@@ -92,6 +102,7 @@ __all__ = (
     "read_scoreboard_records",
     "run_evaluation_batch",
     "run_official_match",
+    "run_regression_gate",
     "run_submission_parity_check",
     "submission_agent_spec",
     "summarize_match_results",
