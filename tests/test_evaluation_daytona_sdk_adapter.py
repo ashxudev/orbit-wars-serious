@@ -97,7 +97,13 @@ class MissingMethodsClient:
     pass
 
 
-def ready_adapter_config(fake_client: object) -> DaytonaSdkAdapterConfig:
+def ready_adapter_config(
+    fake_client: object | None = None,
+    *,
+    sdk_module_name: str = "fake_daytona",
+    sdk_importer=None,  # noqa: ANN001 - tests pass simple fake callables.
+    sdk_client_factory=None,  # noqa: ANN001 - tests pass simple fake callables.
+) -> DaytonaSdkAdapterConfig:
     config = DaytonaRealExecutionConfig(
         allow_real_daytona=True,
         api_key_env_var="TOKEN",
@@ -110,6 +116,9 @@ def ready_adapter_config(fake_client: object) -> DaytonaSdkAdapterConfig:
         real_execution_config=config,
         readiness=readiness,
         sdk_client=fake_client,
+        sdk_module_name=sdk_module_name,
+        sdk_importer=sdk_importer,
+        sdk_client_factory=sdk_client_factory,
     )
 
 
@@ -157,6 +166,36 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
 
         self.assertEqual(fake.calls, [])
 
+    def test_blocked_readiness_prevents_lazy_import_and_factory(self) -> None:
+        importer_calls: list[str] = []
+        factory_calls: list[object] = []
+
+        def fake_importer(name: str) -> object:
+            importer_calls.append(name)
+            return object()
+
+        def fake_factory(module, config):  # noqa: ANN001 - fake factory.
+            factory_calls.append((module, config))
+            return FakeSdkClient()
+
+        adapter = DaytonaSdkAdapter(
+            DaytonaSdkAdapterConfig(
+                real_execution_config=DaytonaRealExecutionConfig(),
+                sdk_module_name="fake_daytona",
+                sdk_importer=fake_importer,
+                sdk_client_factory=fake_factory,
+            )
+        )
+
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "not ready for real execution",
+        ):
+            adapter.open_sandbox(sandbox_name="sandbox", working_dir="/workspace")
+
+        self.assertEqual(importer_calls, [])
+        self.assertEqual(factory_calls, [])
+
     def test_injected_fake_client_receives_protocol_calls_in_order(self) -> None:
         fake = FakeSdkClient()
         adapter = DaytonaSdkAdapter(ready_adapter_config(fake))
@@ -194,6 +233,104 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
             ["open", "upload", "command", "download", "close"],
         )
         self.assertEqual(fake.calls[2][1], ("python", "worker.py"))
+
+    def test_lazy_importer_and_factory_resolve_client_on_first_operation_and_cache_it(self) -> None:
+        fake = FakeSdkClient()
+        fake_module = object()
+        importer_calls: list[str] = []
+        factory_calls: list[tuple[object, object]] = []
+
+        def fake_importer(name: str) -> object:
+            importer_calls.append(name)
+            return fake_module
+
+        def fake_factory(module, config):  # noqa: ANN001 - fake factory.
+            factory_calls.append((module, config))
+            return fake
+
+        adapter = DaytonaSdkAdapter(
+            ready_adapter_config(
+                sdk_module_name="fake_daytona_sdk",
+                sdk_importer=fake_importer,
+                sdk_client_factory=fake_factory,
+            )
+        )
+
+        handle = adapter.open_sandbox(
+            sandbox_name="sandbox",
+            working_dir="/workspace",
+        )
+        adapter.close_sandbox(handle)
+
+        self.assertEqual(importer_calls, ["fake_daytona_sdk"])
+        self.assertEqual(len(factory_calls), 1)
+        self.assertIs(factory_calls[0][0], fake_module)
+        self.assertEqual(
+            [call[0] for call in fake.calls],
+            ["open", "close"],
+        )
+
+    def test_missing_factory_missing_sdk_and_factory_exceptions_are_deterministic(self) -> None:
+        missing_factory = DaytonaSdkAdapter(
+            ready_adapter_config(sdk_importer=lambda name: object())
+        )
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "sdk_client_factory",
+        ):
+            missing_factory.open_sandbox(
+                sandbox_name="sandbox",
+                working_dir="/workspace",
+            )
+
+        missing_sdk = DaytonaSdkAdapter(
+            ready_adapter_config(
+                sdk_module_name="missing_daytona",
+                sdk_importer=lambda name: (_ for _ in ()).throw(
+                    ModuleNotFoundError("missing_daytona")
+                ),
+                sdk_client_factory=lambda module, config: FakeSdkClient(),
+            )
+        )
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "Daytona SDK module import failed: missing_daytona",
+        ):
+            missing_sdk.open_sandbox(
+                sandbox_name="sandbox",
+                working_dir="/workspace",
+            )
+
+        factory_failure = DaytonaSdkAdapter(
+            ready_adapter_config(
+                sdk_importer=lambda name: object(),
+                sdk_client_factory=lambda module, config: (_ for _ in ()).throw(
+                    RuntimeError("factory failed")
+                ),
+            )
+        )
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "Daytona SDK client factory failed: RuntimeError: factory failed",
+        ):
+            factory_failure.open_sandbox(
+                sandbox_name="sandbox",
+                working_dir="/workspace",
+            )
+
+    def test_bad_factory_return_value_fails_before_operation_call(self) -> None:
+        adapter = DaytonaSdkAdapter(
+            ready_adapter_config(
+                sdk_importer=lambda name: object(),
+                sdk_client_factory=lambda module, config: MissingMethodsClient(),
+            )
+        )
+
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "factory returned an object missing open_sandbox",
+        ):
+            adapter.open_sandbox(sandbox_name="sandbox", working_dir="/workspace")
 
     def test_missing_fake_sdk_methods_raise_deterministic_unavailable_error(self) -> None:
         adapter = DaytonaSdkAdapter(
@@ -293,10 +430,19 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
             DaytonaSdkAdapterConfig(real_execution_config=object())  # type: ignore[arg-type]
         with self.assertRaisesRegex(ValueError, "readiness"):
             DaytonaSdkAdapterConfig(readiness=object())  # type: ignore[arg-type]
+        with self.assertRaisesRegex(ValueError, "sdk_module_name"):
+            DaytonaSdkAdapterConfig(sdk_module_name="")
+        with self.assertRaisesRegex(ValueError, "sdk_importer"):
+            DaytonaSdkAdapterConfig(sdk_importer=object())  # type: ignore[arg-type]
+        with self.assertRaisesRegex(ValueError, "sdk_client_factory"):
+            DaytonaSdkAdapterConfig(sdk_client_factory=object())  # type: ignore[arg-type]
 
         decoded = json.loads(json.dumps(config.to_dict(), sort_keys=True))
         self.assertTrue(decoded["has_sdk_client"])
         self.assertEqual(decoded["real_execution_config"]["api_key_env_var"], "TOKEN")
+        self.assertEqual(decoded["sdk_module_name"], "daytona")
+        self.assertFalse(decoded["has_sdk_importer"])
+        self.assertFalse(decoded["has_sdk_client_factory"])
 
     def test_adapter_does_not_import_daytona_spawn_subprocess_or_run_matches(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

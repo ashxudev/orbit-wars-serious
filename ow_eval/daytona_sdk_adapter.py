@@ -9,6 +9,8 @@ with deterministic errors.
 
 from __future__ import annotations
 
+import importlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .daytona_client_executor import (
@@ -40,6 +42,11 @@ class DaytonaSdkAdapterConfig:
     )
     readiness: DaytonaRealExecutionReadiness | None = None
     sdk_client: object | None = None
+    sdk_module_name: str = "daytona"
+    sdk_importer: Callable[[str], object] | None = None
+    sdk_client_factory: (
+        Callable[[object, DaytonaRealExecutionConfig], object] | None
+    ) = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.real_execution_config, DaytonaRealExecutionConfig):
@@ -49,6 +56,13 @@ class DaytonaSdkAdapterConfig:
             DaytonaRealExecutionReadiness,
         ):
             raise ValueError("readiness must be a DaytonaRealExecutionReadiness")
+        _validate_nonempty_string(self.sdk_module_name, "sdk_module_name")
+        if self.sdk_importer is not None and not callable(self.sdk_importer):
+            raise ValueError("sdk_importer must be callable when provided")
+        if self.sdk_client_factory is not None and not callable(
+            self.sdk_client_factory,
+        ):
+            raise ValueError("sdk_client_factory must be callable when provided")
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
@@ -61,6 +75,9 @@ class DaytonaSdkAdapterConfig:
                 else None
             ),
             "has_sdk_client": self.sdk_client is not None,
+            "sdk_module_name": self.sdk_module_name,
+            "has_sdk_importer": self.sdk_importer is not None,
+            "has_sdk_client_factory": self.sdk_client_factory is not None,
         }
 
 
@@ -79,6 +96,7 @@ class DaytonaSdkAdapter:
             )
         )
         self.sdk_client = self.config.sdk_client
+        self._resolved_client = self.config.sdk_client
 
     def open_sandbox(
         self,
@@ -152,9 +170,54 @@ class DaytonaSdkAdapter:
 
     def _client(self) -> object:
         self._ensure_ready()
-        if self.sdk_client is None:
+        if self._resolved_client is None:
+            self._resolved_client = self._resolve_client()
+        return self._resolved_client
+
+    def _resolve_client(self) -> object:
+        if self.config.sdk_client_factory is None:
             raise DaytonaSdkUnavailableError(
-                "Daytona SDK adapter requires an injected sdk_client in this cycle"
+                "Daytona SDK adapter requires an injected sdk_client or "
+                "sdk_client_factory in this cycle"
+            )
+        sdk_module = self._import_sdk_module()
+        try:
+            client = self.config.sdk_client_factory(
+                sdk_module,
+                self.config.real_execution_config,
+            )
+        except Exception as exc:  # noqa: BLE001 - adapter returns deterministic errors.
+            raise DaytonaSdkUnavailableError(
+                f"Daytona SDK client factory failed: {type(exc).__name__}: {exc}"
+            ) from exc
+        self._validate_protocol_client(client, "Daytona SDK client factory returned")
+        return client
+
+    def _import_sdk_module(self) -> object:
+        importer = self.config.sdk_importer or importlib.import_module
+        try:
+            return importer(self.config.sdk_module_name)
+        except Exception as exc:  # noqa: BLE001 - adapter returns deterministic errors.
+            raise DaytonaSdkUnavailableError(
+                "Daytona SDK module import failed: "
+                f"{self.config.sdk_module_name}: {type(exc).__name__}: {exc}"
+            ) from exc
+
+    def _validate_protocol_client(self, client: object, prefix: str) -> None:
+        for method_name in (
+            "open_sandbox",
+            "upload_file",
+            "run_command",
+            "download_file",
+            "close_sandbox",
+        ):
+            if not callable(getattr(client, method_name, None)):
+                raise DaytonaSdkUnavailableError(
+                    f"{prefix} an object missing {method_name}"
+                )
+        if client is None:
+            raise DaytonaSdkUnavailableError(
+                f"{prefix} None"
             )
         return self.sdk_client
 
@@ -174,6 +237,11 @@ class DaytonaSdkAdapter:
                 f"Injected Daytona SDK client does not provide {name}"
             )
         return method
+
+
+def _validate_nonempty_string(value: object, name: str) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} must be a non-empty string")
 
 
 __all__ = (
