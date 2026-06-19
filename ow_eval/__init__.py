@@ -109,6 +109,10 @@ from .shard_runner import (
     EvaluationShardRunResult,
     run_evaluation_shard,
 )
+from .shard_persistence import (
+    read_evaluation_shard_run_result,
+    write_evaluation_shard_run_result,
+)
 from .submission_preflight import (
     SubmissionPreflightCheck,
     SubmissionPreflightResult,
@@ -182,6 +186,7 @@ __all__ = (
     "load_agent_callable",
     "load_builtin_baseline",
     "manifest_to_match_configs",
+    "read_evaluation_shard_run_result",
     "read_experiment_report",
     "read_scoreboard_records",
     "run_evaluation_batch",
@@ -202,6 +207,7 @@ __all__ = (
     "triage_match_result",
     "triage_match_results",
     "write_scoreboard_record",
+    "write_evaluation_shard_run_result",
     "write_experiment_report",
     "write_match_result_artifact",
     "write_replay_artifact",
