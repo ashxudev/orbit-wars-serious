@@ -124,6 +124,12 @@ from .shard_manifests import (
     write_evaluation_shard_manifest,
     write_evaluation_shard_manifests,
 )
+from .shard_jobs import (
+    EvaluationShardJob,
+    EvaluationShardJobPackageResult,
+    build_evaluation_shard_jobs,
+    write_evaluation_shard_job_package,
+)
 from .shard_cli import (
     EvaluationShardCliResult,
     main as run_evaluation_shards_main,
@@ -155,6 +161,8 @@ __all__ = (
     "EvaluationBatchSummary",
     "EvaluationShard",
     "EvaluationShardCliResult",
+    "EvaluationShardJob",
+    "EvaluationShardJobPackageResult",
     "EvaluationShardManifestWriteResult",
     "EvaluationShardMergeResult",
     "EvaluationShardPlan",
@@ -197,6 +205,7 @@ __all__ = (
     "build_scoreboard_record",
     "build_experiment_report",
     "build_evaluation_shard_plan",
+    "build_evaluation_shard_jobs",
     "build_planner_analysis_pack",
     "builtin_baseline_spec",
     "default_manifest_paths",
@@ -234,6 +243,7 @@ __all__ = (
     "write_evaluation_shard_run_result",
     "write_evaluation_shard_manifest",
     "write_evaluation_shard_manifests",
+    "write_evaluation_shard_job_package",
     "write_experiment_report",
     "write_match_result_artifact",
     "write_replay_artifact",
