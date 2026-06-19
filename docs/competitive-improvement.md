@@ -51,6 +51,39 @@ Inspect the compact result.
   baseline health check, not proof that the agent is competitive enough for a
   live submission.
 
+## Legacy Opponent Smoke Benchmark
+
+The committed manifest at
+`experiments/manifests/legacy-opponent-smoke.json` runs the current modular
+runtime agent against selected historical single-file agents from local
+historical repos. This is still local evaluation only: the historical agents are
+reference opponents, not source material for the serious agent, and their code
+must not be copied into this repo.
+
+Run it from `/Users/user/dev/hackathons/orbit-wars-serious` and write the report
+under `/tmp`.
+
+```bash
+.venv/bin/python scripts/run_evaluation_experiment.py experiments/manifests/legacy-opponent-smoke.json --report-output /tmp/ow-legacy-opponent-smoke-report.json
+```
+
+Inspect the compact result.
+
+```bash
+.venv/bin/python -c "import json; data=json.load(open('/tmp/ow-legacy-opponent-smoke-report.json', encoding='utf-8')); print(data['manifest_name'], data['scoreboard_record']['completed_matches'], data['scoreboard_record']['error_rate'], data['promotion_decision']['passed'])"
+```
+
+The manifest includes only historical `python_file` opponents that completed a
+bounded local official-environment probe through the current harness. Exported
+files probed from `/Users/user/dev/hackathons/orbit-wars` were skipped because
+they raised import errors under the current `PYTHON_FILE` loader. That skip is
+intentional for this smoke benchmark; do not force failing historical agents
+into the readiness path.
+
+Use this benchmark as a Submit V0 readiness signal alongside the local
+submission preflight. It does not replace live Kaggle feedback and does not
+consume live submission quota.
+
 ## Output Policy
 
 Generated reports, scoreboards, logs, match outputs, replays, generated

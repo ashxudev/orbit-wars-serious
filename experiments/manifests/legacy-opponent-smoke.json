@@ -1,0 +1,125 @@
+{
+  "candidate_agent": {
+    "callable_name": "agent",
+    "file_path": null,
+    "metadata": {},
+    "module_path": "agents.orbit_wars_agent",
+    "name": "orbit-wars-runtime",
+    "source_kind": "modular_agent"
+  },
+  "description": "Bounded local smoke benchmark against viable historical single-file agents",
+  "metadata": {
+    "purpose": "compare-current-agent-against-historical-local-opponents",
+    "suite": "legacy-opponent-smoke"
+  },
+  "name": "legacy-opponent-smoke",
+  "promotion_thresholds": {
+    "max_error_rate": 0.0,
+    "max_mean_rank": 2.0,
+    "min_completed_count": 4,
+    "min_win_rate": 0.0
+  },
+  "scenarios": [
+    {
+      "controlled_seat": 0,
+      "label": "legacy-2p-seed-17-seat-0-vs-ow2-current-main",
+      "metadata": {
+        "episode_steps": "5",
+        "historical_repo": "orbit-wars-2",
+        "scenario": "legacy-2p-seed-17-seat-0-vs-ow2-current-main"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/current_main.py",
+            "metadata": {
+              "historical_repo": "orbit-wars-2"
+            },
+            "module_path": null,
+            "name": "legacy-ow2-current-main",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 17
+    },
+    {
+      "controlled_seat": 0,
+      "label": "legacy-2p-seed-18-seat-0-vs-ow2-v11",
+      "metadata": {
+        "episode_steps": "5",
+        "historical_repo": "orbit-wars-2",
+        "scenario": "legacy-2p-seed-18-seat-0-vs-ow2-v11"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/v11.py",
+            "metadata": {
+              "historical_repo": "orbit-wars-2"
+            },
+            "module_path": null,
+            "name": "legacy-ow2-v11",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 18
+    },
+    {
+      "controlled_seat": 0,
+      "label": "legacy-2p-seed-19-seat-0-vs-claude-v62",
+      "metadata": {
+        "episode_steps": "5",
+        "historical_repo": "orbit-wars-claude",
+        "scenario": "legacy-2p-seed-19-seat-0-vs-claude-v62"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/submissions/main_v62_bundled.py",
+            "metadata": {
+              "historical_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "legacy-claude-v62-bundled",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 19
+    },
+    {
+      "controlled_seat": 0,
+      "label": "legacy-2p-seed-20-seat-0-vs-claude-main",
+      "metadata": {
+        "episode_steps": "5",
+        "historical_repo": "orbit-wars-claude",
+        "scenario": "legacy-2p-seed-20-seat-0-vs-claude-main"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/main.py",
+            "metadata": {
+              "historical_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "legacy-claude-main",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 20
+    }
+  ],
+  "version": "v0"
+}

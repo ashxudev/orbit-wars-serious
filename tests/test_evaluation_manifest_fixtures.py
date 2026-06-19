@@ -27,6 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = REPO_ROOT / "experiments" / "manifests"
 EXPECTED_FIXTURES = (
     "competitive-baseline-smoke.json",
+    "legacy-opponent-smoke.json",
     "quick-2p-smoke.json",
     "quick-4p-smoke.json",
     "promotion-smoke.json",
@@ -56,6 +57,30 @@ EXPECTED_MATCHES = {
         (7, PlayerCount.FOUR_PLAYER, 0, "competitive-4p-seed-7-seat-0-mixed", 3),
         (8, PlayerCount.FOUR_PLAYER, 2, "competitive-4p-seed-8-seat-2-mixed", 3),
         (9, PlayerCount.FOUR_PLAYER, 3, "competitive-4p-seed-9-seat-3-mixed", 3),
+    ),
+    "legacy-opponent-smoke.json": (
+        (
+            17,
+            PlayerCount.TWO_PLAYER,
+            0,
+            "legacy-2p-seed-17-seat-0-vs-ow2-current-main",
+            1,
+        ),
+        (18, PlayerCount.TWO_PLAYER, 0, "legacy-2p-seed-18-seat-0-vs-ow2-v11", 1),
+        (
+            19,
+            PlayerCount.TWO_PLAYER,
+            0,
+            "legacy-2p-seed-19-seat-0-vs-claude-v62",
+            1,
+        ),
+        (
+            20,
+            PlayerCount.TWO_PLAYER,
+            0,
+            "legacy-2p-seed-20-seat-0-vs-claude-main",
+            1,
+        ),
     ),
     "quick-2p-smoke.json": (
         (7, PlayerCount.TWO_PLAYER, 0, "quick-2p-seed-7-seat-0", 1),
@@ -206,14 +231,22 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
                 )
                 for scenario in manifest.scenarios:
                     for opponent in scenario.opponent_agents:
-                        self.assertEqual(
-                            opponent.agent.source_kind,
-                            AgentSourceKind.BUILTIN_BASELINE,
-                        )
-                        metadata = dict(opponent.agent.metadata)
-                        self.assertIn(metadata.get("baseline"), supported_baselines)
                         self.assertIsNone(opponent.agent.module_path)
-                        self.assertIsNone(opponent.agent.file_path)
+                        if name == "legacy-opponent-smoke.json":
+                            self.assertEqual(
+                                opponent.agent.source_kind,
+                                AgentSourceKind.PYTHON_FILE,
+                            )
+                            self.assertIsNotNone(opponent.agent.file_path)
+                            self.assertTrue(Path(opponent.agent.file_path).is_file())
+                        else:
+                            self.assertEqual(
+                                opponent.agent.source_kind,
+                                AgentSourceKind.BUILTIN_BASELINE,
+                            )
+                            metadata = dict(opponent.agent.metadata)
+                            self.assertIn(metadata.get("baseline"), supported_baselines)
+                            self.assertIsNone(opponent.agent.file_path)
 
     def test_promotion_thresholds_are_explicit_for_smoke_use(self) -> None:
         for name in EXPECTED_FIXTURES:
@@ -271,6 +304,7 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
             tuple(result.experiment_report.manifest_name for result in results),
             (
                 "competitive-baseline-smoke",
+                "legacy-opponent-smoke",
                 "quick-2p-smoke",
                 "quick-4p-smoke",
                 "promotion-smoke",
@@ -280,6 +314,7 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
             tuple(seen_manifest_names),
             (
                 "competitive-baseline-smoke",
+                "legacy-opponent-smoke",
                 "quick-2p-smoke",
                 "quick-4p-smoke",
                 "promotion-smoke",
