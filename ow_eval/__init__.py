@@ -42,6 +42,13 @@ from .daytona_preflight import (
     read_daytona_shard_job_plan,
     validate_daytona_shard_job_plan,
 )
+from .daytona_executor import (
+    DaytonaShardExecutionBatchResult,
+    DaytonaShardExecutionRequest,
+    DaytonaShardExecutionResult,
+    DaytonaShardJobExecutor,
+    run_daytona_shard_job_plan,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -196,6 +203,10 @@ __all__ = (
     "DaytonaShardJobPlanValidationResult",
     "DaytonaShardJobPlanWriteResult",
     "DaytonaShardJobSpec",
+    "DaytonaShardExecutionBatchResult",
+    "DaytonaShardExecutionRequest",
+    "DaytonaShardExecutionResult",
+    "DaytonaShardJobExecutor",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
@@ -274,6 +285,7 @@ __all__ = (
     "read_daytona_shard_job_plan",
     "read_experiment_report",
     "read_scoreboard_records",
+    "run_daytona_shard_job_plan",
     "run_evaluation_batch",
     "run_evaluation_experiment",
     "run_evaluation_experiment_main",
