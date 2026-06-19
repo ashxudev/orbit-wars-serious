@@ -72,6 +72,10 @@ from .daytona_client_executor import (
     DaytonaSandboxHandle,
     run_daytona_shard_job_plan_with_client,
 )
+from .daytona_client_report import (
+    DaytonaClientExecutionReport,
+    run_daytona_shard_job_plan_with_client_report,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -242,6 +246,7 @@ __all__ = (
     "DaytonaClientExecutor",
     "DaytonaSandboxClient",
     "DaytonaSandboxHandle",
+    "DaytonaClientExecutionReport",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
@@ -326,6 +331,7 @@ __all__ = (
     "run_daytona_shard_jobs",
     "run_daytona_shard_jobs_main",
     "run_daytona_shard_job_plan_with_client",
+    "run_daytona_shard_job_plan_with_client_report",
     "run_evaluation_batch",
     "run_evaluation_experiment",
     "run_evaluation_experiment_main",
