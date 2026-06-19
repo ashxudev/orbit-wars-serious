@@ -30,6 +30,12 @@ from .daytona_jobs import (
     DaytonaShardJobSpec,
     build_daytona_shard_job_plan,
 )
+from .daytona_plan_cli import (
+    DaytonaShardJobPlanWriteResult,
+    main as prepare_daytona_shard_jobs_main,
+    prepare_daytona_shard_job_plan,
+    write_daytona_shard_job_plan,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -181,6 +187,7 @@ __all__ = (
     "BaselineName",
     "DaytonaShardJobPlan",
     "DaytonaShardJobPlanConfig",
+    "DaytonaShardJobPlanWriteResult",
     "DaytonaShardJobSpec",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
@@ -251,6 +258,8 @@ __all__ = (
     "merge_evaluation_shard_result_files",
     "merge_evaluation_shard_results",
     "prepare_evaluation_shard_package",
+    "prepare_daytona_shard_job_plan",
+    "prepare_daytona_shard_jobs_main",
     "prepare_evaluation_shards_main",
     "read_evaluation_shard_run_result",
     "read_evaluation_shard_job",
@@ -286,6 +295,7 @@ __all__ = (
     "write_evaluation_shard_manifest",
     "write_evaluation_shard_manifests",
     "write_evaluation_shard_job_package",
+    "write_daytona_shard_job_plan",
     "write_experiment_report",
     "write_match_result_artifact",
     "write_replay_artifact",
