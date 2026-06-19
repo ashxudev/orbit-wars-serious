@@ -82,6 +82,17 @@ from .daytona_client_report_cli import (
     main as run_daytona_client_report_main,
     run_daytona_client_report,
 )
+from .daytona_real_config import (
+    DaytonaRealExecutionConfig,
+    DaytonaRealExecutionReadiness,
+    read_daytona_real_execution_config_from_env,
+    validate_daytona_real_execution_readiness,
+)
+from .daytona_sdk_adapter import (
+    DaytonaSdkAdapter,
+    DaytonaSdkAdapterConfig,
+    DaytonaSdkUnavailableError,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -255,6 +266,11 @@ __all__ = (
     "DaytonaClientExecutionReport",
     "DaytonaClientReportCliResult",
     "DaytonaRecordingClient",
+    "DaytonaRealExecutionConfig",
+    "DaytonaRealExecutionReadiness",
+    "DaytonaSdkAdapter",
+    "DaytonaSdkAdapterConfig",
+    "DaytonaSdkUnavailableError",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
@@ -333,6 +349,7 @@ __all__ = (
     "read_evaluation_shard_job",
     "read_evaluation_shard_job_index",
     "read_daytona_shard_job_plan",
+    "read_daytona_real_execution_config_from_env",
     "read_experiment_report",
     "read_scoreboard_records",
     "run_daytona_shard_job_plan",
@@ -368,6 +385,7 @@ __all__ = (
     "triage_match_results",
     "validate_daytona_shard_job_plan",
     "validate_daytona_shard_jobs_main",
+    "validate_daytona_real_execution_readiness",
     "write_scoreboard_record",
     "write_evaluation_shard_run_result",
     "write_evaluation_shard_manifest",
