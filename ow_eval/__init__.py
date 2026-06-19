@@ -118,6 +118,12 @@ from .shard_merge import (
     merge_evaluation_shard_result_files,
     merge_evaluation_shard_results,
 )
+from .shard_manifests import (
+    EvaluationShardManifestWriteResult,
+    shard_to_experiment_manifest,
+    write_evaluation_shard_manifest,
+    write_evaluation_shard_manifests,
+)
 from .shard_cli import (
     EvaluationShardCliResult,
     main as run_evaluation_shards_main,
@@ -149,6 +155,7 @@ __all__ = (
     "EvaluationBatchSummary",
     "EvaluationShard",
     "EvaluationShardCliResult",
+    "EvaluationShardManifestWriteResult",
     "EvaluationShardMergeResult",
     "EvaluationShardPlan",
     "EvaluationShardRunConfig",
@@ -217,6 +224,7 @@ __all__ = (
     "run_submission_parity_check",
     "run_submission_preflight",
     "run_submission_preflight_main",
+    "shard_to_experiment_manifest",
     "submission_agent_spec",
     "summarize_match_results",
     "triage_evaluation_batch",
@@ -224,6 +232,8 @@ __all__ = (
     "triage_match_results",
     "write_scoreboard_record",
     "write_evaluation_shard_run_result",
+    "write_evaluation_shard_manifest",
+    "write_evaluation_shard_manifests",
     "write_experiment_report",
     "write_match_result_artifact",
     "write_replay_artifact",
