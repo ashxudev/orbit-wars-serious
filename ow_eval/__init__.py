@@ -55,6 +55,15 @@ from .daytona_executor_cli import (
     main as run_daytona_shard_jobs_main,
     run_daytona_shard_jobs,
 )
+from .daytona_operations import (
+    DaytonaBatchOperationPlan,
+    DaytonaCommandOperation,
+    DaytonaDownloadOperation,
+    DaytonaSandboxOperationPlan,
+    DaytonaUploadOperation,
+    build_daytona_batch_operation_plan,
+    build_daytona_sandbox_operation_plan,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -215,6 +224,11 @@ __all__ = (
     "DaytonaShardJobExecutor",
     "DaytonaDryRunExecutor",
     "DaytonaExecutorCliResult",
+    "DaytonaBatchOperationPlan",
+    "DaytonaCommandOperation",
+    "DaytonaDownloadOperation",
+    "DaytonaSandboxOperationPlan",
+    "DaytonaUploadOperation",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
@@ -274,6 +288,8 @@ __all__ = (
     "build_planner_analysis_pack",
     "builtin_baseline_spec",
     "build_daytona_shard_job_plan",
+    "build_daytona_batch_operation_plan",
+    "build_daytona_sandbox_operation_plan",
     "default_manifest_paths",
     "evaluate_promotion_gate",
     "evaluation_shard_from_job",
