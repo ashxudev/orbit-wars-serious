@@ -92,9 +92,10 @@ def enumerate_source_target_pairs_from_features(
         sorted(
             pairs,
             key=lambda pair: (
-                pair.source_planet_id,
                 _target_category_rank(pair.target_category),
+                pair.distance,
                 pair.target_planet_id,
+                pair.source_planet_id,
             ),
         )
     )

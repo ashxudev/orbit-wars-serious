@@ -14,7 +14,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from numbers import Real
 
-from ow_planner import CandidateGenerationConfig
+from ow_planner import (
+    CandidateGenerationConfig,
+    FourPlayerSelectionConfig,
+    StrategyDispatchConfig,
+    TwoPlayerSelectionConfig,
+)
 
 from .runtime_planner import RuntimePlannerConfig
 from .runtime_budget import RuntimeBudgetConfig
@@ -28,7 +33,8 @@ class RuntimeDefaultConfig:
     default_turn_budget_seconds: float = 1.0
     minimum_stage_start_seconds: float = 0.05
     remaining_overage_reserve_seconds: float = 0.25
-    runtime_max_candidates: int | None = 1
+    runtime_max_candidates: int | None = 8
+    runtime_minimum_total_score: float = -100.0
     clock: Callable[[], float] = time.monotonic
 
     def __post_init__(self) -> None:
@@ -47,6 +53,10 @@ class RuntimeDefaultConfig:
         _validate_optional_nonnegative_int(
             self.runtime_max_candidates,
             "runtime_max_candidates",
+        )
+        _validate_finite_number(
+            self.runtime_minimum_total_score,
+            "runtime_minimum_total_score",
         )
         if not callable(self.clock):
             raise ValueError("clock must be callable")
@@ -76,6 +86,18 @@ def runtime_turn_config_for_observation(
         planner_config=RuntimePlannerConfig(
             candidate_config=CandidateGenerationConfig(
                 max_candidates=effective_defaults.runtime_max_candidates,
+            ),
+            strategy_dispatch_config=StrategyDispatchConfig(
+                two_player_config=TwoPlayerSelectionConfig(
+                    minimum_total_score=(
+                        effective_defaults.runtime_minimum_total_score
+                    ),
+                ),
+                four_player_config=FourPlayerSelectionConfig(
+                    minimum_total_score=(
+                        effective_defaults.runtime_minimum_total_score
+                    ),
+                ),
             ),
         ),
         budget_config=RuntimeBudgetConfig(
@@ -109,6 +131,14 @@ def _validate_nonnegative_number(value: object, name: str) -> None:
     numeric_value = float(value)
     if not math.isfinite(numeric_value) or numeric_value < 0.0:
         raise ValueError(f"{name} must be a non-negative number")
+
+
+def _validate_finite_number(value: object, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{name} must be a finite number")
+
+    if not math.isfinite(float(value)):
+        raise ValueError(f"{name} must be a finite number")
 
 
 def _validate_optional_nonnegative_int(value: object, name: str) -> None:

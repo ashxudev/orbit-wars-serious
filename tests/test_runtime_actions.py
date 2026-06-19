@@ -69,6 +69,25 @@ def state_with_source(*, ships: int = 10, owner: int = 0) -> GameState:
     )
 
 
+def state_with_enemy_target(*, ships: int = 10) -> GameState:
+    source = planet_at(1, 0, ships)
+    target = planet_at(2, 1, 5, x=10.0)
+    return GameState(
+        tick=0,
+        player_id=0,
+        planets=(source, target),
+        initial_planets=(source, target),
+        next_fleet_id=100,
+        raw_observation={
+            "step": 0,
+            "player": 0,
+            "planets": [list(source.raw), list(target.raw)],
+            "fleets": [],
+            "next_fleet_id": 100,
+        },
+    )
+
+
 def candidate_with_launch(*, ships: int = 3, angle: float = 0.25) -> MissionCandidate:
     launch = LaunchCandidate(
         source_planet_id=1,
@@ -279,6 +298,28 @@ class RuntimeActionConversionTests(unittest.TestCase):
 
         self.assertIs(actions, expected_actions)
         convert.assert_called_once_with(result.state, result.selection)
+
+    def test_planner_result_emits_patrol_action_after_board_is_controlled(self) -> None:
+        state = state_with_source(ships=7)
+        result = runtime_result(
+            state,
+            StrategySelectionResult(status=StrategySelectionStatus.REJECTED),
+        )
+
+        actions = planner_result_to_actions(result)
+
+        self.assertEqual(actions, [[1, 0.0, 1]])
+
+    def test_planner_result_does_not_patrol_when_enemy_target_remains(self) -> None:
+        state = state_with_enemy_target()
+        result = runtime_result(
+            state,
+            StrategySelectionResult(status=StrategySelectionStatus.REJECTED),
+        )
+
+        actions = planner_result_to_actions(result)
+
+        self.assertEqual(actions, [])
 
     def test_action_conversion_does_not_run_planner_or_parse_observations(self) -> None:
         state = state_with_source()

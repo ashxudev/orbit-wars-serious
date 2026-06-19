@@ -14,12 +14,17 @@ from ow_planner import (
     CommitmentOption,
     CommitmentOptionStatus,
     CommitmentOptionType,
+    LaunchCandidate,
     MissionCandidate,
     MissionType,
     StrategySelectionResult,
     StrategySelectionStatus,
 )
-from ow_planner.actions import KaggleActionRow, mission_candidate_to_actions
+from ow_planner.actions import (
+    KaggleActionRow,
+    launch_candidate_to_action,
+    mission_candidate_to_actions,
+)
 from ow_sim.state import GameState
 
 from .runtime_planner import RuntimePlannerResult
@@ -51,7 +56,10 @@ def selected_commitment_to_actions(
 def planner_result_to_actions(result: RuntimePlannerResult) -> list[KaggleActionRow]:
     """Convert a runtime planner result's final selection to action rows."""
 
-    return selected_commitment_to_actions(result.state, result.selection)
+    actions = selected_commitment_to_actions(result.state, result.selection)
+    if actions:
+        return actions
+    return _controlled_board_patrol_actions(result)
 
 
 def _mission_from_commitment_option(
@@ -72,6 +80,39 @@ def _mission_from_commitment_option(
         source_planet_ids=commitment_option.source_planet_ids,
         launches=commitment_option.launches,
     )
+
+
+def _controlled_board_patrol_actions(
+    result: RuntimePlannerResult,
+) -> list[KaggleActionRow]:
+    if result.candidates:
+        return []
+    player_id = result.state.player_id
+    if player_id is None:
+        return []
+    if any(planet.owner != player_id for planet in result.state.planets):
+        return []
+
+    sources = tuple(
+        planet
+        for planet in result.state.planets
+        if planet.owner == player_id and planet.ships > 0
+    )
+    if not sources:
+        return []
+
+    source = max(sources, key=lambda planet: (planet.ships, -planet.planet_id))
+    return [
+        launch_candidate_to_action(
+            result.state,
+            LaunchCandidate(
+                source_planet_id=source.planet_id,
+                angle=0.0,
+                ships=1,
+                player_id=player_id,
+            ),
+        )
+    ]
 
 
 __all__ = (

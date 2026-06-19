@@ -114,7 +114,7 @@ class SubmissionBundlerTests(unittest.TestCase):
             )
 
             lines = result.stdout.strip().splitlines()
-            self.assertEqual(json.loads(lines[0]), [])
+            self.assertEqual(json.loads(lines[0]), [[0, 1.0810892066581865, 10]])
             self.assertEqual(lines[1], "True")
 
 

@@ -16,6 +16,7 @@ from agents import (
     RuntimeTurnResult,
     RuntimeTurnStatus,
     last_runtime_diagnostic_metadata,
+    runtime_turn_config_for_observation,
     run_runtime_turn,
     safe_actions_for_observation,
 )
@@ -26,6 +27,7 @@ from ow_planner import (
     StrategySelectionStatus,
 )
 from ow_sim.state import GameState, Planet
+from tests.test_runtime_state_adapter import load_fixture
 
 
 def state_fixture() -> GameState:
@@ -196,6 +198,22 @@ class RuntimeTurnTests(unittest.TestCase):
         )
         self.assertEqual(metadata["runtime_diagnostic_candidate_count"], "0")
         self.assertEqual(metadata["runtime_diagnostic_action_count"], "0")
+
+    def test_default_runtime_path_emits_action_for_reachable_target_fixture(self) -> None:
+        observation = load_fixture("kaggle_seed7_2p_step0.json")
+        config = runtime_turn_config_for_observation(observation, {})
+
+        result = run_runtime_turn(observation, {}, config)
+
+        self.assertEqual(result.status, RuntimeTurnStatus.ACTIONS)
+        self.assertGreaterEqual(len(result.actions), 1)
+        self.assertEqual(result.actions[0][0], 0)
+        self.assertIsInstance(result.actions[0][1], float)
+        self.assertGreater(result.actions[0][2], 0)
+        self.assertIsNotNone(result.planner_result)
+        assert result.planner_result is not None
+        self.assertGreaterEqual(len(result.planner_result.candidates), 1)
+        self.assertEqual(result.planner_result.selection.status.value, "selected")
 
     def test_parse_error_returns_safe_fallback_without_later_stages(self) -> None:
         with (

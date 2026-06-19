@@ -70,6 +70,12 @@ class RuntimeConfigTests(unittest.TestCase):
                     RuntimeDefaultConfig(
                         remaining_overage_reserve_seconds=value,  # type: ignore[arg-type]
                     )
+        for value in (True, math.inf, math.nan, "1"):
+            with self.subTest(field="runtime_minimum_total_score", value=value):
+                with self.assertRaises(ValueError):
+                    RuntimeDefaultConfig(
+                        runtime_minimum_total_score=value,  # type: ignore[arg-type]
+                    )
 
     def test_runtime_default_config_rejects_invalid_candidate_caps(self) -> None:
         for value in (True, -1, 1.5, "1"):
@@ -94,7 +100,19 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.budget_config.minimum_stage_start_seconds, 0.05)
         self.assertIsNotNone(config.planner_config)
         self.assertIsNotNone(config.planner_config.candidate_config)
-        self.assertEqual(config.planner_config.candidate_config.max_candidates, 1)
+        self.assertEqual(config.planner_config.candidate_config.max_candidates, 8)
+        self.assertIsNotNone(config.planner_config.strategy_dispatch_config)
+        dispatch_config = config.planner_config.strategy_dispatch_config
+        self.assertIsNotNone(dispatch_config.two_player_config)
+        self.assertIsNotNone(dispatch_config.four_player_config)
+        self.assertEqual(
+            dispatch_config.two_player_config.minimum_total_score,
+            -100.0,
+        )
+        self.assertEqual(
+            dispatch_config.four_player_config.minimum_total_score,
+            -100.0,
+        )
 
     def test_runtime_candidate_cap_can_be_configured_or_disabled(self) -> None:
         capped = runtime_turn_config_for_observation(
