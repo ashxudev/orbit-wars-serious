@@ -88,6 +88,11 @@ from .daytona_real_config import (
     read_daytona_real_execution_config_from_env,
     validate_daytona_real_execution_readiness,
 )
+from .daytona_real_cli import (
+    DaytonaRealCliResult,
+    main as run_daytona_real_shard_jobs_main,
+    run_daytona_real_shard_jobs,
+)
 from .daytona_sdk_adapter import (
     DaytonaSdkAdapter,
     DaytonaSdkAdapterConfig,
@@ -268,6 +273,7 @@ __all__ = (
     "DaytonaClientExecutionReport",
     "DaytonaClientReportCliResult",
     "DaytonaRecordingClient",
+    "DaytonaRealCliResult",
     "DaytonaRealExecutionConfig",
     "DaytonaRealExecutionReadiness",
     "DaytonaSdkAdapter",
@@ -363,6 +369,8 @@ __all__ = (
     "run_daytona_shard_job_plan_with_client_report",
     "run_daytona_client_report",
     "run_daytona_client_report_main",
+    "run_daytona_real_shard_jobs",
+    "run_daytona_real_shard_jobs_main",
     "run_evaluation_batch",
     "run_evaluation_experiment",
     "run_evaluation_experiment_main",
