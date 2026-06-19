@@ -24,6 +24,12 @@ from .contracts import (
     OpponentSpec,
     PlayerCount,
 )
+from .daytona_jobs import (
+    DaytonaShardJobPlan,
+    DaytonaShardJobPlanConfig,
+    DaytonaShardJobSpec,
+    build_daytona_shard_job_plan,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -173,6 +179,9 @@ __all__ = (
     "AgentSourceKind",
     "AgentSpec",
     "BaselineName",
+    "DaytonaShardJobPlan",
+    "DaytonaShardJobPlanConfig",
+    "DaytonaShardJobSpec",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
@@ -231,6 +240,7 @@ __all__ = (
     "build_evaluation_shard_jobs",
     "build_planner_analysis_pack",
     "builtin_baseline_spec",
+    "build_daytona_shard_job_plan",
     "default_manifest_paths",
     "evaluate_promotion_gate",
     "evaluation_shard_from_job",
