@@ -118,6 +118,11 @@ from .shard_merge import (
     merge_evaluation_shard_result_files,
     merge_evaluation_shard_results,
 )
+from .shard_cli import (
+    EvaluationShardCliResult,
+    main as run_evaluation_shards_main,
+    run_evaluation_shards,
+)
 from .submission_preflight import (
     SubmissionPreflightCheck,
     SubmissionPreflightResult,
@@ -143,6 +148,7 @@ __all__ = (
     "EvaluationBatchResult",
     "EvaluationBatchSummary",
     "EvaluationShard",
+    "EvaluationShardCliResult",
     "EvaluationShardMergeResult",
     "EvaluationShardPlan",
     "EvaluationShardRunConfig",
@@ -201,6 +207,8 @@ __all__ = (
     "run_evaluation_experiment",
     "run_evaluation_experiment_main",
     "run_evaluation_shard",
+    "run_evaluation_shards",
+    "run_evaluation_shards_main",
     "run_evaluation_suite",
     "run_evaluation_suite_main",
     "run_experiment_manifest",
