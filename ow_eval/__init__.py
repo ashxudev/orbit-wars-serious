@@ -104,6 +104,11 @@ from .sharding import (
     ShardPlanConfig,
     build_evaluation_shard_plan,
 )
+from .shard_runner import (
+    EvaluationShardRunConfig,
+    EvaluationShardRunResult,
+    run_evaluation_shard,
+)
 from .submission_preflight import (
     SubmissionPreflightCheck,
     SubmissionPreflightResult,
@@ -130,6 +135,8 @@ __all__ = (
     "EvaluationBatchSummary",
     "EvaluationShard",
     "EvaluationShardPlan",
+    "EvaluationShardRunConfig",
+    "EvaluationShardRunResult",
     "ExperimentCliResult",
     "ExperimentManifest",
     "ExperimentReport",
@@ -180,6 +187,7 @@ __all__ = (
     "run_evaluation_batch",
     "run_evaluation_experiment",
     "run_evaluation_experiment_main",
+    "run_evaluation_shard",
     "run_evaluation_suite",
     "run_evaluation_suite_main",
     "run_experiment_manifest",
