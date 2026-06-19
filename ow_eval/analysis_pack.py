@@ -68,11 +68,13 @@ class PlannerAnalysisItem:
     replay_path: str | None = None
     artifact_path: str | None = None
     selected_metadata: tuple[tuple[str, str], ...] = ()
+    diagnostic_metadata: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         _validate_nonnegative_int(self.batch_index, "batch_index")
         _validate_string_tuple(self.opponent_names, "opponent_names")
         _validate_metadata(self.selected_metadata)
+        _validate_metadata(self.diagnostic_metadata)
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
@@ -104,6 +106,10 @@ class PlannerAnalysisItem:
             "selected_metadata": [
                 {"key": key, "value": value}
                 for key, value in self.selected_metadata
+            ],
+            "diagnostic_metadata": [
+                {"key": key, "value": value}
+                for key, value in self.diagnostic_metadata
             ],
         }
 
@@ -231,6 +237,7 @@ def _analysis_item(
         replay_path=result.replay_path,
         artifact_path=result.artifact_path,
         selected_metadata=_selected_metadata(config.metadata, result.metadata),
+        diagnostic_metadata=_diagnostic_metadata(result.metadata),
     )
 
 
@@ -248,6 +255,16 @@ def _selected_metadata(
 def _is_selected_metadata_key(key: str) -> bool:
     normalized = key.lower().replace("-", "_").replace(" ", "_")
     return normalized == "selected" or normalized.startswith("selected_")
+
+
+def _diagnostic_metadata(
+    metadata: tuple[tuple[str, str], ...],
+) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (key, value)
+        for key, value in metadata
+        if key.startswith("runtime_diagnostic_")
+    )
 
 
 def _category_counts(

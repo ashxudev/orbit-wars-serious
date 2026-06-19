@@ -59,6 +59,7 @@ def match_result(
     no_action_count: int | None = None,
     turns_survived: int | None = None,
     error_text: str | None = None,
+    metadata: tuple[tuple[str, str], ...] = (),
 ) -> MatchResult:
     return MatchResult(
         config=gate_match_config() if match is None else match,
@@ -70,6 +71,7 @@ def match_result(
             turns_survived=turns_survived,
         ),
         error_text=error_text,
+        metadata=metadata,
     )
 
 
@@ -86,6 +88,7 @@ def parity_result(
     modular_no_action_count: int | None = None,
     submission_no_action_count: int | None = None,
     turns_survived: int | None = None,
+    runtime_metadata: tuple[tuple[str, str], ...] = (),
 ) -> SubmissionParityResult:
     modular_results = tuple(
         match_result(
@@ -93,6 +96,7 @@ def parity_result(
             status=modular_status,
             no_action_count=modular_no_action_count,
             turns_survived=turns_survived,
+            metadata=runtime_metadata,
         )
         for match in matches
     )
@@ -102,6 +106,7 @@ def parity_result(
             status=submission_status,
             no_action_count=submission_no_action_count,
             turns_survived=turns_survived,
+            metadata=runtime_metadata,
         )
         for match in matches
     )
@@ -295,6 +300,16 @@ class RegressionGateTests(unittest.TestCase):
                 modular_no_action_count=90,
                 submission_no_action_count=90,
                 turns_survived=100,
+                runtime_metadata=(
+                    (
+                        "runtime_diagnostic_primary_no_action_reason",
+                        "strategy_selection_no_action",
+                    ),
+                    (
+                        "runtime_diagnostic_no_action_reasons",
+                        "strategy_selection_no_action:90",
+                    ),
+                ),
             ),
         )
 
@@ -319,8 +334,14 @@ class RegressionGateTests(unittest.TestCase):
                 if failure.code.endswith("_triage_failure_category")
             ),
             (
-                "modular triage category invalid_or_noop_heavy_behavior count 1",
-                "submission triage category invalid_or_noop_heavy_behavior count 1",
+                "modular triage category invalid_or_noop_heavy_behavior count 1; "
+                "details=0:invalid action or no-op heavy behavior: "
+                "strategy_selection_no_action; "
+                "reasons=strategy_selection_no_action:90",
+                "submission triage category invalid_or_noop_heavy_behavior count 1; "
+                "details=0:invalid action or no-op heavy behavior: "
+                "strategy_selection_no_action; "
+                "reasons=strategy_selection_no_action:90",
             ),
         )
 

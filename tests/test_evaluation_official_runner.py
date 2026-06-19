@@ -186,6 +186,60 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
         self.assertEqual(fake_env.reset_players, 4)
         self.assertEqual(fake_env.run_results, [[], [], [["candidate"]], []])
 
+    def test_runner_attaches_candidate_runtime_diagnostic_summary(self) -> None:
+        fake_env = FakeOrbitWarsEnvironment()
+        fake_kaggle = types.ModuleType("kaggle_environments")
+
+        def make(name: str, configuration: dict[str, object], debug: bool = False):
+            return fake_env
+
+        fake_kaggle.make = make  # type: ignore[attr-defined]
+        fake_candidate_module = types.ModuleType("diagnostic_candidate_agent")
+        exec(
+            "def last_runtime_diagnostic_metadata():\n"
+            "    return (\n"
+            "        ('runtime_diagnostic_status', 'no_action'),\n"
+            "        ('runtime_diagnostic_no_action_reason', 'strategy_selection_no_action'),\n"
+            "        ('runtime_diagnostic_action_count', '0'),\n"
+            "        ('runtime_diagnostic_candidate_count', '3'),\n"
+            "        ('runtime_diagnostic_evaluation_count', '3'),\n"
+            "        ('runtime_diagnostic_selection_status', 'no_action'),\n"
+            "    )\n"
+            "def safe_actions_for_observation(observation, configuration=None):\n"
+            "    return []\n"
+            "def agent(observation, configuration=None):\n"
+            "    return []\n",
+            fake_candidate_module.__dict__,
+        )
+        config = candidate_config(
+            candidate_agent=AgentSpec(
+                name="candidate",
+                source_kind=AgentSourceKind.MODULAR_AGENT,
+                module_path="diagnostic_candidate_agent",
+            ),
+        )
+
+        with patch.dict(
+            sys.modules,
+            {
+                "kaggle_environments": fake_kaggle,
+                "diagnostic_candidate_agent": fake_candidate_module,
+            },
+        ):
+            result = run_official_match(config)
+
+        metadata = dict(result.metadata)
+        self.assertEqual(metadata["runtime_diagnostic_turn_count"], "1")
+        self.assertEqual(metadata["runtime_diagnostic_no_action_turn_count"], "1")
+        self.assertEqual(
+            metadata["runtime_diagnostic_primary_no_action_reason"],
+            "strategy_selection_no_action",
+        )
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reasons"],
+            "strategy_selection_no_action:1",
+        )
+
     def test_candidate_import_failure_returns_import_error(self) -> None:
         config = candidate_config(
             candidate_agent=AgentSpec(

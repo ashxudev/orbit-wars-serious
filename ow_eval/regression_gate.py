@@ -332,14 +332,28 @@ def _triage_failures(
             if side == "candidate"
             else f"{side}_triage_failure_category"
         )
+        details = _triage_failure_details(report, category)
+        message = f"{side} triage category {category} count {count}"
+        if details:
+            message = f"{message}; details={details}"
         failures.append(
             RegressionGateFailure(
                 code=code,
-                message=f"{side} triage category {category} count {count}",
+                message=message,
                 category=category,
             )
         )
     return failures
+
+
+def _triage_failure_details(report: FailureTriageReport, category: str) -> str:
+    details = []
+    for item in report.items:
+        if item.category.value != category:
+            continue
+        index = "none" if item.index is None else str(item.index)
+        details.append(f"{index}:{item.reason}")
+    return "|".join(details)
 
 
 def _threshold_failures(

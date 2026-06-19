@@ -163,7 +163,7 @@ def _category_and_reason(result: MatchResult) -> tuple[FailureCategory, str]:
     if _has_invalid_or_noop_heavy_facts(result):
         return (
             FailureCategory.INVALID_OR_NOOP_HEAVY_BEHAVIOR,
-            "invalid action or no-op heavy behavior",
+            _invalid_or_noop_heavy_reason(result),
         )
     if _has_action_conversion_error(normalized_error):
         return (
@@ -229,6 +229,20 @@ def _has_invalid_or_noop_heavy_facts(result: MatchResult) -> bool:
     if turns_survived is None or turns_survived <= 0:
         return True
     return (no_action_count / turns_survived) >= NOOP_HEAVY_MIN_RATIO
+
+
+def _invalid_or_noop_heavy_reason(result: MatchResult) -> str:
+    metadata = dict(result.metadata)
+    reason = metadata.get("runtime_diagnostic_primary_no_action_reason")
+    reason_counts = metadata.get("runtime_diagnostic_no_action_reasons")
+    if reason:
+        if reason_counts:
+            return (
+                "invalid action or no-op heavy behavior: "
+                f"{reason}; reasons={reason_counts}"
+            )
+        return f"invalid action or no-op heavy behavior: {reason}"
+    return "invalid action or no-op heavy behavior"
 
 
 def _has_parse_error(normalized_error: str) -> bool:

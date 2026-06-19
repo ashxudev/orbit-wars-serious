@@ -264,6 +264,37 @@ class EvaluationAnalysisPackTests(unittest.TestCase):
             ),
         )
 
+    def test_runtime_diagnostic_metadata_is_preserved(self) -> None:
+        pack = build_planner_analysis_pack(
+            batch_result(
+                result(
+                    final_rank=1,
+                    no_action_count=90,
+                    turns_survived=100,
+                    result_metadata=(
+                        (
+                            "runtime_diagnostic_primary_no_action_reason",
+                            "strategy_selection_no_action",
+                        ),
+                        ("runtime_diagnostic_candidate_count_last", "4"),
+                        ("other", "ignored"),
+                    ),
+                )
+            )
+        )
+
+        item = pack.items[0]
+        self.assertEqual(
+            item.diagnostic_metadata,
+            (
+                (
+                    "runtime_diagnostic_primary_no_action_reason",
+                    "strategy_selection_no_action",
+                ),
+                ("runtime_diagnostic_candidate_count_last", "4"),
+            ),
+        )
+
     def test_ordering_and_max_items_are_deterministic(self) -> None:
         pack = build_planner_analysis_pack(
             batch_result(
@@ -322,6 +353,7 @@ class EvaluationAnalysisPackTests(unittest.TestCase):
             decoded["items"][0]["selected_metadata"],
             [{"key": "selected_target", "value": "5"}],
         )
+        self.assertEqual(decoded["items"][0]["diagnostic_metadata"], [])
         self.assertEqual(
             pack.summary_text(),
             "analysis_items=1 total=1 omitted=0 categories=normal_loss:1",

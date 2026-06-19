@@ -90,6 +90,12 @@ def analysis_pack() -> PlannerAnalysisPack:
         replay_path="/tmp/replay.json",
         artifact_path="/tmp/result.json",
         selected_metadata=(("selected_target", "5"),),
+        diagnostic_metadata=(
+            (
+                "runtime_diagnostic_primary_no_action_reason",
+                "strategy_selection_no_action",
+            ),
+        ),
     )
     return PlannerAnalysisPack(
         items=(item,),
@@ -208,6 +214,15 @@ class EvaluationExperimentReportTests(unittest.TestCase):
         self.assertEqual(decoded["scoreboard_record"]["completed_matches"], 2)
         self.assertEqual(decoded["scoreboard_record"]["completed_count"], 2)
         self.assertEqual(restored.analysis_pack.items[0].final_score, 4.5)
+        self.assertEqual(
+            restored.analysis_pack.items[0].diagnostic_metadata,
+            (
+                (
+                    "runtime_diagnostic_primary_no_action_reason",
+                    "strategy_selection_no_action",
+                ),
+            ),
+        )
         self.assertEqual(
             restored.promotion_decision.failures[0].code,
             "max_mean_rank_exceeded",

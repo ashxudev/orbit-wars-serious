@@ -254,6 +254,7 @@ def _analysis_item_from_dict(data: Mapping[str, object]) -> PlannerAnalysisItem:
         replay_path=_optional_string(data.get("replay_path"), "replay_path"),
         artifact_path=_optional_string(data.get("artifact_path"), "artifact_path"),
         selected_metadata=_metadata_from_data(data.get("selected_metadata")),
+        diagnostic_metadata=_metadata_from_data(data.get("diagnostic_metadata")),
     )
 
 

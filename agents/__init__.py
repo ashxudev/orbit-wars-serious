@@ -21,6 +21,7 @@ from .runtime_turn import (
     RuntimeTurnConfig,
     RuntimeTurnResult,
     RuntimeTurnStatus,
+    last_runtime_diagnostic_metadata,
     run_runtime_turn,
     safe_actions_for_observation,
 )
@@ -37,6 +38,7 @@ __all__ = (
     "RuntimeTurnResult",
     "RuntimeTurnStatus",
     "agent",
+    "last_runtime_diagnostic_metadata",
     "observation_to_game_state",
     "planner_result_to_actions",
     "runtime_budget_check",

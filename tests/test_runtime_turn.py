@@ -15,6 +15,7 @@ from agents import (
     RuntimeTurnConfig,
     RuntimeTurnResult,
     RuntimeTurnStatus,
+    last_runtime_diagnostic_metadata,
     run_runtime_turn,
     safe_actions_for_observation,
 )
@@ -88,6 +89,10 @@ class RuntimeTurnTests(unittest.TestCase):
         self.assertIs(module.RuntimeTurnResult, RuntimeTurnResult)
         self.assertIs(module.run_runtime_turn, run_runtime_turn)
         self.assertIs(module.safe_actions_for_observation, safe_actions_for_observation)
+        self.assertIs(
+            module.last_runtime_diagnostic_metadata,
+            last_runtime_diagnostic_metadata,
+        )
         self.assertEqual(RuntimeTurnStatus.LOW_BUDGET.value, "low_budget")
         self.assertEqual(
             RuntimeTurnStatus.BUDGET_EXHAUSTED.value,
@@ -174,6 +179,23 @@ class RuntimeTurnTests(unittest.TestCase):
         self.assertEqual(first.actions, [])
         self.assertEqual(second.actions, [])
         self.assertIsNot(first.actions, second.actions)
+        with (
+            patch("agents.runtime_turn.observation_to_game_state", return_value=state),
+            patch(
+                "agents.runtime_turn.run_planner_pipeline",
+                return_value=planner_result,
+            ),
+            patch("agents.runtime_turn.planner_result_to_actions", return_value=[]),
+        ):
+            safe_actions_for_observation({"step": 0})
+        metadata = dict(last_runtime_diagnostic_metadata())
+        self.assertEqual(metadata["runtime_diagnostic_status"], "no_action")
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "no_candidates_generated",
+        )
+        self.assertEqual(metadata["runtime_diagnostic_candidate_count"], "0")
+        self.assertEqual(metadata["runtime_diagnostic_action_count"], "0")
 
     def test_parse_error_returns_safe_fallback_without_later_stages(self) -> None:
         with (

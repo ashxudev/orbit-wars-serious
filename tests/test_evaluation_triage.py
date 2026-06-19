@@ -57,6 +57,7 @@ def match_result(
     label: str | None = "triage",
     artifact_path: str | None = None,
     replay_path: str | None = None,
+    metadata: tuple[tuple[str, str], ...] = (),
 ) -> MatchResult:
     return MatchResult(
         config=match_config(seed=seed, label=label),
@@ -65,6 +66,7 @@ def match_result(
         error_text=error_text,
         artifact_path=artifact_path,
         replay_path=replay_path,
+        metadata=metadata,
     )
 
 
@@ -209,6 +211,40 @@ class EvaluationTriageTests(unittest.TestCase):
         self.assertEqual(
             noop_item.category,
             FailureCategory.INVALID_OR_NOOP_HEAVY_BEHAVIOR,
+        )
+
+    def test_noop_heavy_reason_uses_runtime_diagnostic_metadata(self) -> None:
+        item = triage_match_result(
+            match_result(
+                metrics=MatchMetrics(
+                    final_rank=1,
+                    turns_survived=100,
+                    no_action_count=90,
+                ),
+                metadata=(
+                    (
+                        "runtime_diagnostic_primary_no_action_reason",
+                        "strategy_selection_no_action",
+                    ),
+                    (
+                        "runtime_diagnostic_no_action_reasons",
+                        "strategy_selection_no_action:90",
+                    ),
+                ),
+            )
+        )
+
+        self.assertEqual(
+            item.category,
+            FailureCategory.INVALID_OR_NOOP_HEAVY_BEHAVIOR,
+        )
+        self.assertEqual(
+            item.reason,
+            (
+                "invalid action or no-op heavy behavior: "
+                "strategy_selection_no_action; "
+                "reasons=strategy_selection_no_action:90"
+            ),
         )
 
     def test_normal_loss_and_clean_completed_categories(self) -> None:
