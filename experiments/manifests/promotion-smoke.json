@@ -23,6 +23,7 @@
       "controlled_seat": 0,
       "label": "promotion-2p-seed-7-seat-0",
       "metadata": {
+        "episode_steps": "5",
         "scenario": "promotion-2p-seed-7-seat-0"
       },
       "opponent_agents": [
@@ -46,6 +47,7 @@
       "controlled_seat": 1,
       "label": "promotion-2p-seed-8-seat-1",
       "metadata": {
+        "episode_steps": "5",
         "scenario": "promotion-2p-seed-8-seat-1"
       },
       "opponent_agents": [
@@ -69,6 +71,7 @@
       "controlled_seat": 0,
       "label": "promotion-4p-seed-7-seat-0",
       "metadata": {
+        "episode_steps": "5",
         "scenario": "promotion-4p-seed-7-seat-0"
       },
       "opponent_agents": [

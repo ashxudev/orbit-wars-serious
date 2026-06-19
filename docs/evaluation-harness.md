@@ -54,6 +54,14 @@ Run the checks from `/Users/user/dev/hackathons/orbit-wars-serious`.
 .venv/bin/python scripts/submission_preflight.py
 ```
 
+The default smoke suite used by `scripts/run_evaluation_suite.py` and
+`scripts/submission_preflight.py` is intentionally bounded for local readiness:
+each default-suite scenario sets `metadata.episode_steps` to `5`. This keeps the
+preflight practical while still exercising local official-environment execution,
+generated-submission parity, regression-gate checks, and manifest expansion.
+Slower or larger evaluation runs should use explicit manifests or explicitly
+edited scenario metadata instead of relying on the default preflight suite.
+
 ## Modules And Scripts
 
 - `ow_eval/contracts.py`: immutable result, metric, agent, and match config contracts.
@@ -88,7 +96,8 @@ Canonical local smoke manifests live in `experiments/manifests/`:
 These are JSON `ExperimentManifest` records. They use the modular runtime agent
 as the candidate and built-in baseline opponents only. They are intended for
 local official-environment evaluation and for deterministic pre-submission
-checks.
+checks. The default smoke fixtures are bounded through per-scenario
+`metadata.episode_steps`; broader evaluation should be launched explicitly.
 
 ## Output And Artifact Policy
 

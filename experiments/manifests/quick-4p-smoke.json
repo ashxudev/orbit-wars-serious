@@ -23,6 +23,7 @@
       "controlled_seat": 0,
       "label": "quick-4p-seed-7-seat-0",
       "metadata": {
+        "episode_steps": "5",
         "scenario": "quick-4p-seed-7-seat-0"
       },
       "opponent_agents": [
@@ -70,6 +71,7 @@
       "controlled_seat": 2,
       "label": "quick-4p-seed-8-seat-2",
       "metadata": {
+        "episode_steps": "5",
         "scenario": "quick-4p-seed-8-seat-2"
       },
       "opponent_agents": [

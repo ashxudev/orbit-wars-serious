@@ -31,6 +31,11 @@ EXPECTED_FIXTURES = (
     "quick-4p-smoke.json",
     "promotion-smoke.json",
 )
+DEFAULT_SUITE_FIXTURES = (
+    "quick-2p-smoke.json",
+    "quick-4p-smoke.json",
+    "promotion-smoke.json",
+)
 EXPECTED_MATCHES = {
     "competitive-baseline-smoke.json": (
         (7, PlayerCount.TWO_PLAYER, 0, "competitive-2p-seed-7-seat-0-noop", 1),
@@ -221,6 +226,16 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
                 self.assertIsNotNone(thresholds.max_mean_rank)
                 self.assertIsNotNone(thresholds.min_completed_count)
                 self.assertGreaterEqual(thresholds.min_completed_count, 1)
+
+    def test_default_suite_scenarios_are_explicitly_episode_bounded(self) -> None:
+        for name in DEFAULT_SUITE_FIXTURES:
+            manifest = load_manifest(name)
+            for scenario in manifest.scenarios:
+                with self.subTest(name=name, label=scenario.label):
+                    metadata = dict(scenario.metadata)
+
+                    self.assertEqual(metadata.get("episode_steps"), "5")
+                    self.assertGreater(int(metadata["episode_steps"]), 0)
 
     def test_fixtures_are_compatible_with_cycle_16_cli_without_running_matches(
         self,
