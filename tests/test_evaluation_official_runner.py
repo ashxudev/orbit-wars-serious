@@ -35,6 +35,7 @@ def candidate_config(
     player_count: PlayerCount = PlayerCount.TWO_PLAYER,
     candidate_agent: AgentSpec | None = None,
     opponent_agents: tuple[OpponentSpec, ...] | None = None,
+    metadata: tuple[tuple[str, str], ...] = (),
 ) -> MatchConfig:
     if candidate_agent is None:
         candidate_agent = AgentSpec(
@@ -53,6 +54,7 @@ def candidate_config(
         controlled_seat=controlled_seat,
         candidate_agent=candidate_agent,
         opponent_agents=opponent_agents,
+        metadata=metadata,
     )
 
 
@@ -164,6 +166,7 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
                 source_kind=AgentSourceKind.MODULAR_AGENT,
                 module_path="fake_candidate_agent",
             ),
+            metadata=(("episode_steps", "5"),),
         )
 
         with patch.dict(
@@ -176,7 +179,10 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
             result = run_official_match(config)
 
         self.assertEqual(result.status, EvaluationStatus.COMPLETED)
-        self.assertEqual(make_calls, [("orbit_wars", {"seed": 42}, True)])
+        self.assertEqual(
+            make_calls,
+            [("orbit_wars", {"seed": 42, "episodeSteps": 5}, True)],
+        )
         self.assertEqual(fake_env.reset_players, 4)
         self.assertEqual(fake_env.run_results, [[], [], [["candidate"]], []])
 

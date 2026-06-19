@@ -26,11 +26,32 @@ from ow_eval import (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = REPO_ROOT / "experiments" / "manifests"
 EXPECTED_FIXTURES = (
+    "competitive-baseline-smoke.json",
     "quick-2p-smoke.json",
     "quick-4p-smoke.json",
     "promotion-smoke.json",
 )
 EXPECTED_MATCHES = {
+    "competitive-baseline-smoke.json": (
+        (7, PlayerCount.TWO_PLAYER, 0, "competitive-2p-seed-7-seat-0-noop", 1),
+        (
+            8,
+            PlayerCount.TWO_PLAYER,
+            1,
+            "competitive-2p-seed-8-seat-1-nearest-neutral",
+            1,
+        ),
+        (
+            9,
+            PlayerCount.TWO_PLAYER,
+            0,
+            "competitive-2p-seed-9-seat-0-nearest-neutral",
+            1,
+        ),
+        (7, PlayerCount.FOUR_PLAYER, 0, "competitive-4p-seed-7-seat-0-mixed", 3),
+        (8, PlayerCount.FOUR_PLAYER, 2, "competitive-4p-seed-8-seat-2-mixed", 3),
+        (9, PlayerCount.FOUR_PLAYER, 3, "competitive-4p-seed-9-seat-3-mixed", 3),
+    ),
     "quick-2p-smoke.json": (
         (7, PlayerCount.TWO_PLAYER, 0, "quick-2p-seed-7-seat-0", 1),
         (8, PlayerCount.TWO_PLAYER, 0, "quick-2p-seed-8-seat-0", 1),
@@ -131,6 +152,9 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
                 )
 
     def test_two_player_and_four_player_fixture_modes_are_canonical(self) -> None:
+        competitive = manifest_to_match_configs(
+            load_manifest("competitive-baseline-smoke.json")
+        )
         quick_2p = manifest_to_match_configs(load_manifest("quick-2p-smoke.json"))
         quick_4p = manifest_to_match_configs(load_manifest("quick-4p-smoke.json"))
         promotion = manifest_to_match_configs(load_manifest("promotion-smoke.json"))
@@ -146,6 +170,17 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
             (
                 PlayerCount.TWO_PLAYER,
                 PlayerCount.TWO_PLAYER,
+                PlayerCount.FOUR_PLAYER,
+            ),
+        )
+        self.assertEqual(
+            tuple(match.player_count for match in competitive),
+            (
+                PlayerCount.TWO_PLAYER,
+                PlayerCount.TWO_PLAYER,
+                PlayerCount.TWO_PLAYER,
+                PlayerCount.FOUR_PLAYER,
+                PlayerCount.FOUR_PLAYER,
                 PlayerCount.FOUR_PLAYER,
             ),
         )
@@ -211,19 +246,29 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
 
         self.assertEqual(
             tuple(result.exit_code for result in results),
-            (0, 0, 0),
+            (0,) * len(EXPECTED_FIXTURES),
         )
         self.assertEqual(
             tuple(result.report_path for result in results),
-            (None, None, None),
+            (None,) * len(EXPECTED_FIXTURES),
         )
         self.assertEqual(
             tuple(result.experiment_report.manifest_name for result in results),
-            ("quick-2p-smoke", "quick-4p-smoke", "promotion-smoke"),
+            (
+                "competitive-baseline-smoke",
+                "quick-2p-smoke",
+                "quick-4p-smoke",
+                "promotion-smoke",
+            ),
         )
         self.assertEqual(
             tuple(seen_manifest_names),
-            ("quick-2p-smoke", "quick-4p-smoke", "promotion-smoke"),
+            (
+                "competitive-baseline-smoke",
+                "quick-2p-smoke",
+                "quick-4p-smoke",
+                "promotion-smoke",
+            ),
         )
 
     def test_fixtures_are_data_only_json_without_generated_outputs(self) -> None:

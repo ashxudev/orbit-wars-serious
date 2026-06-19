@@ -205,6 +205,8 @@ class EvaluationExperimentReportTests(unittest.TestCase):
 
         self.assertEqual(restored, built_report)
         self.assertEqual(restored.scoreboard_record.mean_score, 7.25)
+        self.assertEqual(decoded["scoreboard_record"]["completed_matches"], 2)
+        self.assertEqual(decoded["scoreboard_record"]["completed_count"], 2)
         self.assertEqual(restored.analysis_pack.items[0].final_score, 4.5)
         self.assertEqual(
             restored.promotion_decision.failures[0].code,

@@ -56,7 +56,11 @@ def run_official_match(
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             from kaggle_environments import make
 
-            env = make("orbit_wars", configuration={"seed": config.seed}, debug=True)
+            env = make(
+                "orbit_wars",
+                configuration=_official_environment_configuration(config),
+                debug=True,
+            )
             env.reset(config.player_count.value)
             env.run(list(agents))
     except AgentExecutionError as exc:
@@ -95,6 +99,28 @@ def _agents_for_config(config: MatchConfig) -> tuple[KaggleAgent, ...]:
         seats[seat_index] = _wrapped_agent(next(opponent_iter).agent)
 
     return tuple(agent for agent in seats if agent is not None)
+
+
+def _official_environment_configuration(config: MatchConfig) -> dict[str, int]:
+    configuration = {"seed": config.seed}
+    metadata = dict(config.metadata)
+    episode_steps = metadata.get("episode_steps")
+    if episode_steps is not None:
+        configuration["episodeSteps"] = _positive_int_from_metadata(
+            episode_steps,
+            "episode_steps",
+        )
+    return configuration
+
+
+def _positive_int_from_metadata(value: str, name: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer") from exc
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
 
 
 def _wrapped_agent(agent_spec: AgentSpec) -> KaggleAgent:

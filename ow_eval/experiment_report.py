@@ -65,7 +65,9 @@ class ExperimentReport:
             "commit": self.commit,
             "run_summary_text": self.run_summary_text,
             "promotion_summary_text": self.promotion_summary_text,
-            "scoreboard_record": self.scoreboard_record.to_dict(),
+            "scoreboard_record": _scoreboard_record_to_report_dict(
+                self.scoreboard_record
+            ),
             "analysis_pack": self.analysis_pack.to_dict(),
             "promotion_decision": self.promotion_decision.to_dict(),
             "metadata": [
@@ -163,6 +165,14 @@ def read_experiment_report(path: str | Path) -> ExperimentReport:
     if not isinstance(payload, Mapping):
         raise ValueError("report JSON must be an object")
     return ExperimentReport.from_dict(payload)
+
+
+def _scoreboard_record_to_report_dict(
+    record: ScoreboardRecord,
+) -> dict[str, object]:
+    data = record.to_dict()
+    data["completed_matches"] = record.completed_count
+    return data
 
 
 def _analysis_pack_from_dict(data: Mapping[str, object]) -> PlannerAnalysisPack:
