@@ -11,6 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNBOOK = REPO_ROOT / "docs" / "distributed-evaluation-daytona.md"
 DOCUMENTED_SCRIPTS = (
+    "scripts/distributed_evaluation_preflight.py",
     "scripts/run_evaluation_shards.py",
     "scripts/prepare_evaluation_shards.py",
     "scripts/run_evaluation_shard_job.py",
@@ -22,6 +23,7 @@ DOCUMENTED_SCRIPTS = (
     "scripts/run_daytona_real_shard_jobs.py",
 )
 HELP_SCRIPTS = (
+    "scripts/distributed_evaluation_preflight.py",
     "scripts/prepare_evaluation_shards.py",
     "scripts/prepare_daytona_shard_jobs.py",
     "scripts/validate_daytona_shard_jobs.py",
@@ -35,6 +37,7 @@ MANIFEST_FIXTURES = (
     "experiments/manifests/promotion-smoke.json",
 )
 KEY_COMMANDS = (
+    ".venv/bin/python scripts/distributed_evaluation_preflight.py --shard-count 2",
     ".venv/bin/python scripts/run_evaluation_shards.py experiments/manifests/quick-2p-smoke.json --shard-count 2",
     ".venv/bin/python scripts/prepare_evaluation_shards.py experiments/manifests/quick-2p-smoke.json --shard-count 2 --output-dir /tmp/ow-eval-shards",
     ".venv/bin/python scripts/run_evaluation_shard_index.py /tmp/ow-eval-shards/shard-jobs.index.json",

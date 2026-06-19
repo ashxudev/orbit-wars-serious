@@ -100,6 +100,13 @@ from .daytona_sdk_adapter import (
     DaytonaSdkUnavailableError,
     build_daytona_sdk_protocol_client,
 )
+from .distributed_preflight import (
+    DistributedEvaluationPreflightConfig,
+    DistributedEvaluationPreflightResult,
+    DistributedEvaluationPreflightStageResult,
+    main as run_distributed_evaluation_preflight_main,
+    run_distributed_evaluation_preflight,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -280,6 +287,9 @@ __all__ = (
     "DaytonaSdkAdapterConfig",
     "DaytonaSdkProtocolClient",
     "DaytonaSdkUnavailableError",
+    "DistributedEvaluationPreflightConfig",
+    "DistributedEvaluationPreflightResult",
+    "DistributedEvaluationPreflightStageResult",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
@@ -371,6 +381,8 @@ __all__ = (
     "run_daytona_client_report_main",
     "run_daytona_real_shard_jobs",
     "run_daytona_real_shard_jobs_main",
+    "run_distributed_evaluation_preflight",
+    "run_distributed_evaluation_preflight_main",
     "run_evaluation_batch",
     "run_evaluation_experiment",
     "run_evaluation_experiment_main",

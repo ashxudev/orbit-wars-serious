@@ -28,6 +28,15 @@ They are local evaluation manifests, not live Kaggle submission records.
 
 ## Workflow Order
 
+0. Run the one-command distributed evaluation preflight. This composes shard
+   packaging, Daytona plan writing, Daytona preflight validation, fake executor
+   dry-run, fake client-report dry-run, and guarded real-Daytona fail-closed
+   validation.
+
+```bash
+.venv/bin/python scripts/distributed_evaluation_preflight.py --shard-count 2
+```
+
 1. Build a local shard plan and run it sequentially in-process.
 
 ```bash
@@ -104,6 +113,9 @@ They are local evaluation manifests, not live Kaggle submission records.
   fake client event traces and operation plans.
 - `scripts/run_daytona_real_shard_jobs.py`: guarded real-Daytona execution
   boundary requiring both env readiness and `--allow-real-daytona`.
+- `scripts/distributed_evaluation_preflight.py`: one-command local acceptance
+  gate over shard packaging, Daytona plan generation, preflight validation,
+  fake dry-runs, and guarded real-Daytona fail-closed behavior.
 
 ## Modules
 
@@ -132,6 +144,8 @@ They are local evaluation manifests, not live Kaggle submission records.
 - `ow_eval/daytona_sdk_adapter.py`: SDK adapter and fake-compatible protocol
   facade.
 - `ow_eval/daytona_real_cli.py`: guarded real-Daytona client-report CLI.
+- `ow_eval/distributed_preflight.py`: one-command distributed evaluation
+  acceptance preflight.
 
 ## Real Execution Configuration
 
