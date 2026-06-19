@@ -130,6 +130,11 @@ from .shard_jobs import (
     build_evaluation_shard_jobs,
     write_evaluation_shard_job_package,
 )
+from .shard_package_cli import (
+    EvaluationShardPackageCliResult,
+    main as prepare_evaluation_shards_main,
+    prepare_evaluation_shard_package,
+)
 from .shard_cli import (
     EvaluationShardCliResult,
     main as run_evaluation_shards_main,
@@ -165,6 +170,7 @@ __all__ = (
     "EvaluationShardJobPackageResult",
     "EvaluationShardManifestWriteResult",
     "EvaluationShardMergeResult",
+    "EvaluationShardPackageCliResult",
     "EvaluationShardPlan",
     "EvaluationShardRunConfig",
     "EvaluationShardRunResult",
@@ -216,6 +222,8 @@ __all__ = (
     "manifest_to_match_configs",
     "merge_evaluation_shard_result_files",
     "merge_evaluation_shard_results",
+    "prepare_evaluation_shard_package",
+    "prepare_evaluation_shards_main",
     "read_evaluation_shard_run_result",
     "read_experiment_report",
     "read_scoreboard_records",
