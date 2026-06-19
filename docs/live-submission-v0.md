@@ -52,6 +52,24 @@ kaggle competitions submit -c orbit-wars -f /tmp/orbit_wars_v0_submission.py -m 
 If using a venv-installed Kaggle CLI instead of a global executable, replace
 `kaggle` with `.venv/bin/kaggle`.
 
+## Cycle 1 Live V0 Submission Result
+
+Cycle 1 made exactly one live upload after rerunning the bounded local readiness
+checks.
+
+- Artifact path: `/tmp/orbit_wars_v0_submission.py`
+- Artifact size: `304475` bytes
+- Artifact SHA256:
+  `66b95ae02cf82a0801de2d4827496f1d992bf8de8cb790ac2a1743907d58ca64`
+- Submit command:
+  `.venv/bin/kaggle competitions submit -c orbit-wars -f /tmp/orbit_wars_v0_submission.py -m "serious-v0 local preflight passed c558a30"`
+- Kaggle submission ref: `53862054`
+- Kaggle listed file: `orbit_wars_v0_submission.py`
+- Kaggle listed status immediately after upload: `SubmissionStatus.PENDING`
+- Kaggle listed status during reviewer verification: `SubmissionStatus.COMPLETE`
+- Kaggle listed public score during reviewer verification: `600.0`
+- Segment sentinel: `LIVE_SUBMISSION_V0_SEGMENT_COMPLETE`
+
 ## Cycle 0 Local Status
 
 Cycle 0 verified the artifact can be built and hashed, and local source
