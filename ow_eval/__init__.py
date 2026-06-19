@@ -91,7 +91,9 @@ from .daytona_real_config import (
 from .daytona_sdk_adapter import (
     DaytonaSdkAdapter,
     DaytonaSdkAdapterConfig,
+    DaytonaSdkProtocolClient,
     DaytonaSdkUnavailableError,
+    build_daytona_sdk_protocol_client,
 )
 from .experiment_manifest import (
     ExperimentManifest,
@@ -270,6 +272,7 @@ __all__ = (
     "DaytonaRealExecutionReadiness",
     "DaytonaSdkAdapter",
     "DaytonaSdkAdapterConfig",
+    "DaytonaSdkProtocolClient",
     "DaytonaSdkUnavailableError",
     "EvaluationStatus",
     "EvaluationArtifactConfig",
@@ -332,6 +335,7 @@ __all__ = (
     "build_daytona_shard_job_plan",
     "build_daytona_batch_operation_plan",
     "build_daytona_sandbox_operation_plan",
+    "build_daytona_sdk_protocol_client",
     "default_manifest_paths",
     "evaluate_promotion_gate",
     "evaluation_shard_from_job",

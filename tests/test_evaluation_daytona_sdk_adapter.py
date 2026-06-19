@@ -16,11 +16,13 @@ from ow_eval import (
     DaytonaSandboxHandle,
     DaytonaSdkAdapter,
     DaytonaSdkAdapterConfig,
+    DaytonaSdkProtocolClient,
     DaytonaSdkUnavailableError,
     DaytonaUploadOperation,
     DaytonaCommandOperation,
     DaytonaDownloadOperation,
     ShardPlanConfig,
+    build_daytona_sdk_protocol_client,
     build_daytona_shard_job_plan,
     build_evaluation_shard_plan,
     run_daytona_shard_job_plan_with_client_report,
@@ -97,6 +99,56 @@ class MissingMethodsClient:
     pass
 
 
+class FakeLowLevelHandle:
+    def __init__(self, *, handle_id: str, sandbox_name: str | None, working_dir: str) -> None:
+        self.handle_id = handle_id
+        self.sandbox_name = sandbox_name
+        self.working_dir = working_dir
+
+
+class FakeLowLevelCommandResult:
+    def __init__(self, *, exit_code: int = 0) -> None:
+        self.exit_code = exit_code
+        self.stdout = "low-level ok" if exit_code == 0 else None
+        self.stderr = "low-level failed" if exit_code != 0 else None
+
+
+class FakeLowLevelSdkClient:
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, ...]] = []
+
+    def open_sandbox(self, *, sandbox_name, working_dir):  # noqa: ANN001
+        self.calls.append(("open", sandbox_name, working_dir))
+        return FakeLowLevelHandle(
+            handle_id=f"low-{sandbox_name or 'default'}",
+            sandbox_name=sandbox_name,
+            working_dir=working_dir,
+        )
+
+    def upload_file(self, handle, local_path, sandbox_path):  # noqa: ANN001
+        self.calls.append(("upload", handle.handle_id, local_path, sandbox_path))
+
+    def run_command(self, handle, worker_argv, working_dir):  # noqa: ANN001
+        self.calls.append(("command", handle.handle_id, worker_argv, working_dir))
+        return FakeLowLevelCommandResult()
+
+    def download_file(self, handle, sandbox_path, local_path):  # noqa: ANN001
+        self.calls.append(("download", handle.handle_id, sandbox_path, local_path))
+
+    def close_sandbox(self, handle):  # noqa: ANN001
+        self.calls.append(("close", handle.handle_id))
+
+
+class FakeSdkModule:
+    def __init__(self, client: object | None = None) -> None:
+        self.client = client if client is not None else FakeLowLevelSdkClient()
+        self.created_configs: list[DaytonaRealExecutionConfig] = []
+
+    def create_client(self, config: DaytonaRealExecutionConfig):
+        self.created_configs.append(config)
+        return self.client
+
+
 def ready_adapter_config(
     fake_client: object | None = None,
     *,
@@ -132,8 +184,16 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
             DaytonaSdkAdapterConfig,
         )
         self.assertIs(
+            daytona_sdk_adapter.DaytonaSdkProtocolClient,
+            DaytonaSdkProtocolClient,
+        )
+        self.assertIs(
             daytona_sdk_adapter.DaytonaSdkUnavailableError,
             DaytonaSdkUnavailableError,
+        )
+        self.assertIs(
+            daytona_sdk_adapter.build_daytona_sdk_protocol_client,
+            build_daytona_sdk_protocol_client,
         )
 
     def test_adapter_without_injected_client_fails_closed_without_daytona_import(self) -> None:
@@ -270,15 +330,15 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
             ["open", "close"],
         )
 
-    def test_missing_factory_missing_sdk_and_factory_exceptions_are_deterministic(self) -> None:
-        missing_factory = DaytonaSdkAdapter(
+    def test_default_factory_missing_constructor_missing_sdk_and_factory_exceptions_are_deterministic(self) -> None:
+        missing_constructor = DaytonaSdkAdapter(
             ready_adapter_config(sdk_importer=lambda name: object())
         )
         with self.assertRaisesRegex(
             DaytonaSdkUnavailableError,
-            "sdk_client_factory",
+            "must provide create_client, Client, or Session",
         ):
-            missing_factory.open_sandbox(
+            missing_constructor.open_sandbox(
                 sandbox_name="sandbox",
                 working_dir="/workspace",
             )
@@ -316,6 +376,137 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
             factory_failure.open_sandbox(
                 sandbox_name="sandbox",
                 working_dir="/workspace",
+            )
+
+    def test_default_facade_factory_uses_fake_sdk_module_and_caches_resolved_client(self) -> None:
+        fake_module = FakeSdkModule()
+        importer_calls: list[str] = []
+
+        def fake_importer(name: str) -> object:
+            importer_calls.append(name)
+            return fake_module
+
+        adapter = DaytonaSdkAdapter(
+            ready_adapter_config(
+                sdk_module_name="fake_daytona_sdk",
+                sdk_importer=fake_importer,
+            )
+        )
+
+        handle = adapter.open_sandbox(
+            sandbox_name="sandbox",
+            working_dir="/workspace",
+        )
+        adapter.upload_file(
+            handle,
+            DaytonaUploadOperation(
+                local_path="/local/input.json",
+                sandbox_path="/workspace/input.json",
+            ),
+        )
+        command_result = adapter.run_command(
+            handle,
+            DaytonaCommandOperation(
+                worker_argv=("python", "worker.py"),
+                working_dir="/workspace",
+            ),
+        )
+        adapter.download_file(
+            handle,
+            DaytonaDownloadOperation(
+                sandbox_path="/workspace/result.json",
+                local_path="/local/result.json",
+            ),
+        )
+        adapter.close_sandbox(handle)
+
+        self.assertEqual(importer_calls, ["fake_daytona_sdk"])
+        self.assertEqual(len(fake_module.created_configs), 1)
+        self.assertEqual(command_result.exit_code, 0)
+        self.assertIn(
+            "daytona_sdk_protocol_command exit_code=0",
+            command_result.summary_text,
+        )
+        self.assertEqual(
+            fake_module.client.calls,
+            [
+                ("open", "sandbox", "/workspace"),
+                ("upload", "low-sandbox", "/local/input.json", "/workspace/input.json"),
+                ("command", "low-sandbox", ("python", "worker.py"), "/workspace"),
+                ("download", "low-sandbox", "/workspace/result.json", "/local/result.json"),
+                ("close", "low-sandbox"),
+            ],
+        )
+
+        second = adapter.open_sandbox(sandbox_name="second", working_dir="/workspace")
+        self.assertEqual(second.handle_id, "low-second")
+        self.assertEqual(importer_calls, ["fake_daytona_sdk"])
+        self.assertEqual(len(fake_module.created_configs), 1)
+
+    def test_default_facade_supports_client_and_session_constructor_names(self) -> None:
+        class ClientModule:
+            def Client(self, config):  # noqa: N802, ANN001 - fake SDK shape.
+                return FakeLowLevelSdkClient()
+
+        class SessionModule:
+            def Session(self, config):  # noqa: N802, ANN001 - fake SDK shape.
+                return FakeLowLevelSdkClient()
+
+        for module in (ClientModule(), SessionModule()):
+            client = build_daytona_sdk_protocol_client(
+                module,
+                DaytonaRealExecutionConfig(allow_real_daytona=True),
+            )
+            handle = client.open_sandbox(sandbox_name=None, working_dir="/workspace")
+            self.assertEqual(handle.handle_id, "low-default")
+
+    def test_malformed_default_facade_surfaces_fail_deterministically(self) -> None:
+        class MissingUploadClient:
+            def open_sandbox(self, *, sandbox_name, working_dir):  # noqa: ANN001
+                return "handle"
+
+        class BadHandleClient(FakeLowLevelSdkClient):
+            def open_sandbox(self, *, sandbox_name, working_dir):  # noqa: ANN001
+                return object()
+
+        class BadCommandResultClient(FakeLowLevelSdkClient):
+            def run_command(self, handle, worker_argv, working_dir):  # noqa: ANN001
+                return {}
+
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "requires low-level method upload_file",
+        ):
+            build_daytona_sdk_protocol_client(
+                FakeSdkModule(MissingUploadClient()),
+                DaytonaRealExecutionConfig(allow_real_daytona=True),
+            )
+
+        bad_handle = build_daytona_sdk_protocol_client(
+            FakeSdkModule(BadHandleClient()),
+            DaytonaRealExecutionConfig(allow_real_daytona=True),
+        )
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "must provide handle_id or id",
+        ):
+            bad_handle.open_sandbox(sandbox_name=None, working_dir="/workspace")
+
+        bad_command = build_daytona_sdk_protocol_client(
+            FakeSdkModule(BadCommandResultClient()),
+            DaytonaRealExecutionConfig(allow_real_daytona=True),
+        )
+        handle = bad_command.open_sandbox(sandbox_name=None, working_dir="/workspace")
+        with self.assertRaisesRegex(
+            DaytonaSdkUnavailableError,
+            "must provide exit_code",
+        ):
+            bad_command.run_command(
+                handle,
+                DaytonaCommandOperation(
+                    worker_argv=("python", "worker.py"),
+                    working_dir="/workspace",
+                ),
             )
 
     def test_bad_factory_return_value_fails_before_operation_call(self) -> None:

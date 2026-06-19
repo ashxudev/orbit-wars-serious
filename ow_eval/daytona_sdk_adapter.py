@@ -10,7 +10,7 @@ with deterministic errors.
 from __future__ import annotations
 
 import importlib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
 from .daytona_client_executor import (
@@ -31,6 +31,116 @@ from .daytona_real_config import (
 
 class DaytonaSdkUnavailableError(RuntimeError):
     """Raised when real Daytona SDK behavior is unavailable by design."""
+
+
+class DaytonaSdkProtocolClient:
+    """Protocol-shaped facade over an injected low-level Daytona-like client.
+
+    The current fake SDK shape is intentionally narrow:
+    - SDK module exposes ``create_client(config)``, ``Client(config)``, or
+      ``Session(config)``.
+    - The low-level client exposes ``open_sandbox(sandbox_name, working_dir)``,
+      ``upload_file(handle, local_path, sandbox_path)``,
+      ``run_command(handle, worker_argv, working_dir)``,
+      ``download_file(handle, sandbox_path, local_path)``, and
+      ``close_sandbox(handle)``.
+    """
+
+    def __init__(self, sdk_client: object) -> None:
+        self.sdk_client = sdk_client
+        self._handles: dict[str, object] = {}
+        for method_name in (
+            "open_sandbox",
+            "upload_file",
+            "run_command",
+            "download_file",
+            "close_sandbox",
+        ):
+            if not callable(getattr(self.sdk_client, method_name, None)):
+                raise DaytonaSdkUnavailableError(
+                    "Daytona SDK protocol client requires low-level method "
+                    f"{method_name}"
+                )
+
+    def open_sandbox(
+        self,
+        *,
+        sandbox_name: str | None,
+        working_dir: str,
+    ) -> DaytonaSandboxHandle:
+        """Open a low-level sandbox and return a protocol handle."""
+
+        low_level_handle = self.sdk_client.open_sandbox(
+            sandbox_name=sandbox_name,
+            working_dir=working_dir,
+        )
+        handle = _sandbox_handle_from_low_level(
+            low_level_handle,
+            sandbox_name=sandbox_name,
+            working_dir=working_dir,
+        )
+        self._handles[handle.handle_id] = low_level_handle
+        return handle
+
+    def upload_file(
+        self,
+        handle: DaytonaSandboxHandle,
+        operation: DaytonaUploadOperation,
+    ) -> None:
+        """Forward one upload operation to the low-level client."""
+
+        low_level_handle = self._low_level_handle(handle)
+        self.sdk_client.upload_file(
+            low_level_handle,
+            operation.local_path,
+            operation.sandbox_path,
+        )
+
+    def run_command(
+        self,
+        handle: DaytonaSandboxHandle,
+        operation: DaytonaCommandOperation,
+    ) -> DaytonaClientCommandResult:
+        """Forward one command operation and normalize its result."""
+
+        low_level_handle = self._low_level_handle(handle)
+        result = self.sdk_client.run_command(
+            low_level_handle,
+            operation.worker_argv,
+            operation.working_dir,
+        )
+        return _command_result_from_low_level(result)
+
+    def download_file(
+        self,
+        handle: DaytonaSandboxHandle,
+        operation: DaytonaDownloadOperation,
+    ) -> None:
+        """Forward one download operation to the low-level client."""
+
+        low_level_handle = self._low_level_handle(handle)
+        self.sdk_client.download_file(
+            low_level_handle,
+            operation.sandbox_path,
+            operation.local_path,
+        )
+
+    def close_sandbox(self, handle: DaytonaSandboxHandle) -> None:
+        """Forward one close operation to the low-level client."""
+
+        low_level_handle = self._low_level_handle(handle)
+        self.sdk_client.close_sandbox(low_level_handle)
+        self._handles.pop(handle.handle_id, None)
+
+    def _low_level_handle(self, handle: DaytonaSandboxHandle) -> object:
+        if not isinstance(handle, DaytonaSandboxHandle):
+            raise ValueError("handle must be a DaytonaSandboxHandle")
+        low_level_handle = self._handles.get(handle.handle_id)
+        if low_level_handle is None:
+            raise DaytonaSdkUnavailableError(
+                f"Unknown Daytona sandbox handle: {handle.handle_id}"
+            )
+        return low_level_handle
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,14 +285,10 @@ class DaytonaSdkAdapter:
         return self._resolved_client
 
     def _resolve_client(self) -> object:
-        if self.config.sdk_client_factory is None:
-            raise DaytonaSdkUnavailableError(
-                "Daytona SDK adapter requires an injected sdk_client or "
-                "sdk_client_factory in this cycle"
-            )
+        factory = self.config.sdk_client_factory or build_daytona_sdk_protocol_client
         sdk_module = self._import_sdk_module()
         try:
-            client = self.config.sdk_client_factory(
+            client = factory(
                 sdk_module,
                 self.config.real_execution_config,
             )
@@ -219,7 +325,6 @@ class DaytonaSdkAdapter:
             raise DaytonaSdkUnavailableError(
                 f"{prefix} None"
             )
-        return self.sdk_client
 
     def _ensure_ready(self) -> None:
         if not self.readiness.passed:
@@ -239,6 +344,97 @@ class DaytonaSdkAdapter:
         return method
 
 
+def build_daytona_sdk_protocol_client(
+    sdk_module: object,
+    config: DaytonaRealExecutionConfig,
+) -> DaytonaSdkProtocolClient:
+    """Build the default protocol facade from a fake Daytona-like SDK module."""
+
+    if not isinstance(config, DaytonaRealExecutionConfig):
+        raise ValueError("config must be a DaytonaRealExecutionConfig")
+    constructor = _sdk_client_constructor(sdk_module)
+    try:
+        low_level_client = constructor(config)
+    except Exception as exc:  # noqa: BLE001 - adapter returns deterministic errors.
+        raise DaytonaSdkUnavailableError(
+            f"Daytona SDK client construction failed: {type(exc).__name__}: {exc}"
+        ) from exc
+    return DaytonaSdkProtocolClient(low_level_client)
+
+
+def _sdk_client_constructor(sdk_module: object):
+    for name in ("create_client", "Client", "Session"):
+        constructor = getattr(sdk_module, name, None)
+        if callable(constructor):
+            return constructor
+    raise DaytonaSdkUnavailableError(
+        "Daytona SDK module must provide create_client, Client, or Session"
+    )
+
+
+def _sandbox_handle_from_low_level(
+    value: object,
+    *,
+    sandbox_name: str | None,
+    working_dir: str,
+) -> DaytonaSandboxHandle:
+    if isinstance(value, DaytonaSandboxHandle):
+        return value
+    if isinstance(value, str):
+        return DaytonaSandboxHandle(
+            sandbox_name=sandbox_name,
+            working_dir=working_dir,
+            handle_id=value,
+        )
+    handle_id = _low_level_field(value, "handle_id", "id")
+    if handle_id is None:
+        raise DaytonaSdkUnavailableError(
+            "Low-level Daytona sandbox handle must provide handle_id or id"
+        )
+    low_sandbox_name = _low_level_field(value, "sandbox_name", "name")
+    low_working_dir = _low_level_field(value, "working_dir")
+    return DaytonaSandboxHandle(
+        sandbox_name=low_sandbox_name if low_sandbox_name is not None else sandbox_name,
+        working_dir=low_working_dir if low_working_dir is not None else working_dir,
+        handle_id=handle_id,
+    )
+
+
+def _command_result_from_low_level(value: object) -> DaytonaClientCommandResult:
+    if isinstance(value, DaytonaClientCommandResult):
+        return value
+    exit_code = _low_level_field(value, "exit_code")
+    if exit_code is None:
+        raise DaytonaSdkUnavailableError(
+            "Low-level Daytona command result must provide exit_code"
+        )
+    stdout = _low_level_field(value, "stdout")
+    stderr = _low_level_field(value, "stderr")
+    summary_text = _low_level_field(value, "summary_text")
+    return DaytonaClientCommandResult(
+        exit_code=exit_code,
+        stdout=stdout,
+        stderr=stderr,
+        summary_text=summary_text
+        if summary_text is not None
+        else f"daytona_sdk_protocol_command exit_code={exit_code}",
+    )
+
+
+def _low_level_field(value: object, *names: str) -> object:
+    if isinstance(value, Mapping):
+        for name in names:
+            item = value.get(name)
+            if item is not None:
+                return item
+        return None
+    for name in names:
+        item = getattr(value, name, None)
+        if item is not None:
+            return item
+    return None
+
+
 def _validate_nonempty_string(value: object, name: str) -> None:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{name} must be a non-empty string")
@@ -247,5 +443,7 @@ def _validate_nonempty_string(value: object, name: str) -> None:
 __all__ = (
     "DaytonaSdkAdapter",
     "DaytonaSdkAdapterConfig",
+    "DaytonaSdkProtocolClient",
     "DaytonaSdkUnavailableError",
+    "build_daytona_sdk_protocol_client",
 )
