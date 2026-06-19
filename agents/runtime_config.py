@@ -14,6 +14,9 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from numbers import Real
 
+from ow_planner import CandidateGenerationConfig
+
+from .runtime_planner import RuntimePlannerConfig
 from .runtime_budget import RuntimeBudgetConfig
 from .runtime_turn import RuntimeTurnConfig
 
@@ -25,6 +28,7 @@ class RuntimeDefaultConfig:
     default_turn_budget_seconds: float = 1.0
     minimum_stage_start_seconds: float = 0.05
     remaining_overage_reserve_seconds: float = 0.25
+    runtime_max_candidates: int | None = 1
     clock: Callable[[], float] = time.monotonic
 
     def __post_init__(self) -> None:
@@ -39,6 +43,10 @@ class RuntimeDefaultConfig:
         _validate_nonnegative_number(
             self.remaining_overage_reserve_seconds,
             "remaining_overage_reserve_seconds",
+        )
+        _validate_optional_nonnegative_int(
+            self.runtime_max_candidates,
+            "runtime_max_candidates",
         )
         if not callable(self.clock):
             raise ValueError("clock must be callable")
@@ -65,6 +73,11 @@ def runtime_turn_config_for_observation(
         turn_budget_seconds = min(turn_budget_seconds, usable_remaining_time)
 
     return RuntimeTurnConfig(
+        planner_config=RuntimePlannerConfig(
+            candidate_config=CandidateGenerationConfig(
+                max_candidates=effective_defaults.runtime_max_candidates,
+            ),
+        ),
         budget_config=RuntimeBudgetConfig(
             turn_budget_seconds=turn_budget_seconds,
             minimum_stage_start_seconds=(
@@ -96,6 +109,13 @@ def _validate_nonnegative_number(value: object, name: str) -> None:
     numeric_value = float(value)
     if not math.isfinite(numeric_value) or numeric_value < 0.0:
         raise ValueError(f"{name} must be a non-negative number")
+
+
+def _validate_optional_nonnegative_int(value: object, name: str) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be None or an integer >= 0")
 
 
 __all__ = (

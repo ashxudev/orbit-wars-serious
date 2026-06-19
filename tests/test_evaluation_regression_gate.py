@@ -344,6 +344,10 @@ class RegressionGateTests(unittest.TestCase):
                 "reasons=strategy_selection_no_action:90",
             ),
         )
+        self.assertNotIn(
+            "budget_guard_budget_exhausted",
+            "\n".join(failure.message for failure in result.failures),
+        )
 
     def test_threshold_violations_fail_gate(self) -> None:
         matches = (gate_match_config(7), gate_match_config(8))

@@ -78,7 +78,8 @@ def generate_candidates(
     """Return deterministic validated mission candidates for ``state``.
 
     This composes source-target enumeration, ship estimation, and simulator
-    outcome validation. Candidate limiting is applied after validation in the
+    outcome validation. Candidate limiting is applied before validation so
+    runtime callers can bound expensive simulator work while preserving the
     deterministic order produced by the lower-level pipeline.
     """
 
@@ -87,8 +88,13 @@ def generate_candidates(
     from .estimation import estimate_source_target_pairs
     from .outcomes import CandidateValidationStatus, validate_estimated_pair_outcomes
 
+    if effective_config.max_candidates == 0:
+        return ()
+
     pairs = enumerate_source_target_pairs(state, config=effective_config)
     estimated_pairs = estimate_source_target_pairs(pairs, config=effective_config)
+    if effective_config.max_candidates is not None:
+        estimated_pairs = estimated_pairs[: effective_config.max_candidates]
     reports = validate_estimated_pair_outcomes(state, estimated_pairs)
 
     candidates = tuple(

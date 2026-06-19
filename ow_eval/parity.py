@@ -37,6 +37,7 @@ METRIC_FIELDS = (
     "invalid_action_count",
     "timeout_count",
 )
+BOUNDED_PARITY_REMAINING_OVERAGE_TIME = 1.25
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,7 +271,9 @@ def _bounded_runtime_agent_for_parity() -> Iterator[None]:
             bounded_observation = observation
             if isinstance(observation, Mapping):
                 bounded_observation = dict(observation)
-                bounded_observation["remainingOverageTime"] = 0.0
+                bounded_observation["remainingOverageTime"] = (
+                    BOUNDED_PARITY_REMAINING_OVERAGE_TIME
+                )
             return agent(bounded_observation, configuration)
 
         return bounded_agent

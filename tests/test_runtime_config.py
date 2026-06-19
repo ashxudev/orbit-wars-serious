@@ -71,6 +71,14 @@ class RuntimeConfigTests(unittest.TestCase):
                         remaining_overage_reserve_seconds=value,  # type: ignore[arg-type]
                     )
 
+    def test_runtime_default_config_rejects_invalid_candidate_caps(self) -> None:
+        for value in (True, -1, 1.5, "1"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    RuntimeDefaultConfig(
+                        runtime_max_candidates=value,  # type: ignore[arg-type]
+                    )
+
     def test_runtime_default_config_rejects_noncallable_clock(self) -> None:
         with self.assertRaises(ValueError):
             RuntimeDefaultConfig(clock=object())  # type: ignore[arg-type]
@@ -84,6 +92,40 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertIsNotNone(config.budget_config)
         self.assertEqual(config.budget_config.turn_budget_seconds, 1.0)
         self.assertEqual(config.budget_config.minimum_stage_start_seconds, 0.05)
+        self.assertIsNotNone(config.planner_config)
+        self.assertIsNotNone(config.planner_config.candidate_config)
+        self.assertEqual(config.planner_config.candidate_config.max_candidates, 1)
+
+    def test_runtime_candidate_cap_can_be_configured_or_disabled(self) -> None:
+        capped = runtime_turn_config_for_observation(
+            {},
+            defaults=RuntimeDefaultConfig(runtime_max_candidates=3),
+        )
+        uncapped = runtime_turn_config_for_observation(
+            {},
+            defaults=RuntimeDefaultConfig(runtime_max_candidates=None),
+        )
+
+        self.assertIsNotNone(capped.planner_config)
+        self.assertIsNotNone(capped.planner_config.candidate_config)
+        self.assertEqual(capped.planner_config.candidate_config.max_candidates, 3)
+        self.assertIsNotNone(uncapped.planner_config)
+        self.assertIsNotNone(uncapped.planner_config.candidate_config)
+        self.assertIsNone(uncapped.planner_config.candidate_config.max_candidates)
+
+    def test_bounded_parity_remaining_overage_preserves_turn_budget(self) -> None:
+        defaults = RuntimeDefaultConfig(
+            default_turn_budget_seconds=1.0,
+            remaining_overage_reserve_seconds=0.25,
+        )
+
+        config = runtime_turn_config_for_observation(
+            {"remainingOverageTime": 1.25},
+            defaults=defaults,
+        )
+
+        self.assertIsNotNone(config.budget_config)
+        self.assertEqual(config.budget_config.turn_budget_seconds, 1.0)
 
     def test_numeric_remaining_overage_caps_budget_after_reserve(self) -> None:
         defaults = RuntimeDefaultConfig(

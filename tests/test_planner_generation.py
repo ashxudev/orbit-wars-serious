@@ -156,7 +156,7 @@ class PlannerGenerationTests(unittest.TestCase):
             2,
         )
 
-    def test_candidate_limit_is_applied_after_validation(self) -> None:
+    def test_candidate_limit_zero_skips_validation_work(self) -> None:
         from ow_planner.outcomes import validate_estimated_pair_outcomes
 
         with patch(
@@ -169,7 +169,23 @@ class PlannerGenerationTests(unittest.TestCase):
             )
 
         self.assertEqual(candidates, ())
+        validate.assert_not_called()
+
+    def test_candidate_limit_bounds_validation_work(self) -> None:
+        from ow_planner.outcomes import validate_estimated_pair_outcomes
+
+        with patch(
+            "ow_planner.outcomes.validate_estimated_pair_outcomes",
+            wraps=validate_estimated_pair_outcomes,
+        ) as validate:
+            candidates = generate_candidates(
+                generation_state(),
+                CandidateGenerationConfig(max_candidates=1),
+            )
+
+        self.assertEqual(len(candidates), 1)
         validate.assert_called_once()
+        self.assertEqual(len(validate.call_args.args[1]), 1)
 
     def test_config_rejects_invalid_candidate_limits(self) -> None:
         for max_candidates in (-1, True, 1.5, "1"):
