@@ -3,9 +3,9 @@
   "case_id": "four_p_no_action_80761836_t100_p2",
   "episode_id": 80761836,
   "expected_current_runtime": {
-    "action_count": 0,
-    "diagnostic_status": "no_action",
-    "no_action_reason": "strategy_selection_no_action",
+    "action_count": 1,
+    "diagnostic_status": "actions",
+    "no_action_reason": "actions_emitted",
     "owned_planet_count": 1,
     "owned_production": 4,
     "player_id": 2,

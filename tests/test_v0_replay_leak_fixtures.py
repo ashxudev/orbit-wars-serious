@@ -123,17 +123,26 @@ class V0ReplayLeakFixtureTests(unittest.TestCase):
         observation = payload["observation"]
         self.assertIsInstance(observation, dict)
 
-        action_count, metadata = run_current_runtime(observation, "direct")
+        actions = safe_actions_for_observation(observation, {})
+        metadata = dict(last_runtime_diagnostic_metadata())
 
-        self.assertEqual(action_count, 0)
-        self.assertEqual(metadata["runtime_diagnostic_status"], "no_action")
+        self.assertGreater(len(actions), 0)
+        self.assertEqual(len(actions[0]), 3)
+        self.assertIsInstance(actions[0][0], int)
+        self.assertIsInstance(actions[0][1], float)
+        self.assertIsInstance(actions[0][2], int)
+        self.assertEqual(metadata["runtime_diagnostic_status"], "actions")
         self.assertNotEqual(
             metadata["runtime_diagnostic_no_action_reason"],
             "no_candidates_generated",
         )
-        self.assertEqual(
+        self.assertNotEqual(
             metadata["runtime_diagnostic_no_action_reason"],
             "strategy_selection_no_action",
+        )
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "actions_emitted",
         )
         self.assertGreater(int(metadata["runtime_diagnostic_candidate_count"]), 0)
 

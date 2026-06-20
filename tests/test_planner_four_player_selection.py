@@ -103,6 +103,7 @@ def mission_candidate(
     target_planet_id: int,
     source_planet_id: int,
     ships: int = 6,
+    outcome: CandidateOutcome = CandidateOutcome.VALIDATED,
 ) -> MissionCandidate:
     launch = LaunchCandidate(
         source_planet_id=source_planet_id,
@@ -115,7 +116,7 @@ def mission_candidate(
         target_planet_id=target_planet_id,
         source_planet_ids=(source_planet_id,),
         launches=(launch,),
-        outcome=CandidateOutcome.VALIDATED,
+        outcome=outcome,
     )
 
 
@@ -197,8 +198,13 @@ def bundle_for(
         CommitmentOptionType.MINIMUM_CAPTURE,
     ),
     option_status: CommitmentOptionStatus = CommitmentOptionStatus.VALIDATED,
+    candidate_outcome: CandidateOutcome = CandidateOutcome.VALIDATED,
 ) -> PlannerDecisionBundle:
-    candidate = mission_candidate(target_planet_id, source_planet_id)
+    candidate = mission_candidate(
+        target_planet_id,
+        source_planet_id,
+        outcome=candidate_outcome,
+    )
     evaluation = mission_evaluation(candidate, value_facts, total_score=total_score)
     options = tuple(
         commitment_option(candidate, option_type, status=option_status)
@@ -241,7 +247,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
     def test_four_player_selection_config_defaults_are_stable_and_frozen(self) -> None:
         config = FourPlayerSelectionConfig()
 
-        self.assertEqual(config.minimum_total_score, 0.0)
+        self.assertEqual(config.minimum_total_score, -100.0)
         self.assertFalse(config.allow_source_counterattack_risk)
         self.assertFalse(config.allow_third_party_benefit)
         self.assertEqual(
@@ -543,6 +549,30 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
         self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
         self.assertIs(result.selected_bundle, third_party)
 
+    def test_selects_validated_candidate_when_zero_horizon_facts_do_not_show_capture(
+        self,
+    ) -> None:
+        bundle = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            value_facts=mission_value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=1,
+                target_production_before=4,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=10.0,
+        )
+
+        result = select_four_player_strategy((bundle,), board_facts())
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, bundle)
+        self.assertIs(
+            result.selected_commitment_option,
+            bundle.commitment_options.options[0],
+        )
+
     def test_threshold_rejection_returns_no_action(self) -> None:
         bundle = bundle_for(
             target_planet_id=2,
@@ -650,7 +680,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
             ),
         )
 
-    def test_no_action_when_only_current_player_owned_or_uncaptured_targets_exist(
+    def test_no_action_when_only_current_player_owned_or_unvalidated_targets_exist(
         self,
     ) -> None:
         already_owned = bundle_for(
@@ -664,7 +694,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
             ),
             total_score=8.0,
         )
-        not_captured = bundle_for(
+        not_validated = bundle_for(
             target_planet_id=3,
             source_planet_id=4,
             value_facts=mission_value_facts(
@@ -674,15 +704,22 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
                 production_delta_vs_baseline=0,
             ),
             total_score=10.0,
+            candidate_outcome=CandidateOutcome.REJECTED,
         )
 
         result = select_four_player_strategy(
-            (already_owned, not_captured),
+            (already_owned, not_validated),
             board_facts(),
         )
 
         self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
-        self.assertEqual(result.notes, ("no eligible four-player strategy",))
+        self.assertEqual(
+            result.notes,
+            (
+                "no eligible four-player strategy",
+                "candidate not validated",
+            ),
+        )
 
     def test_rejected_result_for_empty_inputs(self) -> None:
         board = board_facts()

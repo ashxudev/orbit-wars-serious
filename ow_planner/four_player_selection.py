@@ -15,6 +15,7 @@ from numbers import Real
 from typing import Sequence
 
 from .commitment import CommitmentOption, CommitmentOptionStatus, CommitmentOptionType
+from .candidates import CandidateOutcome
 from .four_player_missions import (
     FourPlayerMissionFacts,
     four_player_mission_facts_for_bundles,
@@ -42,7 +43,7 @@ DEFAULT_FOUR_PLAYER_COMMITMENT_PREFERENCE_ORDER = (
 class FourPlayerSelectionConfig:
     """Configuration for first-pass four-player strategy selection."""
 
-    minimum_total_score: float = 0.0
+    minimum_total_score: float = -100.0
     allow_source_counterattack_risk: bool = False
     allow_third_party_benefit: bool = False
     commitment_preference_order: tuple[CommitmentOptionType, ...] = (
@@ -113,7 +114,8 @@ def select_four_player_strategy(
     for index, facts in enumerate(facts_by_input_order):
         if not _has_complete_four_player_facts(facts):
             continue
-        if facts.target_captured_by_player is not True:
+        if facts.bundle.candidate.outcome is not CandidateOutcome.VALIDATED:
+            ineligible_reasons.add("candidate not validated")
             continue
         if facts.target_was_current_player_owned is True:
             continue
@@ -225,6 +227,7 @@ def _no_action_notes(ineligible_reasons: set[str]) -> tuple[str, ...]:
             "third-party benefit excluded",
             "below minimum total score",
             "missing validated commitment option",
+            "candidate not validated",
         )
         if reason in ineligible_reasons
     )
