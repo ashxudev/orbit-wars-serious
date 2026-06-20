@@ -40,6 +40,11 @@ DEFAULT_COMMITMENT_PREFERENCE_ORDER = (
     CommitmentOptionType.FULL_SOURCE,
 )
 
+CAPTURE_HOLD_RISK_RESPONSE_LABELS = (
+    "target_reinforcement_feasible",
+    "target_race_risk",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class TwoPlayerSelectionConfig:
@@ -113,6 +118,7 @@ def select_two_player_direct_advantage(
         commitment_option = _preferred_commitment_option(
             facts.bundle,
             effective_config.commitment_preference_order,
+            prefer_capture_and_hold=_is_risky_capture_facts(facts),
         )
         if commitment_option is None:
             ineligible_reasons.add("missing validated commitment option")
@@ -125,7 +131,7 @@ def select_two_player_direct_advantage(
             notes=_no_action_notes(ineligible_reasons),
         )
 
-    selection_pool, pressure_retention_applied = _pressure_retention_pool(eligible)
+    selection_pool, pressure_note = _pressure_retention_pool(eligible)
     selected_facts, _index, selected_commitment = max(
         selection_pool,
         key=_selection_key,
@@ -134,8 +140,8 @@ def select_two_player_direct_advantage(
         "two-player direct advantage selected",
         f"selected commitment option: {selected_commitment.option_type.value}",
     ]
-    if pressure_retention_applied:
-        notes.append("pressure retention preference: reserve_preserving")
+    if pressure_note is not None:
+        notes.append(pressure_note)
     return selected_strategy_result(
         selected_facts.bundle,
         selected_commitment,
@@ -157,52 +163,101 @@ def _has_complete_two_player_facts(facts: TwoPlayerAdvantageFacts) -> bool:
 def _preferred_commitment_option(
     bundle: PlannerDecisionBundle,
     commitment_preference_order: tuple[CommitmentOptionType, ...],
+    *,
+    prefer_capture_and_hold: bool = False,
 ) -> CommitmentOption | None:
     if bundle.commitment_options is None:
         return None
+    if prefer_capture_and_hold:
+        reserve = _validated_option(
+            bundle,
+            CommitmentOptionType.RESERVE_PRESERVING,
+        )
+        if reserve is None:
+            capture_and_hold = _validated_option(
+                bundle,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+            )
+            if capture_and_hold is not None:
+                return capture_and_hold
     for preferred_option_type in commitment_preference_order:
         if preferred_option_type is CommitmentOptionType.NO_ATTACK:
             continue
-        for option in bundle.commitment_options.options:
-            if (
-                option.option_type is preferred_option_type
-                and option.status is CommitmentOptionStatus.VALIDATED
-                and option.option_type is not CommitmentOptionType.NO_ATTACK
-            ):
-                return option
+        option = _validated_option(bundle, preferred_option_type)
+        if option is not None:
+            return option
+    return None
+
+
+def _validated_option(
+    bundle: PlannerDecisionBundle,
+    option_type: CommitmentOptionType,
+) -> CommitmentOption | None:
+    if bundle.commitment_options is None:
+        return None
+    if option_type is CommitmentOptionType.NO_ATTACK:
+        return None
+    for option in bundle.commitment_options.options:
+        if (
+            option.option_type is option_type
+            and option.status is CommitmentOptionStatus.VALIDATED
+        ):
+            return option
     return None
 
 
 def _pressure_retention_pool(
     eligible: list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]],
-) -> tuple[list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]], bool]:
+) -> tuple[list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]], str | None]:
     pressure_facts = tuple(
         two_player_pressure_facts(facts, commitment_option)
         for facts, _index, commitment_option in eligible
     )
     if not any(facts.response_pressure_active for facts in pressure_facts):
-        return eligible, False
+        return eligible, None
     reserve_preserving = [
         item
         for item, facts in zip(eligible, pressure_facts)
         if facts.reserve_preserving_commitment
     ]
-    if not reserve_preserving:
-        return eligible, False
     retention_candidates = [
         item
         for item in reserve_preserving
         if _is_owned_retention_candidate(item[0].bundle)
     ]
     if retention_candidates:
-        return retention_candidates, True
-    return reserve_preserving, True
+        return retention_candidates, "pressure retention preference: reserve_preserving"
+    hold_sized_captures = [
+        item
+        for item in eligible
+        if (
+            _is_risky_capture_facts(item[0])
+            and item[2].option_type is CommitmentOptionType.CAPTURE_AND_HOLD
+        )
+    ]
+    if hold_sized_captures:
+        return hold_sized_captures, "pressure capture-hold preference: capture_and_hold"
+    if not reserve_preserving:
+        return eligible, None
+    return reserve_preserving, "pressure retention preference: reserve_preserving"
 
 
 def _is_owned_retention_candidate(bundle: PlannerDecisionBundle) -> bool:
     return bundle.candidate.mission_type in (
         MissionType.DEFEND_OWN,
         MissionType.REINFORCE,
+    )
+
+
+def _is_risky_capture_facts(facts: TwoPlayerAdvantageFacts) -> bool:
+    if facts.bundle.candidate.mission_type not in (
+        MissionType.CAPTURE_NEUTRAL,
+        MissionType.ATTACK_ENEMY,
+    ):
+        return False
+    return any(
+        label in CAPTURE_HOLD_RISK_RESPONSE_LABELS
+        for label in facts.response_labels
     )
 
 

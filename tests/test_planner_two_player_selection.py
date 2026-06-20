@@ -579,6 +579,146 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
             CommitmentOptionType.RESERVE_PRESERVING,
         )
 
+    def test_risky_capture_prefers_validated_capture_and_hold_commitment(
+        self,
+    ) -> None:
+        risky_capture = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=20.0,
+            response_labels=("target_reinforcement_feasible",),
+            option_types=(
+                CommitmentOptionType.MINIMUM_CAPTURE,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+            ),
+        )
+
+        result = select_two_player_direct_advantage((risky_capture,))
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, risky_capture)
+        self.assertIs(
+            result.selected_commitment_option,
+            risky_capture.commitment_options.options[1],
+        )
+        self.assertEqual(
+            result.notes,
+            (
+                "two-player direct advantage selected",
+                "selected commitment option: capture_and_hold",
+                "pressure capture-hold preference: capture_and_hold",
+            ),
+        )
+
+    def test_risky_capture_preserves_validated_reserve_before_hold(
+        self,
+    ) -> None:
+        risky_capture = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=20.0,
+            response_labels=("target_race_risk",),
+            option_types=(
+                CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+            ),
+        )
+
+        result = select_two_player_direct_advantage((risky_capture,))
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(
+            result.selected_commitment_option,
+            risky_capture.commitment_options.options[0],
+        )
+
+    def test_risky_thin_capture_yields_to_owned_retention_when_no_hold_exists(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=5,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=2.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        risky_thin_capture = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=80.0,
+            response_labels=("target_race_risk",),
+            option_types=(
+                CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.MINIMUM_CAPTURE,
+            ),
+        )
+
+        result = select_two_player_direct_advantage(
+            (risky_thin_capture, reinforcement)
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reinforcement)
+        self.assertEqual(
+            result.selected_commitment_option.option_type,
+            CommitmentOptionType.RESERVE_PRESERVING,
+        )
+
+    def test_no_risk_capture_preserves_default_commitment_order(self) -> None:
+        ordinary_capture = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=20.0,
+            option_types=(
+                CommitmentOptionType.RESERVE_PRESERVING,
+                CommitmentOptionType.CAPTURE_AND_HOLD,
+            ),
+        )
+
+        result = select_two_player_direct_advantage((ordinary_capture,))
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, ordinary_capture)
+        self.assertIs(
+            result.selected_commitment_option,
+            ordinary_capture.commitment_options.options[0],
+        )
+
     def test_no_pressure_preserves_direct_advantage_ordering_over_reinforcement(
         self,
     ) -> None:
