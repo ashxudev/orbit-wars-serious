@@ -24,6 +24,46 @@ Wars V1 live Kaggle submission. It does not authorize or perform a live upload.
   once live upload cycle, after rebuilding a fresh final V1 artifact under
   `/tmp` and rerunning the required local readiness checks.
 
+## Cycle 1 Artifact Freeze And Local Readiness
+
+- Cycle: Live Submission V1 Segment Cycle 1.
+- Checked HEAD: `519e1a2 Add V1 live submission mechanism check`.
+- Fresh artifact path: `/tmp/orbit_wars_v1_submission.py`.
+- Fresh artifact size: `316055` bytes.
+- Fresh artifact SHA256:
+  `b05984e62d14190cf937c0b749862304e4a67a28e822c901fd47a7fbc57cc514`.
+- Upload status: no `.venv/bin/kaggle competitions submit` command was run.
+- Cycle 2 readiness: proceed. Rebuild and hash the final artifact immediately
+  before the live cycle upload, rerun the required readiness checks, then make
+  exactly one live Kaggle submission if those checks remain green.
+
+Replay regression:
+
+```text
+v0_replay_regression cases=7 live_actions=5 live_no_actions=2 budget_guarded=1 budgetless_actions=7 pressure_actions=4 risky_thin_captures=0 unresolved_planner_no_actions=0
+```
+
+Local readiness checks:
+
+```text
+.venv/bin/python scripts/evaluation_gate.py
+gate=PASS matches=2 win_rate=1 mean_rank=1 error_rate=0 parity=pass failures=0
+
+.venv/bin/python scripts/submission_preflight.py
+submission_preflight=PASS total=4 passed=4 failed=0 failed_checks=none exit_code=0
+preflight_check=submission_build status=PASS exit_code=0
+preflight_check=submission_parity status=PASS mismatches=0 exit_code=0
+preflight_check=regression_gate status=PASS failures=0 exit_code=0
+preflight_check=experiment_suite status=PASS exit_code=0
+```
+
+Bounded smoke benchmarks:
+
+```text
+legacy-opponent-smoke 4 0.0 True
+competitive-baseline-smoke 6 0.0 True
+```
+
 ## Non-Upload Commands Run
 
 ```bash
@@ -44,7 +84,7 @@ Use this only in the later live-submission cycle after final artifact freeze,
 local readiness rerun, and explicit live-submission approval.
 
 ```bash
-.venv/bin/kaggle competitions submit -c orbit-wars -f /tmp/orbit_wars_v1_submission.py -m "serious-v1 local readiness passed 3641021"
+.venv/bin/kaggle competitions submit -c orbit-wars -f /tmp/orbit_wars_v1_submission.py -m "serious-v1 local readiness passed 519e1a2"
 ```
 
 Do not commit generated submissions, reports, logs, scoreboards, match outputs,
