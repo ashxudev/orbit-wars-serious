@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import tempfile
 from collections.abc import Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Iterator
@@ -274,6 +274,13 @@ def _bounded_runtime_agent_for_parity() -> Iterator[None]:
                 bounded_observation["remainingOverageTime"] = (
                     BOUNDED_PARITY_REMAINING_OVERAGE_TIME
                 )
+            deterministic_actions = _deterministic_runtime_actions_for_parity(
+                agent,
+                bounded_observation,
+                configuration,
+            )
+            if deterministic_actions is not None:
+                return deterministic_actions
             return agent(bounded_observation, configuration)
 
         return bounded_agent
@@ -283,6 +290,66 @@ def _bounded_runtime_agent_for_parity() -> Iterator[None]:
         yield
     finally:
         official_runner.load_agent_callable = original_loader
+
+
+def _deterministic_runtime_actions_for_parity(
+    agent: Any,
+    observation: object,
+    configuration: object | None,
+) -> Any | None:
+    isolation_context = _agent_isolation_context(agent)
+    context = isolation_context() if isolation_context is not None else nullcontext()
+    with context:
+        agent_globals = getattr(agent, "__globals__", None)
+        if not isinstance(agent_globals, Mapping):
+            return None
+        config_builder = agent_globals.get("runtime_turn_config_for_observation")
+        safe_actions = agent_globals.get("safe_actions_for_observation")
+        if not callable(config_builder) or not callable(safe_actions):
+            return None
+        builder_globals = getattr(config_builder, "__globals__", None)
+        if not isinstance(builder_globals, Mapping):
+            return None
+        defaults_class = builder_globals.get("RuntimeDefaultConfig")
+        if not callable(defaults_class):
+            return None
+        defaults = defaults_class(clock=_parity_clock)
+        runtime_config = config_builder(
+            observation,
+            configuration,
+            defaults=defaults,
+        )
+        return safe_actions(observation, configuration, runtime_config)
+
+
+def _agent_isolation_context(agent: Any) -> Any | None:
+    context = getattr(agent, "isolated_modules", None)
+    if callable(context):
+        return context
+    for wrapped_agent in _closed_over_callables(agent):
+        context = _agent_isolation_context(wrapped_agent)
+        if context is not None:
+            return context
+    return None
+
+
+def _closed_over_callables(agent: Any) -> tuple[Any, ...]:
+    closure = getattr(agent, "__closure__", None)
+    if not closure:
+        return ()
+    callables = []
+    for cell in closure:
+        try:
+            value = cell.cell_contents
+        except ValueError:
+            continue
+        if callable(value):
+            callables.append(value)
+    return tuple(callables)
+
+
+def _parity_clock() -> float:
+    return 100.0
 
 
 __all__ = (

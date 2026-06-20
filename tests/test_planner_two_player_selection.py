@@ -28,7 +28,10 @@ from ow_planner import (
     StrategyModeFacts,
     StrategySelectionStatus,
     TwoPlayerSelectionConfig,
+    TwoPlayerPressureFacts,
     select_two_player_direct_advantage,
+    two_player_advantage_facts,
+    two_player_pressure_facts,
 )
 
 
@@ -144,6 +147,7 @@ def bundle_for(
     total_score: float,
     strategy_mode_facts: StrategyModeFacts | None = None,
     source_counterattack_risk: bool = False,
+    response_labels: tuple[str, ...] = (),
     option_types: tuple[CommitmentOptionType, ...] = (
         CommitmentOptionType.MINIMUM_CAPTURE,
     ),
@@ -166,7 +170,9 @@ def bundle_for(
         response_evaluation=MissionResponseEvaluation(
             evaluation=evaluation,
             facts=MissionResponseFacts(
+                response_labels=response_labels,
                 response_summary=ResponseSummaryFacts(
+                    labels=response_labels,
                     source_counterattack_risk=source_counterattack_risk,
                 ),
             ),
@@ -441,6 +447,87 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
         self.assertIs(
             custom_result.selected_commitment_option,
             bundle.commitment_options.options[0],
+        )
+
+    def test_two_player_pressure_facts_mark_reserve_preserving_pressure_option(
+        self,
+    ) -> None:
+        bundle = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=8.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        facts = two_player_advantage_facts(bundle)
+        pressure_facts = two_player_pressure_facts(
+            facts,
+            bundle.commitment_options.options[0],
+        )
+
+        self.assertIsInstance(pressure_facts, TwoPlayerPressureFacts)
+        self.assertTrue(pressure_facts.response_pressure_active)
+        self.assertTrue(pressure_facts.reserve_preserving_commitment)
+        self.assertEqual(pressure_facts.pressure_labels, ("target_race_risk",))
+        self.assertEqual(
+            pressure_facts.notes,
+            ("pressure reserve-preserving option",),
+        )
+
+    def test_pressure_selection_prefers_reserve_preserving_over_higher_score_minimum(
+        self,
+    ) -> None:
+        reserve_preserving = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=3,
+            ),
+            total_score=2.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        higher_score_minimum = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=3,
+            ),
+            total_score=50.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.MINIMUM_CAPTURE,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (higher_score_minimum, reserve_preserving)
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reserve_preserving)
+        self.assertIs(
+            result.selected_commitment_option,
+            reserve_preserving.commitment_options.options[0],
+        )
+        self.assertEqual(
+            result.notes,
+            (
+                "two-player direct advantage selected",
+                "selected commitment option: reserve_preserving",
+                "pressure retention preference: reserve_preserving",
+            ),
         )
 
     def test_no_action_when_no_validated_non_no_attack_commitment_exists(self) -> None:

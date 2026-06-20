@@ -37,6 +37,7 @@ class SubmissionBundlerTests(unittest.TestCase):
         self.assertIn("agents.runtime_config", module_names)
         self.assertIn("ow_planner", module_names)
         self.assertIn("ow_planner.actions", module_names)
+        self.assertIn("ow_planner.two_player_pressure", module_names)
         self.assertIn("ow_sim", module_names)
         self.assertIn("ow_sim.state", module_names)
         self.assertTrue(all(not name.startswith("tests") for name in module_names))
@@ -51,6 +52,7 @@ class SubmissionBundlerTests(unittest.TestCase):
         self.assertIn("agent = importlib.import_module", first)
         self.assertIn("'agents.orbit_wars_agent'", first)
         self.assertIn("'ow_planner.actions'", first)
+        self.assertIn("'ow_planner.two_player_pressure'", first)
         self.assertIn("'ow_sim.state'", first)
 
     def test_write_submission_twice_produces_identical_bytes(self) -> None:

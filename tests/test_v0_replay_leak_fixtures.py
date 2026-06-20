@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import unittest
 from pathlib import Path
 
+from agents.orbit_wars_agent import agent as runtime_agent
 from agents.runtime_config import runtime_turn_config_for_observation
+from agents.runtime_planner import RuntimePlannerConfig
 from agents.runtime_state import observation_to_game_state
 from agents.runtime_turn import (
+    RuntimeTurnConfig,
     last_runtime_diagnostic_metadata,
     safe_actions_for_observation,
+)
+from ow_planner import (
+    CandidateGenerationConfig,
+    FourPlayerSelectionConfig,
+    StrategyDispatchConfig,
+    TwoPlayerSelectionConfig,
 )
 
 
@@ -48,6 +58,25 @@ def run_current_runtime(
     else:
         raise AssertionError(f"unexpected runtime mode: {runtime_mode}")
     return len(actions), dict(last_runtime_diagnostic_metadata())
+
+
+def pressure_runtime_config_without_budget() -> RuntimeTurnConfig:
+    return RuntimeTurnConfig(
+        planner_config=RuntimePlannerConfig(
+            candidate_config=CandidateGenerationConfig(
+                max_candidates=8,
+                max_validation_attempts=8,
+            ),
+            strategy_dispatch_config=StrategyDispatchConfig(
+                two_player_config=TwoPlayerSelectionConfig(
+                    minimum_total_score=-100.0,
+                ),
+                four_player_config=FourPlayerSelectionConfig(
+                    minimum_total_score=-100.0,
+                ),
+            ),
+        ),
+    )
 
 
 class V0ReplayLeakFixtureTests(unittest.TestCase):
@@ -154,6 +183,49 @@ class V0ReplayLeakFixtureTests(unittest.TestCase):
             "actions_emitted",
         )
         self.assertGreater(int(metadata["runtime_diagnostic_candidate_count"]), 0)
+
+    def test_two_player_pressure_fixtures_use_conservative_selection_when_budget_allows(
+        self,
+    ) -> None:
+        t60_payload = load_case(FIXTURE_DIR / "two_p_pressure_80756891_t060_p0.json")
+        t60_observation = t60_payload["observation"]
+        self.assertIsInstance(t60_observation, dict)
+
+        t60_actions = runtime_agent(t60_observation, {})
+        t60_metadata = dict(last_runtime_diagnostic_metadata())
+
+        self.assertGreater(len(t60_actions), 0)
+        self.assertEqual(
+            t60_metadata["runtime_diagnostic_selected_commitment_type"],
+            "reserve_preserving",
+        )
+
+        t100_payload = load_case(FIXTURE_DIR / "two_p_pressure_80760443_t100_p0.json")
+        t100_observation = t100_payload["observation"]
+        self.assertIsInstance(t100_observation, dict)
+
+        t100_live_actions = runtime_agent(t100_observation, {})
+        t100_live_metadata = dict(last_runtime_diagnostic_metadata())
+        self.assertEqual(t100_live_actions, [])
+        self.assertEqual(
+            t100_live_metadata["runtime_diagnostic_no_action_reason"],
+            "budget_guard_budget_exhausted",
+        )
+
+        t100_positive_time = copy.deepcopy(t100_observation)
+        t100_positive_time["remainingOverageTime"] = 60
+        t100_actions = safe_actions_for_observation(
+            t100_positive_time,
+            {},
+            pressure_runtime_config_without_budget(),
+        )
+        t100_metadata = dict(last_runtime_diagnostic_metadata())
+
+        self.assertGreater(len(t100_actions), 0)
+        self.assertEqual(
+            t100_metadata["runtime_diagnostic_selected_commitment_type"],
+            "reserve_preserving",
+        )
 
     def test_current_runtime_diagnostics_match_committed_characterization(self) -> None:
         for path in fixture_paths():

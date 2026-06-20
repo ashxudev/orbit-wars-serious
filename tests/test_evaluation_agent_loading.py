@@ -37,8 +37,10 @@ def _lazy_submission_source() -> str:
             "_BUNDLED_SOURCES = {",
             "    'agents': '',",
             "    'agents.lazy_probe': \"def marker():\\n    return 'bundled'\\n\",",
+            "    'ow_planner': '',",
+            "    'ow_planner.two_player_pressure': \"def marker():\\n    return 'bundled-pressure'\\n\",",
             "}",
-            "_BUNDLED_PACKAGES = frozenset(('agents',))",
+            "_BUNDLED_PACKAGES = frozenset(('agents', 'ow_planner'))",
             "class _BundledLoader(importlib.abc.Loader):",
             "    def create_module(self, spec):",
             "        return None",
@@ -66,8 +68,11 @@ def _lazy_submission_source() -> str:
             "sys.meta_path.insert(0, _BundledFinder())",
             "def agent(observation, configuration=None):",
             "    import agents.lazy_probe as lazy_probe",
+            "    import ow_planner.two_player_pressure as pressure",
             "    if lazy_probe.marker() != 'bundled':",
             "        return [[9, 0.0, 1]]",
+            "    if pressure.marker() != 'bundled-pressure':",
+            "        return [[8, 0.0, 1]]",
             "    return [[1, 0.0, 1]]",
             "__all__ = ('agent',)",
             "",
@@ -213,6 +218,7 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
 
     def test_submission_file_call_isolates_lazy_bundled_imports(self) -> None:
         import agents as repo_agents
+        import ow_planner as repo_planner
 
         previous_lazy_module = sys.modules.get("agents.lazy_probe")
         previous_lazy_attribute = getattr(repo_agents, "lazy_probe", None)
@@ -221,6 +227,13 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
         repo_lazy_module.marker = lambda: "repo"  # type: ignore[attr-defined]
         sys.modules["agents.lazy_probe"] = repo_lazy_module
         repo_agents.lazy_probe = repo_lazy_module  # type: ignore[attr-defined]
+        previous_pressure_module = sys.modules.get("ow_planner.two_player_pressure")
+        previous_pressure_attribute = getattr(repo_planner, "two_player_pressure", None)
+        had_pressure_attribute = hasattr(repo_planner, "two_player_pressure")
+        repo_pressure_module = types.ModuleType("ow_planner.two_player_pressure")
+        repo_pressure_module.marker = lambda: "repo-pressure"  # type: ignore[attr-defined]
+        sys.modules["ow_planner.two_player_pressure"] = repo_pressure_module
+        repo_planner.two_player_pressure = repo_pressure_module  # type: ignore[attr-defined]
 
         try:
             with tempfile.TemporaryDirectory() as tmp:
@@ -237,6 +250,11 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
 
             self.assertIs(sys.modules["agents.lazy_probe"], repo_lazy_module)
             self.assertIs(repo_agents.lazy_probe, repo_lazy_module)
+            self.assertIs(
+                sys.modules["ow_planner.two_player_pressure"],
+                repo_pressure_module,
+            )
+            self.assertIs(repo_planner.two_player_pressure, repo_pressure_module)
             self.assertEqual(_bundled_finder_module_names(), ())
         finally:
             if previous_lazy_module is None:
@@ -248,6 +266,19 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
             else:
                 try:
                     delattr(repo_agents, "lazy_probe")
+                except AttributeError:
+                    pass
+            if previous_pressure_module is None:
+                sys.modules.pop("ow_planner.two_player_pressure", None)
+            else:
+                sys.modules["ow_planner.two_player_pressure"] = (
+                    previous_pressure_module
+                )
+            if had_pressure_attribute:
+                repo_planner.two_player_pressure = previous_pressure_attribute  # type: ignore[attr-defined]
+            else:
+                try:
+                    delattr(repo_planner, "two_player_pressure")
                 except AttributeError:
                     pass
 

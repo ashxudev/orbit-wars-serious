@@ -22,6 +22,9 @@ from .strategy_decisions import (
     selected_strategy_result,
 )
 from .strategy_modes import StrategyModeFacts
+from .two_player_pressure import (
+    two_player_pressure_facts,
+)
 from .two_player_strategy import (
     TwoPlayerAdvantageFacts,
     two_player_advantage_facts_for_bundles,
@@ -121,17 +124,21 @@ def select_two_player_direct_advantage(
             notes=_no_action_notes(ineligible_reasons),
         )
 
+    selection_pool, pressure_retention_applied = _pressure_retention_pool(eligible)
     selected_facts, _index, selected_commitment = max(
-        eligible,
+        selection_pool,
         key=_selection_key,
     )
+    notes = [
+        "two-player direct advantage selected",
+        f"selected commitment option: {selected_commitment.option_type.value}",
+    ]
+    if pressure_retention_applied:
+        notes.append("pressure retention preference: reserve_preserving")
     return selected_strategy_result(
         selected_facts.bundle,
         selected_commitment,
-        notes=(
-            "two-player direct advantage selected",
-            f"selected commitment option: {selected_commitment.option_type.value}",
-        ),
+        notes=tuple(notes),
     )
 
 
@@ -163,6 +170,25 @@ def _preferred_commitment_option(
             ):
                 return option
     return None
+
+
+def _pressure_retention_pool(
+    eligible: list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]],
+) -> tuple[list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]], bool]:
+    pressure_facts = tuple(
+        two_player_pressure_facts(facts, commitment_option)
+        for facts, _index, commitment_option in eligible
+    )
+    if not any(facts.response_pressure_active for facts in pressure_facts):
+        return eligible, False
+    reserve_preserving = [
+        item
+        for item, facts in zip(eligible, pressure_facts)
+        if facts.reserve_preserving_commitment
+    ]
+    if not reserve_preserving:
+        return eligible, False
+    return reserve_preserving, True
 
 
 def _selection_key(

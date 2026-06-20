@@ -392,6 +392,61 @@ class SubmissionParityTests(unittest.TestCase):
         self.assertEqual(seen_configs[0].artifact_prefix, "custom-modular")
         self.assertEqual(seen_configs[1].artifact_prefix, "custom-submission")
 
+    def test_bounded_parity_uses_deterministic_runtime_clock(self) -> None:
+        from ow_eval import official_runner
+        from ow_eval.parity import _bounded_runtime_agent_for_parity
+
+        observed: list[tuple[str, object]] = []
+        namespace = {"observed": observed}
+        exec(
+            "class RuntimeDefaultConfig:\n"
+            "    def __init__(self, *, clock):\n"
+            "        self.clock = clock\n"
+            "def runtime_turn_config_for_observation(\n"
+            "    observation, configuration=None, *, defaults=None\n"
+            "):\n"
+            "    observed.append(('remaining', observation['remainingOverageTime']))\n"
+            "    observed.append(('clock', defaults.clock()))\n"
+            "    return {'clock': defaults.clock()}\n"
+            "def safe_actions_for_observation(\n"
+            "    observation, configuration=None, config=None\n"
+            "):\n"
+            "    observed.append(('config_clock', config['clock']))\n"
+            "    return [[4, 0.0, 1]]\n"
+            "def agent(observation, configuration=None):\n"
+            "    raise AssertionError('raw agent should not be called')\n",
+            namespace,
+        )
+        fake_agent = namespace["agent"]
+
+        def fake_loader(agent_spec: AgentSpec):
+            return fake_agent
+
+        original_loader = official_runner.load_agent_callable
+        official_runner.load_agent_callable = fake_loader
+        try:
+            with _bounded_runtime_agent_for_parity():
+                bounded_agent = official_runner.load_agent_callable(
+                    AgentSpec(
+                        name="fake",
+                        source_kind=AgentSourceKind.MODULAR_AGENT,
+                        module_path="fake",
+                    )
+                )
+                actions = bounded_agent({"remainingOverageTime": 0.01}, {})
+        finally:
+            official_runner.load_agent_callable = original_loader
+
+        self.assertEqual(actions, [[4, 0.0, 1]])
+        self.assertEqual(
+            observed,
+            [
+                ("remaining", 1.25),
+                ("clock", 100.0),
+                ("config_clock", 100.0),
+            ],
+        )
+
     def test_real_parity_check_builds_temporary_submission_and_passes(self) -> None:
         result = run_submission_parity_check(
             SubmissionParityConfig(

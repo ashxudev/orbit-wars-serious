@@ -40,6 +40,7 @@ Strategy Modes Cycle 1 adds planner decision bundle composition.
 Strategy Modes Cycle 2 adds structural strategy-selection results.
 Strategy Modes Cycle 3 adds deterministic two-player direct-advantage facts.
 Strategy Modes Cycle 4 adds first-pass two-player direct-advantage selection.
+V0 Replay Leak Fix Cycle 4 adds two-player pressure-retention facts.
 Strategy Modes Cycle 5 adds deterministic four-player board/rank facts.
 Strategy Modes Cycle 6 adds deterministic four-player mission/target facts.
 Strategy Modes Cycle 7 adds first-pass four-player strategy selection.
@@ -201,6 +202,11 @@ from .two_player_strategy import (
     two_player_advantage_facts,
     two_player_advantage_facts_for_bundles,
 )
+from .two_player_pressure import (
+    PRESSURE_RESPONSE_LABELS,
+    TwoPlayerPressureFacts,
+    two_player_pressure_facts,
+)
 from .two_player_selection import (
     TwoPlayerSelectionConfig,
     select_two_player_direct_advantage,
@@ -244,6 +250,7 @@ __all__ = (
     "PlanetFutureDeltaFacts",
     "PlanetFacts",
     "PlannerDecisionBundle",
+    "PRESSURE_RESPONSE_LABELS",
     "ROUGH_TRAVEL_SHIPS",
     "RaceSourceFacts",
     "ReinforcementSourceFacts",
@@ -269,6 +276,7 @@ __all__ = (
     "ThirdPartyBenefitFacts",
     "ThirdPartyOwnerFacts",
     "TwoPlayerAdvantageFacts",
+    "TwoPlayerPressureFacts",
     "TwoPlayerSelectionConfig",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
@@ -325,6 +333,7 @@ __all__ = (
     "third_party_benefit_facts",
     "two_player_advantage_facts",
     "two_player_advantage_facts_for_bundles",
+    "two_player_pressure_facts",
     "validate_estimated_pair_outcome",
     "validate_estimated_pair_outcomes",
 )
