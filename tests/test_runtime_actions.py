@@ -310,11 +310,39 @@ class RuntimeActionConversionTests(unittest.TestCase):
 
         self.assertEqual(actions, [[1, 0.0, 1]])
 
-    def test_planner_result_does_not_patrol_when_enemy_target_remains(self) -> None:
+    def test_planner_result_emits_opening_idle_fallback_to_nearest_target(self) -> None:
         state = state_with_enemy_target()
         result = runtime_result(
             state,
             StrategySelectionResult(status=StrategySelectionStatus.REJECTED),
+        )
+
+        actions = planner_result_to_actions(result)
+
+        self.assertEqual(actions, [[1, 0.0, 1]])
+
+    def test_opening_idle_fallback_does_not_run_after_opening_turn(self) -> None:
+        state = GameState(
+            tick=5,
+            player_id=0,
+            planets=state_with_enemy_target().planets,
+            initial_planets=state_with_enemy_target().initial_planets,
+            next_fleet_id=100,
+        )
+        candidate = candidate_with_launch()
+        result = RuntimePlannerResult(
+            state=state,
+            candidates=(candidate,),
+            evaluations=(),
+            response_evaluations=(),
+            commitment_options=(),
+            strategy_mode_facts=runtime_result(
+                state,
+                StrategySelectionResult(status=StrategySelectionStatus.REJECTED),
+            ).strategy_mode_facts,
+            four_player_board_facts=None,
+            bundles=(),
+            selection=StrategySelectionResult(status=StrategySelectionStatus.REJECTED),
         )
 
         actions = planner_result_to_actions(result)

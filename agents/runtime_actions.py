@@ -25,7 +25,9 @@ from ow_planner.actions import (
     launch_candidate_to_action,
     mission_candidate_to_actions,
 )
-from ow_sim.state import GameState
+from ow_sim.forecast import angle_to_point
+from ow_sim.geometry import distance
+from ow_sim.state import GameState, Planet
 
 from .runtime_planner import RuntimePlannerResult
 
@@ -57,6 +59,9 @@ def planner_result_to_actions(result: RuntimePlannerResult) -> list[KaggleAction
     """Convert a runtime planner result's final selection to action rows."""
 
     actions = selected_commitment_to_actions(result.state, result.selection)
+    if actions:
+        return actions
+    actions = _opening_idle_fallback_actions(result)
     if actions:
         return actions
     return _controlled_board_patrol_actions(result)
@@ -113,6 +118,67 @@ def _controlled_board_patrol_actions(
             ),
         )
     ]
+
+
+def _opening_idle_fallback_actions(
+    result: RuntimePlannerResult,
+) -> list[KaggleActionRow]:
+    if result.state.step != 0:
+        return []
+    player_id = result.state.player_id
+    if player_id is None:
+        return []
+
+    best_pair = _nearest_legal_source_target(result.state, player_id)
+    if best_pair is None:
+        return []
+
+    source, target = best_pair
+    return [
+        launch_candidate_to_action(
+            result.state,
+            LaunchCandidate(
+                source_planet_id=source.planet_id,
+                angle=angle_to_point(source.position, target.position),
+                ships=1,
+                player_id=player_id,
+            ),
+        )
+    ]
+
+
+def _nearest_legal_source_target(
+    state: GameState,
+    player_id: int,
+) -> tuple[Planet, Planet] | None:
+    sources = tuple(
+        planet
+        for planet in state.planets
+        if planet.owner == player_id and planet.ships > 0
+    )
+    targets = tuple(
+        planet
+        for planet in state.planets
+        if planet.owner != player_id
+    )
+    pairs = []
+    for source in sources:
+        for target in targets:
+            if source.position == target.position:
+                continue
+            pairs.append(
+                (
+                    distance(source.position, target.position),
+                    target.planet_id,
+                    source.planet_id,
+                    source,
+                    target,
+                )
+            )
+    if not pairs:
+        return None
+    _distance, _target_id, _source_id, source, target = min(pairs)
+    return (source, target)
 
 
 __all__ = (

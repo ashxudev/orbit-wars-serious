@@ -103,20 +103,29 @@ class V0ReplayLeakFixtureTests(unittest.TestCase):
 
         self.assertEqual(seen_classes, REQUIRED_LEAK_CLASSES)
 
-    def test_four_player_t0_fixture_can_remain_true_no_candidate_no_action(self) -> None:
-        payload = load_case(FIXTURE_DIR / "four_p_no_action_80766287_t000_p2.json")
-        observation = payload["observation"]
-        self.assertIsInstance(observation, dict)
+    def test_opening_idle_fixtures_emit_fallback_actions(self) -> None:
+        for fixture_name in (
+            "four_p_no_action_80766287_t000_p2.json",
+            "two_p_idle_80768833_t000_p1.json",
+        ):
+            with self.subTest(fixture_name=fixture_name):
+                payload = load_case(FIXTURE_DIR / fixture_name)
+                observation = payload["observation"]
+                self.assertIsInstance(observation, dict)
 
-        action_count, metadata = run_current_runtime(observation, "direct")
+                actions = safe_actions_for_observation(observation, {})
+                metadata = dict(last_runtime_diagnostic_metadata())
 
-        self.assertEqual(action_count, 0)
-        self.assertEqual(metadata["runtime_diagnostic_status"], "no_action")
-        self.assertEqual(
-            metadata["runtime_diagnostic_no_action_reason"],
-            "no_candidates_generated",
-        )
-        self.assertEqual(metadata["runtime_diagnostic_candidate_count"], "0")
+                self.assertGreater(len(actions), 0)
+                self.assertEqual(len(actions[0]), 3)
+                self.assertIsInstance(actions[0][0], int)
+                self.assertIsInstance(actions[0][1], float)
+                self.assertIsInstance(actions[0][2], int)
+                self.assertEqual(metadata["runtime_diagnostic_status"], "actions")
+                self.assertEqual(
+                    metadata["runtime_diagnostic_no_action_reason"],
+                    "actions_emitted",
+                )
 
     def test_four_player_t100_fixture_no_longer_starves_candidate_generation(self) -> None:
         payload = load_case(FIXTURE_DIR / "four_p_no_action_80761836_t100_p2.json")

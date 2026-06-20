@@ -3,14 +3,14 @@
   "case_id": "two_p_idle_80768833_t000_p1",
   "episode_id": 80768833,
   "expected_current_runtime": {
-    "action_count": 0,
-    "diagnostic_status": "no_action",
-    "no_action_reason": "no_candidates_generated",
+    "action_count": 1,
+    "diagnostic_status": "actions",
+    "no_action_reason": "actions_emitted",
     "owned_planet_count": 1,
     "owned_production": 2,
     "player_id": 1,
     "runtime_mode": "direct",
-    "state_step": null
+    "state_step": 0
   },
   "leak_class": "two_player_idle_or_near_idle",
   "notes": "Parseable opening observation for the near-idle game; later replay observations contain non-int fleet source rows in the local adapter.",
@@ -601,7 +601,8 @@
       ]
     ],
     "player": 1,
-    "remainingOverageTime": 60
+    "remainingOverageTime": 60,
+    "step": 0
   },
   "player_count": 2,
   "source_replay": "docs/submission_replay_analyses/ashxudev_orbit_wars_v0_submission/replay_episodes/episode-80768833-replay.json",

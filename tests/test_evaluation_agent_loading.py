@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -23,6 +24,54 @@ def _bundled_finder_module_names() -> tuple[str, ...]:
         type(finder).__module__
         for finder in sys.meta_path
         if type(finder).__name__ == "_BundledFinder"
+    )
+
+
+def _lazy_submission_source() -> str:
+    return "\n".join(
+        [
+            "from __future__ import annotations",
+            "import importlib.abc",
+            "import importlib.util",
+            "import sys",
+            "_BUNDLED_SOURCES = {",
+            "    'agents': '',",
+            "    'agents.lazy_probe': \"def marker():\\n    return 'bundled'\\n\",",
+            "}",
+            "_BUNDLED_PACKAGES = frozenset(('agents',))",
+            "class _BundledLoader(importlib.abc.Loader):",
+            "    def create_module(self, spec):",
+            "        return None",
+            "    def exec_module(self, module):",
+            "        module_name = module.__spec__.name",
+            "        source = _BUNDLED_SOURCES[module_name]",
+            "        module.__file__ = f'<orbit_wars_submission>/{module_name}.py'",
+            "        module.__loader__ = self",
+            "        if module_name in _BUNDLED_PACKAGES:",
+            "            module.__package__ = module_name",
+            "            module.__path__ = [f'<orbit_wars_submission>/{module_name}']",
+            "        else:",
+            "            module.__package__ = module_name.rpartition('.')[0]",
+            "        exec(compile(source, module.__file__, 'exec'), module.__dict__)",
+            "class _BundledFinder(importlib.abc.MetaPathFinder):",
+            "    def find_spec(self, fullname, path=None, target=None):",
+            "        if fullname not in _BUNDLED_SOURCES:",
+            "            return None",
+            "        return importlib.util.spec_from_loader(",
+            "            fullname,",
+            "            _BUNDLED_LOADER,",
+            "            is_package=fullname in _BUNDLED_PACKAGES,",
+            "        )",
+            "_BUNDLED_LOADER = _BundledLoader()",
+            "sys.meta_path.insert(0, _BundledFinder())",
+            "def agent(observation, configuration=None):",
+            "    import agents.lazy_probe as lazy_probe",
+            "    if lazy_probe.marker() != 'bundled':",
+            "        return [[9, 0.0, 1]]",
+            "    return [[1, 0.0, 1]]",
+            "__all__ = ('agent',)",
+            "",
+        ]
     )
 
 
@@ -142,7 +191,8 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
                 file_path=str(path),
             )
 
-            load_agent_callable(spec)
+            agent = load_agent_callable(spec)
+            agent({"remainingOverageTime": 0.0}, {})
 
         self.assertEqual(tuple(sys.meta_path), original_meta_path)
         self.assertEqual(_bundled_finder_module_names(), ())
@@ -160,6 +210,46 @@ class EvaluationAgentLoadingTests(unittest.TestCase):
             ))
         finally:
             sys.modules["agents.orbit_wars_agent"] = modular_agent
+
+    def test_submission_file_call_isolates_lazy_bundled_imports(self) -> None:
+        import agents as repo_agents
+
+        previous_lazy_module = sys.modules.get("agents.lazy_probe")
+        previous_lazy_attribute = getattr(repo_agents, "lazy_probe", None)
+        had_lazy_attribute = hasattr(repo_agents, "lazy_probe")
+        repo_lazy_module = types.ModuleType("agents.lazy_probe")
+        repo_lazy_module.marker = lambda: "repo"  # type: ignore[attr-defined]
+        sys.modules["agents.lazy_probe"] = repo_lazy_module
+        repo_agents.lazy_probe = repo_lazy_module  # type: ignore[attr-defined]
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "submission.py"
+                path.write_text(_lazy_submission_source(), encoding="utf-8")
+                spec = AgentSpec(
+                    name="submission",
+                    source_kind=AgentSourceKind.SUBMISSION_FILE,
+                    file_path=str(path),
+                )
+
+                agent = load_agent_callable(spec)
+                self.assertEqual(agent({}, {}), [[1, 0.0, 1]])
+
+            self.assertIs(sys.modules["agents.lazy_probe"], repo_lazy_module)
+            self.assertIs(repo_agents.lazy_probe, repo_lazy_module)
+            self.assertEqual(_bundled_finder_module_names(), ())
+        finally:
+            if previous_lazy_module is None:
+                sys.modules.pop("agents.lazy_probe", None)
+            else:
+                sys.modules["agents.lazy_probe"] = previous_lazy_module
+            if had_lazy_attribute:
+                repo_agents.lazy_probe = previous_lazy_attribute  # type: ignore[attr-defined]
+            else:
+                try:
+                    delattr(repo_agents, "lazy_probe")
+                except AttributeError:
+                    pass
 
     def test_file_agent_uses_custom_callable_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

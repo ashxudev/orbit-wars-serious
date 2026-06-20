@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import io
 from collections.abc import Mapping, Sequence
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import nullcontext, redirect_stderr, redirect_stdout
 from dataclasses import replace
 from typing import Any
 
@@ -159,7 +159,10 @@ def _runtime_diagnostics_for_agent(
     actions: list[list[int | float]],
 ) -> tuple[tuple[str, str], ...]:
     getter = _runtime_diagnostic_getter(agent)
-    metadata = getter() if getter is not None else ()
+    isolation_context = _agent_isolation_context(agent)
+    context = isolation_context() if isolation_context is not None else nullcontext()
+    with context:
+        metadata = getter() if getter is not None else ()
     if metadata:
         return metadata
     return (
@@ -183,6 +186,17 @@ def _runtime_diagnostic_getter(agent: KaggleAgent) -> Any | None:
         return None
     getter = safe_action_globals.get("last_runtime_diagnostic_metadata")
     return getter if callable(getter) else None
+
+
+def _agent_isolation_context(agent: KaggleAgent) -> Any | None:
+    context = getattr(agent, "isolated_modules", None)
+    if callable(context):
+        return context
+    for wrapped_agent in _closed_over_callables(agent):
+        context = _agent_isolation_context(wrapped_agent)
+        if context is not None:
+            return context
+    return None
 
 
 def _closed_over_callables(agent: KaggleAgent) -> tuple[KaggleAgent, ...]:

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import types
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -239,6 +240,64 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
             metadata["runtime_diagnostic_no_action_reasons"],
             "strategy_selection_no_action:1",
         )
+
+    def test_runtime_diagnostic_getter_uses_submission_isolation_context(
+        self,
+    ) -> None:
+        from ow_eval.official_runner import _runtime_diagnostics_for_agent
+
+        namespace: dict[str, object] = {"ISOLATED": False}
+        exec(
+            "def last_runtime_diagnostic_metadata():\n"
+            "    if not ISOLATED:\n"
+            "        return (\n"
+            "            ('runtime_diagnostic_status', 'repo'),\n"
+            "            ('runtime_diagnostic_no_action_reason', 'repo_context'),\n"
+            "            ('runtime_diagnostic_action_count', '0'),\n"
+            "        )\n"
+            "    return (\n"
+            "        ('runtime_diagnostic_status', 'isolated'),\n"
+            "        ('runtime_diagnostic_no_action_reason', 'bundled_context'),\n"
+            "        ('runtime_diagnostic_action_count', '0'),\n"
+            "    )\n"
+            "def safe_actions_for_observation(observation, configuration=None):\n"
+            "    return []\n",
+            namespace,
+        )
+
+        class IsolatedAgent:
+            @property
+            def __globals__(self) -> dict[str, object]:
+                return {
+                    "safe_actions_for_observation": namespace[
+                        "safe_actions_for_observation"
+                    ],
+                }
+
+            def __call__(self, observation: object, configuration: object = None):
+                return []
+
+            @contextmanager
+            def isolated_modules(self):
+                namespace["ISOLATED"] = True
+                try:
+                    yield
+                finally:
+                    namespace["ISOLATED"] = False
+
+        isolated_agent = IsolatedAgent()
+
+        def bounded_agent(observation: object, configuration: object = None):
+            return isolated_agent(observation, configuration)
+
+        metadata = dict(_runtime_diagnostics_for_agent(bounded_agent, []))
+
+        self.assertEqual(metadata["runtime_diagnostic_status"], "isolated")
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "bundled_context",
+        )
+        self.assertFalse(namespace["ISOLATED"])
 
     def test_candidate_import_failure_returns_import_error(self) -> None:
         config = candidate_config(
