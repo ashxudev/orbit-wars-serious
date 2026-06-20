@@ -34,6 +34,7 @@ class RuntimeDefaultConfig:
     minimum_stage_start_seconds: float = 0.05
     remaining_overage_reserve_seconds: float = 0.25
     runtime_max_candidates: int | None = 8
+    runtime_max_validation_attempts: int | None = 8
     runtime_minimum_total_score: float = -100.0
     clock: Callable[[], float] = time.monotonic
 
@@ -53,6 +54,10 @@ class RuntimeDefaultConfig:
         _validate_optional_nonnegative_int(
             self.runtime_max_candidates,
             "runtime_max_candidates",
+        )
+        _validate_optional_nonnegative_int(
+            self.runtime_max_validation_attempts,
+            "runtime_max_validation_attempts",
         )
         _validate_finite_number(
             self.runtime_minimum_total_score,
@@ -86,6 +91,9 @@ def runtime_turn_config_for_observation(
         planner_config=RuntimePlannerConfig(
             candidate_config=CandidateGenerationConfig(
                 max_candidates=effective_defaults.runtime_max_candidates,
+                max_validation_attempts=(
+                    effective_defaults.runtime_max_validation_attempts
+                ),
             ),
             strategy_dispatch_config=StrategyDispatchConfig(
                 two_player_config=TwoPlayerSelectionConfig(

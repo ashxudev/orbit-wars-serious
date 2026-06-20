@@ -156,6 +156,27 @@ class PlannerGenerationTests(unittest.TestCase):
             2,
         )
 
+    def test_candidate_limit_skips_unaffordable_pairs_before_counting_candidates(self) -> None:
+        source = planet_at(1, 0, 0.0, 0.0, 5)
+        close_unaffordable = planet_at(2, -1, 0.0, 1.0, 20, radius=0.5)
+        later_affordable = planet_at(3, -1, 2.0, 0.0, 0, radius=0.5)
+        planets = (source, close_unaffordable, later_affordable)
+        state = GameState(
+            tick=0,
+            player_id=0,
+            planets=planets,
+            initial_planets=planets,
+            next_fleet_id=100,
+        )
+
+        candidates = generate_candidates(
+            state,
+            CandidateGenerationConfig(max_candidates=1),
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].target_planet_id, 3)
+
     def test_candidate_limit_zero_skips_validation_work(self) -> None:
         from ow_planner.outcomes import validate_estimated_pair_outcomes
 
@@ -187,11 +208,57 @@ class PlannerGenerationTests(unittest.TestCase):
         validate.assert_called_once()
         self.assertEqual(len(validate.call_args.args[1]), 1)
 
+    def test_validation_attempt_limit_bounds_affordable_validation_work(self) -> None:
+        from ow_planner.outcomes import validate_estimated_pair_outcomes
+
+        with patch(
+            "ow_planner.outcomes.validate_estimated_pair_outcomes",
+            wraps=validate_estimated_pair_outcomes,
+        ) as validate:
+            candidates = generate_candidates(
+                generation_state(),
+                CandidateGenerationConfig(
+                    max_candidates=None,
+                    max_validation_attempts=1,
+                ),
+            )
+
+        self.assertEqual(len(candidates), 1)
+        validate.assert_called_once()
+        self.assertEqual(len(validate.call_args.args[1]), 1)
+
     def test_config_rejects_invalid_candidate_limits(self) -> None:
-        for max_candidates in (-1, True, 1.5, "1"):
-            with self.subTest(max_candidates=max_candidates):
-                with self.assertRaises(ValueError):
-                    CandidateGenerationConfig(max_candidates=max_candidates)
+        for field_name in ("max_candidates", "max_validation_attempts"):
+            for value in (-1, True, 1.5, "1"):
+                kwargs = {field_name: value}
+                with self.subTest(field_name=field_name, value=value):
+                    with self.assertRaises(ValueError):
+                        CandidateGenerationConfig(**kwargs)
+
+    def test_validation_attempt_limit_zero_skips_validation_work(self) -> None:
+        from ow_planner.outcomes import validate_estimated_pair_outcomes
+
+        with patch(
+            "ow_planner.outcomes.validate_estimated_pair_outcomes",
+            wraps=validate_estimated_pair_outcomes,
+        ) as validate:
+            candidates = generate_candidates(
+                generation_state(),
+                CandidateGenerationConfig(max_validation_attempts=0),
+            )
+
+        self.assertEqual(candidates, ())
+        validate.assert_not_called()
+
+    def test_config_accepts_uncapped_validation_attempts(self) -> None:
+        config = CandidateGenerationConfig(max_validation_attempts=None)
+
+        self.assertIsNone(config.max_validation_attempts)
+
+    def test_config_accepts_zero_validation_attempts(self) -> None:
+        config = CandidateGenerationConfig(max_validation_attempts=0)
+
+        self.assertEqual(config.max_validation_attempts, 0)
 
     def test_generation_does_not_mutate_input_state(self) -> None:
         state = generation_state()

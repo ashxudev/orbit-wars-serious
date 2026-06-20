@@ -78,12 +78,15 @@ class RuntimeConfigTests(unittest.TestCase):
                     )
 
     def test_runtime_default_config_rejects_invalid_candidate_caps(self) -> None:
-        for value in (True, -1, 1.5, "1"):
-            with self.subTest(value=value):
-                with self.assertRaises(ValueError):
-                    RuntimeDefaultConfig(
-                        runtime_max_candidates=value,  # type: ignore[arg-type]
-                    )
+        for field_name in (
+            "runtime_max_candidates",
+            "runtime_max_validation_attempts",
+        ):
+            for value in (True, -1, 1.5, "1"):
+                kwargs = {field_name: value}
+                with self.subTest(field_name=field_name, value=value):
+                    with self.assertRaises(ValueError):
+                        RuntimeDefaultConfig(**kwargs)  # type: ignore[arg-type]
 
     def test_runtime_default_config_rejects_noncallable_clock(self) -> None:
         with self.assertRaises(ValueError):
@@ -101,6 +104,10 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertIsNotNone(config.planner_config)
         self.assertIsNotNone(config.planner_config.candidate_config)
         self.assertEqual(config.planner_config.candidate_config.max_candidates, 8)
+        self.assertEqual(
+            config.planner_config.candidate_config.max_validation_attempts,
+            8,
+        )
         self.assertIsNotNone(config.planner_config.strategy_dispatch_config)
         dispatch_config = config.planner_config.strategy_dispatch_config
         self.assertIsNotNone(dispatch_config.two_player_config)
@@ -117,19 +124,32 @@ class RuntimeConfigTests(unittest.TestCase):
     def test_runtime_candidate_cap_can_be_configured_or_disabled(self) -> None:
         capped = runtime_turn_config_for_observation(
             {},
-            defaults=RuntimeDefaultConfig(runtime_max_candidates=3),
+            defaults=RuntimeDefaultConfig(
+                runtime_max_candidates=3,
+                runtime_max_validation_attempts=12,
+            ),
         )
         uncapped = runtime_turn_config_for_observation(
             {},
-            defaults=RuntimeDefaultConfig(runtime_max_candidates=None),
+            defaults=RuntimeDefaultConfig(
+                runtime_max_candidates=None,
+                runtime_max_validation_attempts=None,
+            ),
         )
 
         self.assertIsNotNone(capped.planner_config)
         self.assertIsNotNone(capped.planner_config.candidate_config)
         self.assertEqual(capped.planner_config.candidate_config.max_candidates, 3)
+        self.assertEqual(
+            capped.planner_config.candidate_config.max_validation_attempts,
+            12,
+        )
         self.assertIsNotNone(uncapped.planner_config)
         self.assertIsNotNone(uncapped.planner_config.candidate_config)
         self.assertIsNone(uncapped.planner_config.candidate_config.max_candidates)
+        self.assertIsNone(
+            uncapped.planner_config.candidate_config.max_validation_attempts,
+        )
 
     def test_bounded_parity_remaining_overage_preserves_turn_budget(self) -> None:
         defaults = RuntimeDefaultConfig(

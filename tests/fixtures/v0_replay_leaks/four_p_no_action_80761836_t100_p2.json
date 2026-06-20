@@ -5,12 +5,12 @@
   "expected_current_runtime": {
     "action_count": 0,
     "diagnostic_status": "no_action",
-    "no_action_reason": "no_candidates_generated",
+    "no_action_reason": "strategy_selection_no_action",
     "owned_planet_count": 1,
     "owned_production": 4,
     "player_id": 2,
     "runtime_mode": "direct",
-    "state_step": null
+    "state_step": 100
   },
   "leak_class": "four_player_no_action_candidate_starvation",
   "notes": "Second 4P V0 live leak: midgame still owns one planet and returns no actions.",
@@ -1241,7 +1241,8 @@
       ]
     ],
     "player": 2,
-    "remainingOverageTime": -1.009582
+    "remainingOverageTime": -1.009582,
+    "step": 100
   },
   "player_count": 4,
   "source_replay": "docs/submission_replay_analyses/ashxudev_orbit_wars_v0_submission/replay_episodes/episode-80761836-replay.json",

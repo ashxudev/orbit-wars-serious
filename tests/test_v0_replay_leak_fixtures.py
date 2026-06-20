@@ -92,6 +92,7 @@ class V0ReplayLeakFixtureTests(unittest.TestCase):
 
                 owned = [planet for planet in state.planets if planet.owner == state.player_id]
                 self.assertEqual(state.player_id, expected["player_id"])
+                self.assertEqual(state.step, expected["state_step"])
                 self.assertEqual(len(owned), expected["owned_planet_count"])
                 self.assertEqual(
                     sum(planet.production for planet in owned),
@@ -102,30 +103,39 @@ class V0ReplayLeakFixtureTests(unittest.TestCase):
 
         self.assertEqual(seen_classes, REQUIRED_LEAK_CLASSES)
 
-    def test_four_player_fixtures_reproduce_no_candidate_no_action_leak(self) -> None:
-        four_player_paths = tuple(
-            path
-            for path in fixture_paths()
-            if load_case(path)["leak_class"]
-            == "four_player_no_action_candidate_starvation"
+    def test_four_player_t0_fixture_can_remain_true_no_candidate_no_action(self) -> None:
+        payload = load_case(FIXTURE_DIR / "four_p_no_action_80766287_t000_p2.json")
+        observation = payload["observation"]
+        self.assertIsInstance(observation, dict)
+
+        action_count, metadata = run_current_runtime(observation, "direct")
+
+        self.assertEqual(action_count, 0)
+        self.assertEqual(metadata["runtime_diagnostic_status"], "no_action")
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "no_candidates_generated",
         )
+        self.assertEqual(metadata["runtime_diagnostic_candidate_count"], "0")
 
-        self.assertGreaterEqual(len(four_player_paths), 2)
-        for path in four_player_paths:
-            with self.subTest(path=path.name):
-                payload = load_case(path)
-                observation = payload["observation"]
-                self.assertIsInstance(observation, dict)
+    def test_four_player_t100_fixture_no_longer_starves_candidate_generation(self) -> None:
+        payload = load_case(FIXTURE_DIR / "four_p_no_action_80761836_t100_p2.json")
+        observation = payload["observation"]
+        self.assertIsInstance(observation, dict)
 
-                action_count, metadata = run_current_runtime(observation, "direct")
+        action_count, metadata = run_current_runtime(observation, "direct")
 
-                self.assertEqual(action_count, 0)
-                self.assertEqual(metadata["runtime_diagnostic_status"], "no_action")
-                self.assertEqual(
-                    metadata["runtime_diagnostic_no_action_reason"],
-                    "no_candidates_generated",
-                )
-                self.assertEqual(metadata["runtime_diagnostic_candidate_count"], "0")
+        self.assertEqual(action_count, 0)
+        self.assertEqual(metadata["runtime_diagnostic_status"], "no_action")
+        self.assertNotEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "no_candidates_generated",
+        )
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "strategy_selection_no_action",
+        )
+        self.assertGreater(int(metadata["runtime_diagnostic_candidate_count"]), 0)
 
     def test_current_runtime_diagnostics_match_committed_characterization(self) -> None:
         for path in fixture_paths():

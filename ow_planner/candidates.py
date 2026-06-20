@@ -37,16 +37,14 @@ class CandidateGenerationConfig:
     """Deterministic controls for candidate generation."""
 
     max_candidates: int | None = None
+    max_validation_attempts: int | None = None
 
     def __post_init__(self) -> None:
-        if self.max_candidates is None:
-            return
-        if (
-            isinstance(self.max_candidates, bool)
-            or not isinstance(self.max_candidates, int)
-            or self.max_candidates < 0
-        ):
-            raise ValueError("max_candidates must be None or an integer >= 0")
+        _validate_optional_nonnegative_int(self.max_candidates, "max_candidates")
+        _validate_optional_nonnegative_int(
+            self.max_validation_attempts,
+            "max_validation_attempts",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,35 +76,55 @@ def generate_candidates(
     """Return deterministic validated mission candidates for ``state``.
 
     This composes source-target enumeration, ship estimation, and simulator
-    outcome validation. Candidate limiting is applied before validation so
-    runtime callers can bound expensive simulator work while preserving the
-    deterministic order produced by the lower-level pipeline.
+    outcome validation. Candidate limiting is applied to validated candidates,
+    while validation-attempt limiting bounds expensive simulator work.
+    Unaffordable estimates are skipped before validation so early poor pairs do
+    not starve later affordable opportunities.
     """
 
     effective_config = config or CandidateGenerationConfig()
     from .enumeration import enumerate_source_target_pairs
-    from .estimation import estimate_source_target_pairs
+    from .estimation import ShipEstimateStatus, estimate_source_target_pairs
     from .outcomes import CandidateValidationStatus, validate_estimated_pair_outcomes
 
-    if effective_config.max_candidates == 0:
+    if (
+        effective_config.max_candidates == 0
+        or effective_config.max_validation_attempts == 0
+    ):
         return ()
 
     pairs = enumerate_source_target_pairs(state, config=effective_config)
     estimated_pairs = estimate_source_target_pairs(pairs, config=effective_config)
-    if effective_config.max_candidates is not None:
-        estimated_pairs = estimated_pairs[: effective_config.max_candidates]
-    reports = validate_estimated_pair_outcomes(state, estimated_pairs)
+    candidates: list[MissionCandidate] = []
+    validation_attempts = 0
 
-    candidates = tuple(
-        _mission_candidate_from_report(report)
-        for report in reports
-        if report.status is CandidateValidationStatus.VALIDATED
-        and report.captured_target
-        and report.launch is not None
-    )
-    if effective_config.max_candidates is None:
-        return candidates
-    return candidates[: effective_config.max_candidates]
+    for estimated_pair in estimated_pairs:
+        if (
+            estimated_pair.estimate.status is not ShipEstimateStatus.AFFORDABLE
+            or estimated_pair.launch is None
+        ):
+            continue
+        if (
+            effective_config.max_validation_attempts is not None
+            and validation_attempts >= effective_config.max_validation_attempts
+        ):
+            break
+
+        validation_attempts += 1
+        reports = validate_estimated_pair_outcomes(state, (estimated_pair,))
+        for report in reports:
+            if (
+                report.status is CandidateValidationStatus.VALIDATED
+                and report.captured_target
+                and report.launch is not None
+            ):
+                candidates.append(_mission_candidate_from_report(report))
+                if (
+                    effective_config.max_candidates is not None
+                    and len(candidates) >= effective_config.max_candidates
+                ):
+                    return tuple(candidates)
+    return tuple(candidates)
 
 
 def _mission_candidate_from_report(
@@ -126,6 +144,13 @@ def _mission_candidate_from_report(
         launches=(report.launch,),
         outcome=CandidateOutcome.VALIDATED,
     )
+
+
+def _validate_optional_nonnegative_int(value: object, name: str) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be None or an integer >= 0")
 
 
 __all__ = (
