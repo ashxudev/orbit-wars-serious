@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from numbers import Real
 from typing import Sequence
 
+from .candidates import MissionType
 from .commitment import CommitmentOption, CommitmentOptionStatus, CommitmentOptionType
 from .strategy_decisions import (
     PlannerDecisionBundle,
@@ -188,7 +189,21 @@ def _pressure_retention_pool(
     ]
     if not reserve_preserving:
         return eligible, False
+    retention_candidates = [
+        item
+        for item in reserve_preserving
+        if _is_owned_retention_candidate(item[0].bundle)
+    ]
+    if retention_candidates:
+        return retention_candidates, True
     return reserve_preserving, True
+
+
+def _is_owned_retention_candidate(bundle: PlannerDecisionBundle) -> bool:
+    return bundle.candidate.mission_type in (
+        MissionType.DEFEND_OWN,
+        MissionType.REINFORCE,
+    )
 
 
 def _selection_key(

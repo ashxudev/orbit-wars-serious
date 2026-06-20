@@ -57,6 +57,7 @@ def mission_candidate(
     target_planet_id: int,
     source_planet_id: int,
     ships: int = 5,
+    mission_type: MissionType = MissionType.ATTACK_ENEMY,
 ) -> MissionCandidate:
     launch = LaunchCandidate(
         source_planet_id=source_planet_id,
@@ -65,7 +66,7 @@ def mission_candidate(
         player_id=0,
     )
     return MissionCandidate(
-        mission_type=MissionType.ATTACK_ENEMY,
+        mission_type=mission_type,
         target_planet_id=target_planet_id,
         source_planet_ids=(source_planet_id,),
         launches=(launch,),
@@ -152,8 +153,13 @@ def bundle_for(
         CommitmentOptionType.MINIMUM_CAPTURE,
     ),
     option_status: CommitmentOptionStatus = CommitmentOptionStatus.VALIDATED,
+    mission_type: MissionType = MissionType.ATTACK_ENEMY,
 ) -> PlannerDecisionBundle:
-    candidate = mission_candidate(target_planet_id, source_planet_id)
+    candidate = mission_candidate(
+        target_planet_id,
+        source_planet_id,
+        mission_type=mission_type,
+    )
     evaluation = mission_evaluation(
         candidate,
         mission_value_facts,
@@ -529,6 +535,84 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
                 "pressure retention preference: reserve_preserving",
             ),
         )
+
+    def test_pressure_selection_prefers_owned_retention_over_higher_score_attack(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=5,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=2.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        higher_score_attack = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=80.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (higher_score_attack, reinforcement)
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reinforcement)
+        self.assertEqual(
+            result.selected_commitment_option.option_type,
+            CommitmentOptionType.RESERVE_PRESERVING,
+        )
+
+    def test_no_pressure_preserves_direct_advantage_ordering_over_reinforcement(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=5,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=2.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        attack = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=80.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage((reinforcement, attack))
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, attack)
 
     def test_no_action_when_no_validated_non_no_attack_commitment_exists(self) -> None:
         no_attack_only = bundle_for(
