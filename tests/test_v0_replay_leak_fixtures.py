@@ -227,6 +227,37 @@ class V0ReplayLeakFixtureTests(unittest.TestCase):
             "reserve_preserving",
         )
 
+    def test_capture_hold_fixtures_recover_reinforcement_candidates(self) -> None:
+        for fixture_name in (
+            "two_p_capture_hold_80763852_t125_p1.json",
+            "two_p_capture_hold_80763852_t131_p1.json",
+        ):
+            with self.subTest(fixture_name=fixture_name):
+                payload = load_case(FIXTURE_DIR / fixture_name)
+                observation = payload["observation"]
+                self.assertIsInstance(observation, dict)
+
+                actions = safe_actions_for_observation(
+                    observation,
+                    {},
+                    pressure_runtime_config_without_budget(),
+                )
+                metadata = dict(last_runtime_diagnostic_metadata())
+
+                self.assertGreater(
+                    int(metadata["runtime_diagnostic_candidate_count"]),
+                    0,
+                )
+                self.assertNotEqual(
+                    metadata["runtime_diagnostic_no_action_reason"],
+                    "no_candidates_generated",
+                )
+                self.assertGreater(len(actions), 0)
+                self.assertEqual(
+                    metadata["runtime_diagnostic_selected_commitment_type"],
+                    "reserve_preserving",
+                )
+
     def test_current_runtime_diagnostics_match_committed_characterization(self) -> None:
         for path in fixture_paths():
             with self.subTest(path=path.name):

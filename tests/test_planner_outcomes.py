@@ -159,6 +159,25 @@ class PlannerOutcomeValidationTests(unittest.TestCase):
         self.assertEqual(report.source_ships_after, 7)
         self.assertTrue(report.captured_target)
 
+    def test_affordable_owned_reinforcement_validates_retained_target(self) -> None:
+        source_pair = pair(
+            target_owner=0,
+            target_category=TargetCategory.OWN,
+            target_ships=10,
+            target_production=2,
+            rough_travel_ticks=1,
+            source_affordable_ships=10,
+        )
+        report = validate_estimated_pair_outcome(
+            simple_state(target_owner=0, target_ships=10, target_production=2),
+            estimated_pair(source_pair),
+        )
+
+        self.assertEqual(report.status, CandidateValidationStatus.VALIDATED)
+        self.assertEqual(report.launch.ships, 1)
+        self.assertEqual(report.target_owner_after, 0)
+        self.assertTrue(report.captured_target)
+
     def test_no_launch_estimated_pair_returns_no_launch_without_simulating(self) -> None:
         source_pair = pair(target_ships=10, source_affordable_ships=10)
         no_launch_pair = EstimatedPair(

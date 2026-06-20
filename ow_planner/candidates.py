@@ -135,8 +135,10 @@ def _mission_candidate_from_report(
     pair = report.estimated_pair.pair
     if pair.target_category is TargetCategory.NEUTRAL:
         mission_type = MissionType.CAPTURE_NEUTRAL
-    else:
+    elif pair.target_category is TargetCategory.ENEMY:
         mission_type = MissionType.ATTACK_ENEMY
+    else:
+        mission_type = MissionType.REINFORCE
     return MissionCandidate(
         mission_type=mission_type,
         target_planet_id=pair.target_planet_id,

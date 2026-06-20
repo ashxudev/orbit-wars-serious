@@ -5,7 +5,7 @@
   "expected_current_runtime": {
     "action_count": 0,
     "diagnostic_status": "no_action",
-    "no_action_reason": "no_candidates_generated",
+    "no_action_reason": "strategy_selection_no_action",
     "owned_planet_count": 4,
     "owned_production": 12,
     "player_id": 1,

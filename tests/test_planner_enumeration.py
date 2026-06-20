@@ -119,6 +119,7 @@ class PlannerEnumerationTests(unittest.TestCase):
         self.assertIsNotNone(enumerate_source_target_pairs_from_features)
         self.assertEqual(TargetCategory.NEUTRAL.value, "neutral")
         self.assertEqual(TargetCategory.ENEMY.value, "enemy")
+        self.assertEqual(TargetCategory.OWN.value, "own")
         self.assertEqual(ROUGH_TRAVEL_SHIPS, 1)
 
     def test_source_target_pair_type_is_frozen(self) -> None:
@@ -143,7 +144,7 @@ class PlannerEnumerationTests(unittest.TestCase):
     def test_enumerates_from_game_state(self) -> None:
         pairs = enumerate_source_target_pairs(enumeration_state())
 
-        self.assertEqual(len(pairs), 4)
+        self.assertEqual(len(pairs), 5)
         self.assertTrue(all(isinstance(pair, SourceTargetPair) for pair in pairs))
 
     def test_enumerates_from_precomputed_features(self) -> None:
@@ -161,11 +162,10 @@ class PlannerEnumerationTests(unittest.TestCase):
         self.assertEqual({pair.source_planet_id for pair in pairs}, {10})
         self.assertNotIn(20, {pair.source_planet_id for pair in pairs})
 
-    def test_neutral_and_enemy_targets_only_with_own_planets_excluded(self) -> None:
+    def test_neutral_enemy_and_distinct_own_targets_are_included(self) -> None:
         pairs = enumerate_source_target_pairs(enumeration_state())
 
-        self.assertEqual({pair.target_planet_id for pair in pairs}, {2, 3, 4, 5})
-        self.assertNotIn(20, {pair.target_planet_id for pair in pairs})
+        self.assertEqual({pair.target_planet_id for pair in pairs}, {2, 3, 4, 5, 20})
         self.assertNotIn(10, {pair.target_planet_id for pair in pairs})
 
     def test_deterministic_order_is_source_category_then_target_id(self) -> None:
@@ -183,6 +183,7 @@ class PlannerEnumerationTests(unittest.TestCase):
             (
                 (10, TargetCategory.NEUTRAL, 3),
                 (10, TargetCategory.NEUTRAL, 4),
+                (10, TargetCategory.OWN, 20),
                 (10, TargetCategory.ENEMY, 2),
                 (10, TargetCategory.ENEMY, 5),
             ),
@@ -196,6 +197,8 @@ class PlannerEnumerationTests(unittest.TestCase):
         self.assertEqual(by_target[3].target_owner, -1)
         self.assertEqual(by_target[2].target_category, TargetCategory.ENEMY)
         self.assertEqual(by_target[2].target_owner, 1)
+        self.assertEqual(by_target[20].target_category, TargetCategory.OWN)
+        self.assertEqual(by_target[20].target_owner, 0)
         self.assertEqual(by_target[5].target_owner, 2)
         self.assertEqual(by_target[4].target_ships, 1)
         self.assertEqual(by_target[4].target_production, 4)
@@ -214,10 +217,16 @@ class PlannerEnumerationTests(unittest.TestCase):
 
         for pair in pairs:
             with self.subTest(pair=pair):
-                self.assertEqual(
-                    pair.distance,
-                    feature_distances[(pair.source_planet_id, pair.target_planet_id)],
-                )
+                if pair.target_category is TargetCategory.OWN:
+                    self.assertEqual(pair.target_planet_id, 20)
+                    self.assertEqual(pair.distance, 10.0)
+                else:
+                    self.assertEqual(
+                        pair.distance,
+                        feature_distances[
+                            (pair.source_planet_id, pair.target_planet_id)
+                        ],
+                    )
 
     def test_rough_travel_ticks_use_one_ship_placeholder(self) -> None:
         pairs = enumerate_source_target_pairs(enumeration_state())
@@ -250,7 +259,7 @@ class PlannerEnumerationTests(unittest.TestCase):
 
         self.assertEqual(enumerate_source_target_pairs(state), ())
 
-    def test_no_neutral_or_enemy_targets_returns_empty_tuple(self) -> None:
+    def test_no_neutral_or_enemy_targets_returns_owned_reinforcement_pairs(self) -> None:
         state = enumeration_state(
             planets=(
                 planet_at(10, 0, 0.0, 0.0, 5, 2),
@@ -259,7 +268,18 @@ class PlannerEnumerationTests(unittest.TestCase):
             fleets=(),
         )
 
-        self.assertEqual(enumerate_source_target_pairs(state), ())
+        pairs = enumerate_source_target_pairs(state)
+
+        self.assertEqual(
+            tuple(
+                (pair.source_planet_id, pair.target_planet_id, pair.target_category)
+                for pair in pairs
+            ),
+            (
+                (20, 10, TargetCategory.OWN),
+                (10, 20, TargetCategory.OWN),
+            ),
+        )
 
     def test_zero_ship_owned_source_behavior_returns_empty_when_only_source(self) -> None:
         state = enumeration_state(

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ow_sim.forecast import fleet_ticks_to_reach_distance
+from ow_sim.geometry import distance
 from ow_sim.state import GameState, Point2D
 
 from .candidates import CandidateGenerationConfig
@@ -26,6 +27,7 @@ class TargetCategory(str, Enum):
 
     NEUTRAL = "neutral"
     ENEMY = "enemy"
+    OWN = "own"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,12 +54,15 @@ def enumerate_source_target_pairs(
     player_id: int | None = None,
     config: CandidateGenerationConfig | None = None,
 ) -> tuple[SourceTargetPair, ...]:
-    """Enumerate factual owned-source to neutral/enemy target pairs.
+    """Enumerate factual owned-source to target pairs.
 
     ``rough_travel_ticks`` is computed with a one-ship placeholder via the
     simulator fleet ETA helper. This makes the value deterministic and useful
     for coarse ordering/debugging without estimating mission ship requirements.
-    Owned sources with no positive ships are omitted.
+    Owned sources with no positive ships are omitted. Neutral targets retain
+    priority; distinct owned targets are considered before enemy attacks so
+    midgame hold/reinforcement candidates are not starved by optimistic enemy
+    attacks that later fail simulator validation.
     """
 
     _ = config
@@ -88,6 +93,7 @@ def enumerate_source_target_pairs_from_features(
         for distance_fact in features.source_target_distances
         if distance_fact.source_planet_id in source_ships_by_id
     ]
+    pairs.extend(_owned_target_pairs(features, source_ships_by_id))
     return tuple(
         sorted(
             pairs,
@@ -129,6 +135,43 @@ def _pair_from_distance(
     )
 
 
+def _owned_target_pairs(
+    features: BoardFeatures,
+    source_ships_by_id: dict[int, int],
+) -> list[SourceTargetPair]:
+    pairs: list[SourceTargetPair] = []
+    for source in features.own_planets:
+        if source.planet_id not in source_ships_by_id:
+            continue
+        for target in features.own_planets:
+            if target.planet_id == source.planet_id:
+                continue
+            target_facts = features.planet_facts_by_id[target.planet_id]
+            source_facts = features.planet_facts_by_id[source.planet_id]
+            target_distance = distance(source_facts.position, target_facts.position)
+            pairs.append(
+                SourceTargetPair(
+                    source_planet_id=source.planet_id,
+                    target_planet_id=target.planet_id,
+                    target_owner=target.owner,
+                    target_category=TargetCategory.OWN,
+                    source_ships=source_ships_by_id[source.planet_id],
+                    target_ships=target.ships,
+                    target_production=target.production,
+                    source_position=source_facts.position,
+                    target_position=target_facts.position,
+                    distance=target_distance,
+                    rough_travel_ticks=fleet_ticks_to_reach_distance(
+                        target_distance,
+                        ROUGH_TRAVEL_SHIPS,
+                    ),
+                    source_affordable_ships=source_ships_by_id[source.planet_id],
+                    target_is_comet=target.is_comet,
+                )
+            )
+    return pairs
+
+
 def _target_category(owner: int) -> TargetCategory:
     if owner == NEUTRAL_OWNER:
         return TargetCategory.NEUTRAL
@@ -138,7 +181,9 @@ def _target_category(owner: int) -> TargetCategory:
 def _target_category_rank(category: TargetCategory) -> int:
     if category is TargetCategory.NEUTRAL:
         return 0
-    return 1
+    if category is TargetCategory.OWN:
+        return 1
+    return 2
 
 
 __all__ = (

@@ -58,11 +58,14 @@ def estimate_required_ships_for_pair(
 ) -> ShipEstimate:
     """Estimate ships needed to capture ``pair.target_planet_id``.
 
-    Neutral planets do not produce, so neutral production added is zero.
-    Enemy targets add ``target_production * rough_travel_ticks``. The default
-    one-ship buffer makes required ships strictly greater than projected
-    defenders. ``config`` is accepted for API consistency but does not tune this
-    first-pass estimator yet.
+    Neutral and owned reinforcement targets do not add production pressure for
+    this first-pass estimate. Enemy targets add
+    ``target_production * rough_travel_ticks``. The default one-ship buffer
+    makes capture requirements strictly greater than projected defenders.
+    Owned targets use a one-ship reinforcement estimate so capture-hold windows
+    can produce normal validated candidates instead of starving generation.
+    ``config`` is accepted for API consistency but does not tune this first-pass
+    estimator yet.
     """
 
     _ = config
@@ -79,7 +82,7 @@ def estimate_required_ships_for_pair(
 
     production_added = _production_added(pair)
     target_projected_ships = pair.target_ships + production_added
-    required_ships = target_projected_ships + DEFAULT_CAPTURE_BUFFER_SHIPS
+    required_ships = _required_ships(pair, target_projected_ships)
     status = (
         ShipEstimateStatus.AFFORDABLE
         if required_ships <= pair.source_affordable_ships
@@ -141,9 +144,17 @@ def _is_valid_pair_for_estimation(pair: SourceTargetPair) -> bool:
 def _production_added(pair: SourceTargetPair) -> int:
     if pair.target_category is TargetCategory.NEUTRAL:
         return 0
+    if pair.target_category is TargetCategory.OWN:
+        return 0
     if pair.target_category is TargetCategory.ENEMY:
         return pair.target_production * pair.rough_travel_ticks
     return 0
+
+
+def _required_ships(pair: SourceTargetPair, target_projected_ships: int) -> int:
+    if pair.target_category is TargetCategory.OWN:
+        return 1
+    return target_projected_ships + DEFAULT_CAPTURE_BUFFER_SHIPS
 
 
 __all__ = (

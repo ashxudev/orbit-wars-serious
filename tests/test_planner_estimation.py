@@ -111,6 +111,26 @@ class PlannerShipEstimationTests(unittest.TestCase):
         self.assertEqual(estimate.target_projected_ships, 13)
         self.assertEqual(estimate.required_ships, 14)
 
+    def test_own_target_uses_one_ship_reinforcement_estimate(self) -> None:
+        source_pair = pair(
+            target_owner=0,
+            target_category=TargetCategory.OWN,
+            target_ships=50,
+            target_production=5,
+            rough_travel_ticks=6,
+            source_affordable_ships=3,
+        )
+
+        estimate = estimate_required_ships_for_pair(source_pair)
+        launch = launch_candidate_from_pair(source_pair)
+
+        self.assertEqual(estimate.target_category, TargetCategory.OWN)
+        self.assertEqual(estimate.production_added, 0)
+        self.assertEqual(estimate.target_projected_ships, 50)
+        self.assertEqual(estimate.required_ships, 1)
+        self.assertEqual(estimate.status, ShipEstimateStatus.AFFORDABLE)
+        self.assertEqual(launch.ships, 1)
+
     def test_exact_zero_capture_is_not_treated_as_sufficient(self) -> None:
         source_exactly_equal_to_defenders = pair(
             target_ships=5,
@@ -189,7 +209,7 @@ class PlannerShipEstimationTests(unittest.TestCase):
                 self.assertIsNone(launch_candidate_from_pair(source_pair))
 
     def test_invalid_target_category_is_reported_without_launch(self) -> None:
-        source_pair = pair(target_category="own")  # type: ignore[arg-type]
+        source_pair = pair(target_category="invalid")  # type: ignore[arg-type]
 
         estimate = estimate_required_ships_for_pair(source_pair)
 

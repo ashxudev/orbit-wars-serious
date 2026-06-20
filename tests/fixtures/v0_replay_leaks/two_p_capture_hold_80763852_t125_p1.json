@@ -3,9 +3,9 @@
   "case_id": "two_p_capture_hold_80763852_t125_p1",
   "episode_id": 80763852,
   "expected_current_runtime": {
-    "action_count": 0,
-    "diagnostic_status": "no_action",
-    "no_action_reason": "no_candidates_generated",
+    "action_count": 1,
+    "diagnostic_status": "actions",
+    "no_action_reason": "actions_emitted",
     "owned_planet_count": 4,
     "owned_production": 13,
     "player_id": 1,

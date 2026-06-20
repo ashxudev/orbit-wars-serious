@@ -95,6 +95,38 @@ class PlannerGenerationTests(unittest.TestCase):
             (1, 1),
         )
 
+    def test_generate_candidates_recovers_owned_target_reinforcement(self) -> None:
+        source = planet_at(1, 0, 0.0, 0.0, 10)
+        held_target = planet_at(2, 0, 3.0, 4.0, 50, production=3)
+        planets = (source, held_target)
+        state = GameState(
+            tick=0,
+            player_id=0,
+            planets=planets,
+            initial_planets=planets,
+            next_fleet_id=100,
+        )
+
+        candidates = generate_candidates(state)
+
+        self.assertEqual(len(candidates), 2)
+        self.assertEqual(
+            tuple(candidate.mission_type for candidate in candidates),
+            (MissionType.REINFORCE, MissionType.REINFORCE),
+        )
+        self.assertEqual(
+            tuple(candidate.target_planet_id for candidate in candidates),
+            (1, 2),
+        )
+        self.assertEqual(
+            tuple(candidate.source_planet_ids for candidate in candidates),
+            ((2,), (1,)),
+        )
+        self.assertEqual(
+            tuple(candidate.launches[0].ships for candidate in candidates),
+            (1, 1),
+        )
+
     def test_launch_payloads_are_same_factual_launches_validated_by_outcome_boundary(self) -> None:
         candidates = generate_candidates(generation_state(include_enemy=False))
 
