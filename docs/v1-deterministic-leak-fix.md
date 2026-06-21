@@ -74,3 +74,17 @@ score-floor no-action into a reserve-preserving retention launch. The
 action because it contains the same owned-production pressure signal. No
 four-player behavior, opening fallback behavior, simulator mechanics, action
 conversion, evaluation gates, or submission behavior is changed.
+
+## Cycle 3 Own-Transfer Intent Facts
+
+Cycle 3 adds `ow_planner.own_transfers` as a deterministic fact surface for
+existing in-flight own-to-own transfer fleets. It infers owned targets from the
+fleet ray, records source/target production and ship context, ETA/distance, and
+labels whether a transfer looks purposeful or potentially spammy.
+
+The `80991772` and `80986331` own-transfer fixtures now assert that this fact
+surface identifies potentially spammy own-to-own movement. The repeated
+`80986331` stream is also labeled as repeated own-transfer activity. This cycle
+does not change candidate generation, scoring, strategy selection, runtime
+action conversion, simulator mechanics, evaluation gates, or submission
+behavior.

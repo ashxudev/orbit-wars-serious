@@ -12,6 +12,7 @@ from agents.runtime_turn import (
     safe_actions_for_observation,
 )
 from ow_planner.owned_threats import owned_production_threat_facts
+from ow_planner.own_transfers import own_transfer_intent_facts
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "v1_replay_leaks"
@@ -180,6 +181,24 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
                     self.assertEqual(payload["player_count"], 2)
                     self.assertGreaterEqual(expected["owned_production"], 12)
                     self.assertGreater(expected["candidate_count"], 0)
+
+    def test_own_transfer_spam_fixtures_expose_transfer_intent_facts(self) -> None:
+        expected_counts = {
+            "two_p_own_transfer_spam_80991772_t160_p0.json": (1, 1),
+            "two_p_own_transfer_spam_80986331_t161_p1.json": (12, 12),
+        }
+
+        for fixture_name, expected in expected_counts.items():
+            with self.subTest(fixture_name=fixture_name):
+                payload = load_case(FIXTURE_DIR / fixture_name)
+                state = observation_to_game_state(payload["observation"])
+                report = own_transfer_intent_facts(state)
+
+                self.assertEqual(
+                    (report.transfer_count, report.potentially_spammy_count),
+                    expected,
+                )
+                self.assertIn("potentially_spammy_own_transfer", report.labels)
 
     def test_production_retention_fixtures_expose_owned_threat_facts(self) -> None:
         cases = [

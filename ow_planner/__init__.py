@@ -42,6 +42,7 @@ Strategy Modes Cycle 3 adds deterministic two-player direct-advantage facts.
 Strategy Modes Cycle 4 adds first-pass two-player direct-advantage selection.
 V0 Replay Leak Fix Cycle 4 adds two-player pressure-retention facts.
 V1 Deterministic Leak Fix Cycle 1 adds owned-production threat facts.
+V1 Deterministic Leak Fix Cycle 3 adds own-transfer intent facts.
 Strategy Modes Cycle 5 adds deterministic four-player board/rank facts.
 Strategy Modes Cycle 6 adds deterministic four-player mission/target facts.
 Strategy Modes Cycle 7 adds first-pass four-player strategy selection.
@@ -105,6 +106,11 @@ from .owned_threats import (
     OwnedPlanetThreatFacts,
     OwnedProductionThreatReport,
     owned_production_threat_facts,
+)
+from .own_transfers import (
+    OwnTransferFleetFacts,
+    OwnTransferIntentReport,
+    own_transfer_intent_facts,
 )
 from .enumeration import (
     ROUGH_TRAVEL_SHIPS,
@@ -257,6 +263,8 @@ __all__ = (
     "IncomingFleetThreatFacts",
     "OwnedPlanetThreatFacts",
     "OwnedProductionThreatReport",
+    "OwnTransferFleetFacts",
+    "OwnTransferIntentReport",
     "PlanetDistance",
     "PlanetEvaluationFacts",
     "PlanetFutureDeltaFacts",
@@ -323,6 +331,7 @@ __all__ = (
     "no_action_strategy_result",
     "no_attack_commitment_option",
     "owned_production_threat_facts",
+    "own_transfer_intent_facts",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
     "planner_decision_bundles",
