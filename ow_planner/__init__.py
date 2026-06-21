@@ -97,6 +97,13 @@ from .four_player_missions import (
     four_player_mission_facts,
     four_player_mission_facts_for_bundles,
 )
+from .four_player_plateau import (
+    FourPlayerPlateauReport,
+    FourPlayerPlateauTargetFacts,
+    UNDEREXPANDED_PLANET_COUNT_THRESHOLD,
+    UNDEREXPANDED_PRODUCTION_THRESHOLD,
+    four_player_plateau_facts,
+)
 from .four_player_selection import (
     FourPlayerSelectionConfig,
     select_four_player_strategy,
@@ -253,6 +260,8 @@ __all__ = (
     "EvaluationConfig",
     "FourPlayerBoardFacts",
     "FourPlayerMissionFacts",
+    "FourPlayerPlateauReport",
+    "FourPlayerPlateauTargetFacts",
     "FourPlayerSelectionConfig",
     "FourPlayerStandingFacts",
     "HIGH_VALUE_PRODUCTION_THRESHOLD",
@@ -308,6 +317,8 @@ __all__ = (
     "TwoPlayerAdvantageFacts",
     "TwoPlayerPressureFacts",
     "TwoPlayerSelectionConfig",
+    "UNDEREXPANDED_PLANET_COUNT_THRESHOLD",
+    "UNDEREXPANDED_PRODUCTION_THRESHOLD",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "classify_response_facts",
@@ -328,6 +339,7 @@ __all__ = (
     "four_player_board_facts",
     "four_player_mission_facts",
     "four_player_mission_facts_for_bundles",
+    "four_player_plateau_facts",
     "full_source_commitment_option",
     "generate_candidates",
     "launch_candidate_to_action",

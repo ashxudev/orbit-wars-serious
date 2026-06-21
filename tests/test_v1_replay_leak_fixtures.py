@@ -12,6 +12,7 @@ from agents.runtime_turn import (
     safe_actions_for_observation,
 )
 from ow_planner.enemy_denial import enemy_denial_opportunity_facts
+from ow_planner.four_player_plateau import four_player_plateau_facts
 from ow_planner.owned_threats import owned_production_threat_facts
 from ow_planner.own_transfers import own_transfer_intent_facts
 
@@ -260,6 +261,39 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
                 self.assertEqual(payload["player_count"], 4)
                 self.assertGreater(expected["candidate_count"], 0)
                 self.assertLessEqual(expected["owned_production"], 11)
+
+    def test_four_player_plateau_fixtures_expose_plateau_opportunity_facts(
+        self,
+    ) -> None:
+        expected_flags = {
+            "four_p_plateau_80981260_t060_p2.json": (True, False),
+            "four_p_plateau_80984201_t240_p0.json": (True, False),
+            "four_p_plateau_80982912_t250_p0.json": (False, True),
+        }
+
+        for fixture_name, expected in expected_flags.items():
+            with self.subTest(fixture_name=fixture_name):
+                payload = load_case(FIXTURE_DIR / fixture_name)
+                state = observation_to_game_state(payload["observation"])
+                _action_count, metadata = self.runtime_results[fixture_name]
+
+                report = four_player_plateau_facts(
+                    state,
+                    declared_player_count=payload["player_count"],
+                    runtime_metadata=metadata,
+                )
+
+                self.assertTrue(report.is_four_player_context)
+                self.assertTrue(report.underexpanded)
+                self.assertTrue(report.plateaued)
+                self.assertEqual(
+                    (
+                        report.candidate_backlog_no_action,
+                        report.action_emitting_plateau,
+                    ),
+                    expected,
+                )
+                self.assertIn("four_player_plateau", report.labels)
 
     def test_action_emitting_leaks_preserve_current_commitment_characterization(
         self,

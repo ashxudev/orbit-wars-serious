@@ -134,3 +134,18 @@ cover the new no-pressure denial preference, the owned-pressure override, and
 the interaction with own-transfer spam suppression. This cycle does not change
 candidate generation, scoring, simulator mechanics, action conversion,
 evaluation gates, or submission behavior.
+
+## Cycle 7 Four-Player Plateau Opportunity Facts
+
+Cycle 7 adds `ow_planner.four_player_plateau` as a deterministic fact surface
+for stalled four-player replay windows. It reports current owned planet,
+production, and ship counts, active opponents, neutral/enemy production
+opportunity counts, nearest expansion/denial targets, and optional runtime
+metadata such as candidate count, action count, and no-action reason.
+
+The three V1 `four_player_plateau` fixtures now assert plateau facts. The two
+no-action fixtures are labeled as candidate-backed no-action plateau windows,
+while the action-emitting `80982912` fixture is labeled separately as an
+action-emitting plateau. This cycle is observability only: it does not change
+four-player selection, candidate generation, scoring, simulator mechanics,
+action conversion, evaluation gates, or submission behavior.
