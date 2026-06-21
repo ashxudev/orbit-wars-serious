@@ -61,8 +61,8 @@ class V0ReplayRegressionTests(unittest.TestCase):
         self.assertEqual(
             report.summary_text,
             (
-                "v0_replay_regression cases=7 live_actions=5 "
-                "live_no_actions=2 budget_guarded=1 budgetless_actions=7 "
+                "v0_replay_regression cases=7 live_actions=6 "
+                "live_no_actions=1 budget_guarded=1 budgetless_actions=7 "
                 "pressure_actions=4 risky_thin_captures=0 "
                 "unresolved_planner_no_actions=0"
             ),

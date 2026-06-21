@@ -3,20 +3,20 @@
   "case_id": "two_p_own_transfer_spam_80991772_t160_p0",
   "episode_id": 80991772,
   "expected_current_runtime": {
-    "action_count": 0,
+    "action_count": 1,
     "candidate_count": 42,
-    "diagnostic_status": "no_action",
-    "no_action_reason": "strategy_selection_no_action",
+    "diagnostic_status": "actions",
+    "no_action_reason": "actions_emitted",
     "owned_planet_count": 6,
     "owned_production": 16,
     "player_id": 0,
     "runtime_mode": "direct",
-    "selected_commitment_type": null,
-    "selection_notes": "no eligible two-player direct advantage|below minimum total score",
+    "selected_commitment_type": "reserve_preserving",
+    "selection_notes": "two-player direct advantage selected|selected commitment option: reserve_preserving|owned-production pressure preference: reserve_preserving retention",
     "state_step": 160
   },
   "leak_class": "own_transfer_spam",
-  "notes": "2P own-transfer-heavy loss; current selector finds candidates but emits no action at this sampled spam/pressure window.",
+  "notes": "2P own-transfer-heavy loss; Cycle 2 selector now emits a reserve-preserving retention action at this sampled spam/pressure window.",
   "observation": {
     "angular_velocity": 0.04460962944996074,
     "comet_planet_ids": [

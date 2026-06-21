@@ -26,12 +26,14 @@ from ow_planner import (
     StrategyMode,
     StrategyModeFacts,
     StrategySelectionResult,
+    TwoPlayerSelectionConfig,
     commitment_options_for_candidates,
     evaluate_and_score_candidates,
     evaluate_responses,
     four_player_board_facts,
     generate_candidates,
     planner_decision_bundles,
+    owned_production_threat_facts,
     select_strategy_for_mode,
     strategy_mode_facts,
 )
@@ -96,6 +98,11 @@ def run_planner_pipeline(
         if mode_facts.mode is StrategyMode.FOUR_PLAYER
         else None
     )
+    dispatch_config = _dispatch_config_with_owned_threat_facts(
+        effective_config.strategy_dispatch_config,
+        state,
+        mode_facts,
+    )
     bundles = planner_decision_bundles(
         candidates,
         strategy_mode_facts=mode_facts,
@@ -107,7 +114,7 @@ def run_planner_pipeline(
         bundles,
         strategy_mode_facts=mode_facts,
         four_player_board_facts=board_facts,
-        config=effective_config.strategy_dispatch_config,
+        config=dispatch_config,
     )
 
     return RuntimePlannerResult(
@@ -120,6 +127,37 @@ def run_planner_pipeline(
         four_player_board_facts=board_facts,
         bundles=bundles,
         selection=selection,
+    )
+
+
+def _dispatch_config_with_owned_threat_facts(
+    config: StrategyDispatchConfig | None,
+    state: GameState,
+    mode_facts: StrategyModeFacts,
+) -> StrategyDispatchConfig | None:
+    if mode_facts.mode is not StrategyMode.TWO_PLAYER:
+        return config
+
+    base_config = StrategyDispatchConfig() if config is None else config
+    two_player_config = (
+        TwoPlayerSelectionConfig()
+        if base_config.two_player_config is None
+        else base_config.two_player_config
+    )
+    if two_player_config.owned_production_threat_report is not None:
+        return base_config
+
+    threat_report = owned_production_threat_facts(state)
+    return StrategyDispatchConfig(
+        two_player_config=TwoPlayerSelectionConfig(
+            minimum_total_score=two_player_config.minimum_total_score,
+            allow_source_counterattack_risk=(
+                two_player_config.allow_source_counterattack_risk
+            ),
+            commitment_preference_order=two_player_config.commitment_preference_order,
+            owned_production_threat_report=threat_report,
+        ),
+        four_player_config=base_config.four_player_config,
     )
 
 

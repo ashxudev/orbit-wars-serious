@@ -23,9 +23,9 @@ submission behavior.
 | Fixture | Source episode | Turn | Player | Leak class | Current characterization |
 |---|---:|---:|---:|---|---|
 | `two_p_production_retention_80999800_t150_p0.json` | `80999800` | `150` | `0` | `owned_production_threat_unanswered` | Emits one reserve-preserving action while owned production is already under collapse pressure. |
-| `two_p_production_retention_80979989_t084_p1.json` | `80979989` | `84` | `1` | `owned_production_threat_unanswered` | Has candidates but emits no action because two-player selection rejects all options below score threshold. |
+| `two_p_production_retention_80979989_t084_p1.json` | `80979989` | `84` | `1` | `owned_production_threat_unanswered` | Cycle 2 emits one reserve-preserving retention action under owned-production pressure. |
 | `two_p_production_retention_80987824_t156_p1.json` | `80987824` | `156` | `1` | `owned_production_threat_unanswered` | Emits one reserve-preserving action in a later pressure-collapse window. |
-| `two_p_own_transfer_spam_80991772_t160_p0.json` | `80991772` | `160` | `0` | `own_transfer_spam` | Has candidates but emits no action at a sampled own-transfer/pressure window. |
+| `two_p_own_transfer_spam_80991772_t160_p0.json` | `80991772` | `160` | `0` | `own_transfer_spam` | Cycle 2 emits one reserve-preserving retention action in an owned-production pressure window. |
 | `two_p_own_transfer_spam_80986331_t161_p1.json` | `80986331` | `161` | `1` | `own_transfer_spam` | Emits one reserve-preserving action in an own-transfer-heavy loss. |
 | `two_p_enemy_denial_absent_80989880_t200_p0.json` | `80989880` | `200` | `0` | `enemy_denial_absent` | Emits one reserve-preserving non-denial action in a high-production ahead state. |
 | `four_p_plateau_80984201_t240_p0.json` | `80984201` | `240` | `0` | `four_player_plateau` | Has candidates but emits no action after plateauing at two planets and five production. |
@@ -59,3 +59,18 @@ their owned-production pressure windows. The cycle remains observability only:
 it does not change candidate generation, scoring, strategy selection, runtime
 action conversion, simulator mechanics, evaluation gates, or submission
 behavior.
+
+## Cycle 2 Owned Production Retention Selection
+
+Cycle 2 threads the owned-production threat report into the two-player selector
+from the runtime planner pipeline. When visible owned-production pressure is
+present, the selector admits conservative reserve-preserving options through the
+score floor and prefers validated owned-retention missions
+(`REINFORCE` / `DEFEND_OWN`) over ordinary expansion or attack choices.
+
+This specifically changes the `80979989` production-retention fixture from a
+score-floor no-action into a reserve-preserving retention launch. The
+`80991772` own-transfer fixture also now emits a reserve-preserving retention
+action because it contains the same owned-production pressure signal. No
+four-player behavior, opening fallback behavior, simulator mechanics, action
+conversion, evaluation gates, or submission behavior is changed.

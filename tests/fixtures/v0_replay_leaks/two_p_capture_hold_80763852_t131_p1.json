@@ -3,17 +3,18 @@
   "case_id": "two_p_capture_hold_80763852_t131_p1",
   "episode_id": 80763852,
   "expected_current_runtime": {
-    "action_count": 0,
-    "diagnostic_status": "no_action",
-    "no_action_reason": "strategy_selection_no_action",
+    "action_count": 1,
+    "diagnostic_status": "actions",
+    "no_action_reason": "actions_emitted",
     "owned_planet_count": 4,
     "owned_production": 12,
     "player_id": 1,
     "runtime_mode": "direct",
+    "selected_commitment_type": "reserve_preserving",
     "state_step": null
   },
   "leak_class": "capture_hold_failure",
-  "notes": "Capture-hold window around moving p14 capture at t131 and loss at t137.",
+  "notes": "Capture-hold window around moving p14 capture at t131 and loss at t137; Cycle 2 owned-production pressure selection now emits a reserve-preserving retention action.",
   "observation": {
     "angular_velocity": 0.03342036789233275,
     "comet_planet_ids": [],

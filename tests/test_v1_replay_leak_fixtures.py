@@ -141,8 +141,6 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
         no_action_cases = {
             "four_p_plateau_80981260_t060_p2.json",
             "four_p_plateau_80984201_t240_p0.json",
-            "two_p_own_transfer_spam_80991772_t160_p0.json",
-            "two_p_production_retention_80979989_t084_p1.json",
         }
 
         for path in fixture_paths():

@@ -25,6 +25,7 @@ from ow_planner import (
     MissionResponseEvaluation,
     MissionScoringConfig,
     MissionType,
+    OwnedProductionThreatReport,
     PlannerDecisionBundle,
     ResponseConfig,
     StrategyDispatchConfig,
@@ -32,6 +33,7 @@ from ow_planner import (
     StrategyModeFacts,
     StrategySelectionResult,
     StrategySelectionStatus,
+    TwoPlayerSelectionConfig,
 )
 from ow_sim.state import GameState, Planet
 
@@ -250,6 +252,71 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         )
         self.assertIs(result.candidates, candidates)
         self.assertIs(result.four_player_board_facts, board_facts)
+        self.assertIs(result.selection, selection)
+
+    def test_two_player_state_injects_owned_threat_report_into_selector_config(
+        self,
+    ) -> None:
+        state = two_player_pipeline_state()
+        base_two_config = TwoPlayerSelectionConfig(minimum_total_score=-5.0)
+        base_dispatch_config = StrategyDispatchConfig(
+            two_player_config=base_two_config,
+        )
+        config = RuntimePlannerConfig(strategy_dispatch_config=base_dispatch_config)
+        mode_facts = StrategyModeFacts(
+            mode=StrategyMode.TWO_PLAYER,
+            player_id=0,
+            active_player_ids=(0, 1),
+            opponent_player_ids=(1,),
+            player_count=2,
+        )
+        threat_report = OwnedProductionThreatReport(
+            player_id=0,
+            horizon_ticks=80,
+            production_pressure_count=1,
+            labels=("owned_production_pressure",),
+        )
+        selection = StrategySelectionResult(status=StrategySelectionStatus.REJECTED)
+
+        with (
+            patch("agents.runtime_planner.generate_candidates", return_value=()),
+            patch(
+                "agents.runtime_planner.evaluate_and_score_candidates",
+                return_value=(),
+            ),
+            patch("agents.runtime_planner.evaluate_responses", return_value=()),
+            patch(
+                "agents.runtime_planner.commitment_options_for_candidates",
+                return_value=(),
+            ),
+            patch(
+                "agents.runtime_planner.strategy_mode_facts",
+                return_value=mode_facts,
+            ),
+            patch("agents.runtime_planner.planner_decision_bundles", return_value=()),
+            patch(
+                "agents.runtime_planner.owned_production_threat_facts",
+                return_value=threat_report,
+            ) as owned_production_threat_facts,
+            patch(
+                "agents.runtime_planner.select_strategy_for_mode",
+                return_value=selection,
+            ) as select_strategy_for_mode,
+        ):
+            result = run_planner_pipeline(state, config)
+
+        owned_production_threat_facts.assert_called_once_with(state)
+        _args, kwargs = select_strategy_for_mode.call_args
+        dispatch_config = kwargs["config"]
+        self.assertIsNot(dispatch_config, base_dispatch_config)
+        self.assertEqual(
+            dispatch_config.two_player_config.minimum_total_score,
+            -5.0,
+        )
+        self.assertIs(
+            dispatch_config.two_player_config.owned_production_threat_report,
+            threat_report,
+        )
         self.assertIs(result.selection, selection)
 
     def test_four_player_state_computes_and_passes_board_facts(self) -> None:

@@ -15,6 +15,7 @@ from typing import Sequence
 
 from .candidates import MissionType
 from .commitment import CommitmentOption, CommitmentOptionStatus, CommitmentOptionType
+from .owned_threats import OwnedProductionThreatReport
 from .strategy_decisions import (
     PlannerDecisionBundle,
     StrategySelectionResult,
@@ -55,6 +56,7 @@ class TwoPlayerSelectionConfig:
     commitment_preference_order: tuple[CommitmentOptionType, ...] = (
         DEFAULT_COMMITMENT_PREFERENCE_ORDER
     )
+    owned_production_threat_report: OwnedProductionThreatReport | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -71,6 +73,14 @@ class TwoPlayerSelectionConfig:
         ):
             raise ValueError(
                 "commitment_preference_order must be a tuple of CommitmentOptionType"
+            )
+        if self.owned_production_threat_report is not None and not isinstance(
+            self.owned_production_threat_report,
+            OwnedProductionThreatReport,
+        ):
+            raise ValueError(
+                "owned_production_threat_report must be None or "
+                "OwnedProductionThreatReport"
             )
 
 
@@ -103,11 +113,9 @@ def select_two_player_direct_advantage(
 
     ineligible_reasons: set[str] = set()
     eligible: list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]] = []
+    owned_threat_report = effective_config.owned_production_threat_report
     for index, facts in enumerate(facts_by_input_order):
         if not _has_complete_two_player_facts(facts):
-            continue
-        if facts.evaluation_total_score < effective_config.minimum_total_score:
-            ineligible_reasons.add("below minimum total score")
             continue
         if (
             not effective_config.allow_source_counterattack_risk
@@ -123,6 +131,14 @@ def select_two_player_direct_advantage(
         if commitment_option is None:
             ineligible_reasons.add("missing validated commitment option")
             continue
+        if facts.evaluation_total_score < effective_config.minimum_total_score:
+            if not _allow_below_minimum_under_owned_pressure(
+                facts,
+                commitment_option,
+                owned_threat_report,
+            ):
+                ineligible_reasons.add("below minimum total score")
+                continue
         eligible.append((facts, index, commitment_option))
 
     if not eligible:
@@ -131,7 +147,12 @@ def select_two_player_direct_advantage(
             notes=_no_action_notes(ineligible_reasons),
         )
 
-    selection_pool, pressure_note = _pressure_retention_pool(eligible)
+    selection_pool, pressure_note = _owned_production_retention_pool(
+        eligible,
+        effective_config.owned_production_threat_report,
+    )
+    if pressure_note is None:
+        selection_pool, pressure_note = _pressure_retention_pool(eligible)
     selected_facts, _index, selected_commitment = max(
         selection_pool,
         key=_selection_key,
@@ -242,10 +263,99 @@ def _pressure_retention_pool(
     return reserve_preserving, "pressure retention preference: reserve_preserving"
 
 
+def _owned_production_retention_pool(
+    eligible: list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]],
+    threat_report: OwnedProductionThreatReport | None,
+) -> tuple[list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]], str | None]:
+    if (
+        threat_report is None
+        or threat_report.player_id is None
+        or threat_report.production_pressure_count <= 0
+    ):
+        return eligible, None
+
+    retention_candidates = [
+        item
+        for item in eligible
+        if _is_owned_retention_candidate(item[0].bundle)
+        and item[2].option_type is CommitmentOptionType.RESERVE_PRESERVING
+    ]
+    if retention_candidates:
+        return (
+            retention_candidates,
+            "owned-production pressure preference: reserve_preserving retention",
+        )
+
+    any_retention_candidates = [
+        item for item in eligible if _is_owned_retention_candidate(item[0].bundle)
+    ]
+    if any_retention_candidates:
+        return (
+            any_retention_candidates,
+            "owned-production pressure preference: owned retention",
+        )
+
+    non_draining_reserve_candidates = [
+        item
+        for item in eligible
+        if item[2].option_type is CommitmentOptionType.RESERVE_PRESERVING
+        and not _bundle_uses_pressured_source(item[0].bundle, threat_report)
+    ]
+    if non_draining_reserve_candidates:
+        return (
+            non_draining_reserve_candidates,
+            "owned-production pressure preference: non-draining reserve",
+        )
+
+    reserve_candidates = [
+        item
+        for item in eligible
+        if item[2].option_type is CommitmentOptionType.RESERVE_PRESERVING
+    ]
+    if reserve_candidates:
+        return (
+            reserve_candidates,
+            "owned-production pressure preference: reserve_preserving",
+        )
+
+    return eligible, None
+
+
+def _allow_below_minimum_under_owned_pressure(
+    facts: TwoPlayerAdvantageFacts,
+    commitment_option: CommitmentOption,
+    threat_report: OwnedProductionThreatReport | None,
+) -> bool:
+    if (
+        threat_report is None
+        or threat_report.player_id is None
+        or threat_report.production_pressure_count <= 0
+    ):
+        return False
+    if _is_owned_retention_candidate(facts.bundle):
+        return True
+    return commitment_option.option_type is CommitmentOptionType.RESERVE_PRESERVING
+
+
 def _is_owned_retention_candidate(bundle: PlannerDecisionBundle) -> bool:
     return bundle.candidate.mission_type in (
         MissionType.DEFEND_OWN,
         MissionType.REINFORCE,
+    )
+
+
+def _bundle_uses_pressured_source(
+    bundle: PlannerDecisionBundle,
+    threat_report: OwnedProductionThreatReport,
+) -> bool:
+    pressured_planet_ids = {
+        facts.planet_id
+        for facts in threat_report.planet_facts
+        if facts.production_under_pressure
+    }
+    return any(
+        source_planet_id in pressured_planet_ids
+        for source_planet_id in bundle.candidate.source_planet_ids
     )
 
 

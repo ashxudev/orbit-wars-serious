@@ -22,6 +22,8 @@ from ow_planner import (
     MissionResponseFacts,
     MissionType,
     MissionValueFacts,
+    OwnedPlanetThreatFacts,
+    OwnedProductionThreatReport,
     PlannerDecisionBundle,
     ResponseSummaryFacts,
     StrategyMode,
@@ -140,6 +142,57 @@ def commitment_option(
     )
 
 
+def owned_pressure_report(
+    *,
+    pressured_planet_id: int = 1,
+    production_pressure_count: int = 1,
+) -> OwnedProductionThreatReport:
+    planet_facts = ()
+    if production_pressure_count > 0:
+        planet_facts = (
+            OwnedPlanetThreatFacts(
+                planet_id=pressured_planet_id,
+                owner=0,
+                current_ships=5,
+                production=3,
+                production_bearing=True,
+                incoming_enemy_ships=8,
+                incoming_friendly_ships=0,
+                earliest_hostile_eta=3,
+                earliest_friendly_eta=None,
+                projected_balance_at_earliest_hostile=-3,
+                production_under_pressure=True,
+                likely_flip=True,
+                at_risk=True,
+                outgoing_friendly_fleet_count=0,
+                outgoing_friendly_ships=0,
+                source_drained_by_outgoing=False,
+                labels=(
+                    "hostile_inbound",
+                    "production_bearing",
+                    "owned_production_pressure",
+                    "likely_flip",
+                    "owned_production_at_risk",
+                ),
+            ),
+        )
+    return OwnedProductionThreatReport(
+        player_id=0,
+        horizon_ticks=80,
+        planet_facts=planet_facts,
+        production_pressure_count=production_pressure_count,
+        threatened_planet_count=1 if production_pressure_count > 0 else 0,
+        likely_flip_count=1 if production_pressure_count > 0 else 0,
+        production_under_pressure=3 if production_pressure_count > 0 else 0,
+        production_at_risk=3 if production_pressure_count > 0 else 0,
+        labels=(
+            ("owned_production_pressure",)
+            if production_pressure_count > 0
+            else ()
+        ),
+    )
+
+
 def bundle_for(
     *,
     target_planet_id: int,
@@ -212,9 +265,16 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
                 CommitmentOptionType.FULL_SOURCE,
             ),
         )
+        self.assertIsNone(config.owned_production_threat_report)
         self.assertTrue(hasattr(TwoPlayerSelectionConfig, "__slots__"))
         with self.assertRaises(FrozenInstanceError):
             config.minimum_total_score = 1.0
+
+    def test_two_player_selection_config_rejects_invalid_owned_threat_report(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "owned_production_threat_report"):
+            TwoPlayerSelectionConfig(owned_production_threat_report=object())
 
     def test_selects_opponent_owned_capture_over_neutral_capture(self) -> None:
         opponent_bundle = bundle_for(
@@ -753,6 +813,114 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
 
         self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
         self.assertIs(result.selected_bundle, attack)
+
+    def test_owned_production_pressure_prefers_retention_over_attack(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=1,
+            source_planet_id=4,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=-20.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        higher_score_attack = bundle_for(
+            target_planet_id=3,
+            source_planet_id=1,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=80.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (higher_score_attack, reinforcement),
+            config=TwoPlayerSelectionConfig(
+                owned_production_threat_report=owned_pressure_report(),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reinforcement)
+        self.assertEqual(
+            result.selected_commitment_option.option_type,
+            CommitmentOptionType.RESERVE_PRESERVING,
+        )
+        self.assertIn(
+            "owned-production pressure preference: reserve_preserving retention",
+            result.notes,
+        )
+
+    def test_owned_production_pressure_allows_conservative_below_floor(
+        self,
+    ) -> None:
+        conservative = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=-5.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (conservative,),
+            config=TwoPlayerSelectionConfig(
+                minimum_total_score=0.0,
+                owned_production_threat_report=owned_pressure_report(),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, conservative)
+        self.assertIn(
+            "owned-production pressure preference: non-draining reserve",
+            result.notes,
+        )
+
+    def test_no_owned_production_pressure_preserves_score_floor(self) -> None:
+        conservative = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=-5.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (conservative,),
+            config=TwoPlayerSelectionConfig(
+                minimum_total_score=0.0,
+                owned_production_threat_report=owned_pressure_report(
+                    production_pressure_count=0,
+                ),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
+        self.assertIn("below minimum total score", result.notes)
 
     def test_no_action_when_no_validated_non_no_attack_commitment_exists(self) -> None:
         no_attack_only = bundle_for(
