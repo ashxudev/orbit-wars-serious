@@ -104,3 +104,17 @@ because the current bundle set exposes only reinforce-style candidates and no
 validated productive non-transfer alternative to prefer. This cycle does not
 change candidate generation, scoring, simulator mechanics, action conversion,
 evaluation gates, or submission behavior.
+
+## Cycle 5 Enemy Production Denial Facts
+
+Cycle 5 adds `ow_planner.enemy_denial` as a deterministic fact surface for
+ahead-state opponent production denial opportunities. It reports opponent-owned
+production targets, nearest owned source, source capacity, distance/ETA
+estimates, production and ship balance, plausible-denial labels, and
+high-value-denial labels.
+
+The `80989880` enemy-denial fixture now asserts that this surface identifies
+multiple plausible opponent production targets, including high-value denial
+opportunities. This cycle is observability only: it does not change candidate
+generation, scoring, strategy selection, runtime action conversion, simulator
+mechanics, evaluation gates, or submission behavior.

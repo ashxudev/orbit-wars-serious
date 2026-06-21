@@ -20,6 +20,7 @@ Mission Evaluation Cycle 9 adds deterministic arrival timing facts.
 Mission Evaluation Cycle 10 adds timing-aware scoring components.
 Mission Evaluation Cycle 11 adds capture-outcome scoring components.
 Mission Evaluation Cycle 12 adds source-drain opportunity-cost scoring.
+V1 Deterministic Leak Fix Cycle 5 adds enemy-production denial opportunity facts.
 Opponent Response Model Cycle 0 adds structural response-evaluation contracts.
 Opponent Response Model Cycle 1 adds reinforcement feasibility facts.
 Opponent Response Model Cycle 2 adds target race-risk facts.
@@ -127,6 +128,12 @@ from .estimation import (
     estimate_required_ships_for_pair,
     estimate_source_target_pairs,
     launch_candidate_from_pair,
+)
+from .enemy_denial import (
+    EnemyDenialOpportunityReport,
+    EnemyDenialTargetFacts,
+    HIGH_VALUE_PRODUCTION_THRESHOLD,
+    enemy_denial_opportunity_facts,
 )
 from .outcomes import (
     CandidateOutcomeReport,
@@ -240,12 +247,15 @@ __all__ = (
     "CounterattackSourceFacts",
     "DEFAULT_THREAT_HORIZON_TICKS",
     "DEFAULT_CAPTURE_BUFFER_SHIPS",
+    "EnemyDenialOpportunityReport",
+    "EnemyDenialTargetFacts",
     "EstimatedPair",
     "EvaluationConfig",
     "FourPlayerBoardFacts",
     "FourPlayerMissionFacts",
     "FourPlayerSelectionConfig",
     "FourPlayerStandingFacts",
+    "HIGH_VALUE_PRODUCTION_THRESHOLD",
     "LaunchCandidate",
     "MissionCandidate",
     "MissionEvaluation",
@@ -305,6 +315,7 @@ __all__ = (
     "coordinated_multi_source_commitment_option",
     "commitment_options_for_candidates",
     "detect_strategy_mode",
+    "enemy_denial_opportunity_facts",
     "extract_board_features",
     "enumerate_source_target_pairs",
     "enumerate_source_target_pairs_from_features",

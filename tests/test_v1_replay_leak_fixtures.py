@@ -11,6 +11,7 @@ from agents.runtime_turn import (
     last_runtime_diagnostic_metadata,
     safe_actions_for_observation,
 )
+from ow_planner.enemy_denial import enemy_denial_opportunity_facts
 from ow_planner.owned_threats import owned_production_threat_facts
 from ow_planner.own_transfers import own_transfer_intent_facts
 
@@ -216,6 +217,21 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
                 self.assertGreater(report.production_pressure_count, 0)
                 self.assertGreater(report.production_under_pressure, 0)
                 self.assertIn("owned_production_pressure", report.labels)
+
+    def test_enemy_denial_fixture_exposes_denial_opportunity_facts(self) -> None:
+        payload = load_case(
+            FIXTURE_DIR / "two_p_enemy_denial_absent_80989880_t200_p0.json",
+        )
+        state = observation_to_game_state(payload["observation"])
+
+        report = enemy_denial_opportunity_facts(state)
+
+        self.assertEqual(report.target_count, 7)
+        self.assertGreater(report.high_value_denial_count, 0)
+        self.assertIn("high_value_enemy_denial", report.labels)
+        self.assertTrue(
+            any(facts.target_planet_id == 10 for facts in report.target_facts),
+        )
 
     def test_four_player_plateau_and_capture_hold_fixtures_are_labeled_precisely(
         self,
