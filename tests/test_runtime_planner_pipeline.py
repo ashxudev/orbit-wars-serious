@@ -25,6 +25,7 @@ from ow_planner import (
     MissionResponseEvaluation,
     MissionScoringConfig,
     MissionType,
+    OwnTransferIntentReport,
     OwnedProductionThreatReport,
     PlannerDecisionBundle,
     ResponseConfig,
@@ -254,7 +255,7 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         self.assertIs(result.four_player_board_facts, board_facts)
         self.assertIs(result.selection, selection)
 
-    def test_two_player_state_injects_owned_threat_report_into_selector_config(
+    def test_two_player_state_injects_fact_reports_into_selector_config(
         self,
     ) -> None:
         state = two_player_pipeline_state()
@@ -275,6 +276,12 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
             horizon_ticks=80,
             production_pressure_count=1,
             labels=("owned_production_pressure",),
+        )
+        transfer_report = OwnTransferIntentReport(
+            player_id=0,
+            transfer_count=1,
+            potentially_spammy_count=1,
+            labels=("potentially_spammy_own_transfer",),
         )
         selection = StrategySelectionResult(status=StrategySelectionStatus.REJECTED)
 
@@ -299,6 +306,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
                 return_value=threat_report,
             ) as owned_production_threat_facts,
             patch(
+                "agents.runtime_planner.own_transfer_intent_facts",
+                return_value=transfer_report,
+            ) as own_transfer_intent_facts,
+            patch(
                 "agents.runtime_planner.select_strategy_for_mode",
                 return_value=selection,
             ) as select_strategy_for_mode,
@@ -306,6 +317,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
             result = run_planner_pipeline(state, config)
 
         owned_production_threat_facts.assert_called_once_with(state)
+        own_transfer_intent_facts.assert_called_once_with(
+            state,
+            threat_report=threat_report,
+        )
         _args, kwargs = select_strategy_for_mode.call_args
         dispatch_config = kwargs["config"]
         self.assertIsNot(dispatch_config, base_dispatch_config)
@@ -316,6 +331,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         self.assertIs(
             dispatch_config.two_player_config.owned_production_threat_report,
             threat_report,
+        )
+        self.assertIs(
+            dispatch_config.two_player_config.own_transfer_intent_report,
+            transfer_report,
         )
         self.assertIs(result.selection, selection)
 

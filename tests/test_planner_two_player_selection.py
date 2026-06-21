@@ -22,6 +22,7 @@ from ow_planner import (
     MissionResponseFacts,
     MissionType,
     MissionValueFacts,
+    OwnTransferIntentReport,
     OwnedPlanetThreatFacts,
     OwnedProductionThreatReport,
     PlannerDecisionBundle,
@@ -193,6 +194,23 @@ def owned_pressure_report(
     )
 
 
+def own_transfer_spam_report(
+    *,
+    spammy_count: int = 1,
+) -> OwnTransferIntentReport:
+    return OwnTransferIntentReport(
+        player_id=0,
+        transfer_count=spammy_count,
+        potentially_spammy_count=spammy_count,
+        repeated_transfer_group_count=1 if spammy_count > 1 else 0,
+        labels=(
+            ("potentially_spammy_own_transfer",)
+            if spammy_count > 0
+            else ()
+        ),
+    )
+
+
 def bundle_for(
     *,
     target_planet_id: int,
@@ -266,6 +284,7 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
             ),
         )
         self.assertIsNone(config.owned_production_threat_report)
+        self.assertIsNone(config.own_transfer_intent_report)
         self.assertTrue(hasattr(TwoPlayerSelectionConfig, "__slots__"))
         with self.assertRaises(FrozenInstanceError):
             config.minimum_total_score = 1.0
@@ -275,6 +294,8 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
     ) -> None:
         with self.assertRaisesRegex(ValueError, "owned_production_threat_report"):
             TwoPlayerSelectionConfig(owned_production_threat_report=object())
+        with self.assertRaisesRegex(ValueError, "own_transfer_intent_report"):
+            TwoPlayerSelectionConfig(own_transfer_intent_report=object())
 
     def test_selects_opponent_owned_capture_over_neutral_capture(self) -> None:
         opponent_bundle = bundle_for(
@@ -921,6 +942,142 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
 
         self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
         self.assertIn("below minimum total score", result.notes)
+
+    def test_spammy_own_transfer_facts_prefer_productive_alternative(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=5,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=90.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        productive_capture = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=20.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (reinforcement, productive_capture),
+            config=TwoPlayerSelectionConfig(
+                own_transfer_intent_report=own_transfer_spam_report(),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, productive_capture)
+        self.assertIn(
+            "own-transfer spam preference: productive alternative",
+            result.notes,
+        )
+
+    def test_no_spam_control_preserves_existing_ordering(self) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=5,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=90.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        productive_capture = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=20.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        default_result = select_two_player_direct_advantage(
+            (reinforcement, productive_capture),
+        )
+        result = select_two_player_direct_advantage(
+            (reinforcement, productive_capture),
+            config=TwoPlayerSelectionConfig(
+                own_transfer_intent_report=own_transfer_spam_report(
+                    spammy_count=0,
+                ),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, default_result.selected_bundle)
+        self.assertNotIn(
+            "own-transfer spam preference: productive alternative",
+            result.notes,
+        )
+
+    def test_owned_production_pressure_overrides_spam_suppression(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=1,
+            source_planet_id=4,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=-20.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        productive_capture = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=80.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (productive_capture, reinforcement),
+            config=TwoPlayerSelectionConfig(
+                owned_production_threat_report=owned_pressure_report(),
+                own_transfer_intent_report=own_transfer_spam_report(),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reinforcement)
+        self.assertIn(
+            "owned-production pressure preference: reserve_preserving retention",
+            result.notes,
+        )
 
     def test_no_action_when_no_validated_non_no_attack_commitment_exists(self) -> None:
         no_attack_only = bundle_for(

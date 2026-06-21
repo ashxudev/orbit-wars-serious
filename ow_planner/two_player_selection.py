@@ -15,6 +15,7 @@ from typing import Sequence
 
 from .candidates import MissionType
 from .commitment import CommitmentOption, CommitmentOptionStatus, CommitmentOptionType
+from .own_transfers import OwnTransferIntentReport
 from .owned_threats import OwnedProductionThreatReport
 from .strategy_decisions import (
     PlannerDecisionBundle,
@@ -57,6 +58,7 @@ class TwoPlayerSelectionConfig:
         DEFAULT_COMMITMENT_PREFERENCE_ORDER
     )
     owned_production_threat_report: OwnedProductionThreatReport | None = None
+    own_transfer_intent_report: OwnTransferIntentReport | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -81,6 +83,13 @@ class TwoPlayerSelectionConfig:
             raise ValueError(
                 "owned_production_threat_report must be None or "
                 "OwnedProductionThreatReport"
+            )
+        if self.own_transfer_intent_report is not None and not isinstance(
+            self.own_transfer_intent_report,
+            OwnTransferIntentReport,
+        ):
+            raise ValueError(
+                "own_transfer_intent_report must be None or OwnTransferIntentReport"
             )
 
 
@@ -151,6 +160,11 @@ def select_two_player_direct_advantage(
         eligible,
         effective_config.owned_production_threat_report,
     )
+    if pressure_note is None:
+        selection_pool, pressure_note = _own_transfer_spam_reduction_pool(
+            eligible,
+            effective_config.own_transfer_intent_report,
+        )
     if pressure_note is None:
         selection_pool, pressure_note = _pressure_retention_pool(eligible)
     selected_facts, _index, selected_commitment = max(
@@ -335,6 +349,43 @@ def _allow_below_minimum_under_owned_pressure(
     if _is_owned_retention_candidate(facts.bundle):
         return True
     return commitment_option.option_type is CommitmentOptionType.RESERVE_PRESERVING
+
+
+def _own_transfer_spam_reduction_pool(
+    eligible: list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]],
+    transfer_report: OwnTransferIntentReport | None,
+) -> tuple[list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]], str | None]:
+    if (
+        transfer_report is None
+        or transfer_report.player_id is None
+        or transfer_report.potentially_spammy_count <= 0
+    ):
+        return eligible, None
+    productive_alternatives = [
+        item for item in eligible if _is_productive_non_transfer_candidate(item[0])
+    ]
+    if not productive_alternatives:
+        return eligible, None
+    return (
+        productive_alternatives,
+        "own-transfer spam preference: productive alternative",
+    )
+
+
+def _is_productive_non_transfer_candidate(facts: TwoPlayerAdvantageFacts) -> bool:
+    if _is_owned_retention_candidate(facts.bundle):
+        return False
+    if facts.bundle.candidate.mission_type not in (
+        MissionType.CAPTURE_NEUTRAL,
+        MissionType.ATTACK_ENEMY,
+    ):
+        return False
+    return (
+        facts.target_captured_by_player is True
+        or facts.target_taken_from_opponent is True
+        or _int_or_zero(facts.production_delta_vs_baseline) > 0
+        or _int_or_zero(facts.opponent_production_denied) > 0
+    )
 
 
 def _is_owned_retention_candidate(bundle: PlannerDecisionBundle) -> bool:

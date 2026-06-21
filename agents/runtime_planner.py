@@ -32,6 +32,7 @@ from ow_planner import (
     evaluate_responses,
     four_player_board_facts,
     generate_candidates,
+    own_transfer_intent_facts,
     planner_decision_bundles,
     owned_production_threat_facts,
     select_strategy_for_mode,
@@ -145,9 +146,17 @@ def _dispatch_config_with_owned_threat_facts(
         else base_config.two_player_config
     )
     if two_player_config.owned_production_threat_report is not None:
-        return base_config
+        threat_report = two_player_config.owned_production_threat_report
+    else:
+        threat_report = owned_production_threat_facts(state)
 
-    threat_report = owned_production_threat_facts(state)
+    if two_player_config.own_transfer_intent_report is not None:
+        transfer_report = two_player_config.own_transfer_intent_report
+    else:
+        transfer_report = own_transfer_intent_facts(
+            state,
+            threat_report=threat_report,
+        )
     return StrategyDispatchConfig(
         two_player_config=TwoPlayerSelectionConfig(
             minimum_total_score=two_player_config.minimum_total_score,
@@ -156,6 +165,7 @@ def _dispatch_config_with_owned_threat_facts(
             ),
             commitment_preference_order=two_player_config.commitment_preference_order,
             owned_production_threat_report=threat_report,
+            own_transfer_intent_report=transfer_report,
         ),
         four_player_config=base_config.four_player_config,
     )

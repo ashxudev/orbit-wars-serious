@@ -88,3 +88,19 @@ surface identifies potentially spammy own-to-own movement. The repeated
 does not change candidate generation, scoring, strategy selection, runtime
 action conversion, simulator mechanics, evaluation gates, or submission
 behavior.
+
+## Cycle 4 Own-Transfer Spam Reduction Selection
+
+Cycle 4 threads `own_transfer_intent_facts` into the two-player selector beside
+the owned-production threat report. When potentially spammy own-transfer
+activity is visible and owned production is not under pressure, the selector now
+prefers validated productive non-transfer alternatives over new
+owned-retention-style actions.
+
+The direct selector tests cover this policy boundary. The live `80991772`
+fixture still selects reserve-preserving retention because owned-production
+pressure is active. The live `80986331` fixture remains behaviorally unchanged
+because the current bundle set exposes only reinforce-style candidates and no
+validated productive non-transfer alternative to prefer. This cycle does not
+change candidate generation, scoring, simulator mechanics, action conversion,
+evaluation gates, or submission behavior.
