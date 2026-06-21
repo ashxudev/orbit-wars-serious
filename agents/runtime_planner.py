@@ -16,6 +16,7 @@ from ow_planner import (
     CommitmentPolicyConfig,
     EvaluationConfig,
     FourPlayerBoardFacts,
+    FourPlayerSelectionConfig,
     MissionCandidate,
     MissionEvaluation,
     MissionResponseEvaluation,
@@ -32,6 +33,7 @@ from ow_planner import (
     evaluate_and_score_candidates,
     evaluate_responses,
     four_player_board_facts,
+    four_player_plateau_facts,
     generate_candidates,
     own_transfer_intent_facts,
     planner_decision_bundles,
@@ -100,7 +102,7 @@ def run_planner_pipeline(
         if mode_facts.mode is StrategyMode.FOUR_PLAYER
         else None
     )
-    dispatch_config = _dispatch_config_with_owned_threat_facts(
+    dispatch_config = _dispatch_config_with_runtime_facts(
         effective_config.strategy_dispatch_config,
         state,
         mode_facts,
@@ -132,15 +134,41 @@ def run_planner_pipeline(
     )
 
 
-def _dispatch_config_with_owned_threat_facts(
+def _dispatch_config_with_runtime_facts(
     config: StrategyDispatchConfig | None,
     state: GameState,
     mode_facts: StrategyModeFacts,
 ) -> StrategyDispatchConfig | None:
+    base_config = StrategyDispatchConfig() if config is None else config
+    if mode_facts.mode is StrategyMode.FOUR_PLAYER:
+        four_player_config = (
+            FourPlayerSelectionConfig()
+            if base_config.four_player_config is None
+            else base_config.four_player_config
+        )
+        if four_player_config.four_player_plateau_report is not None:
+            plateau_report = four_player_config.four_player_plateau_report
+        else:
+            plateau_report = four_player_plateau_facts(state)
+        return StrategyDispatchConfig(
+            two_player_config=base_config.two_player_config,
+            four_player_config=FourPlayerSelectionConfig(
+                minimum_total_score=four_player_config.minimum_total_score,
+                allow_source_counterattack_risk=(
+                    four_player_config.allow_source_counterattack_risk
+                ),
+                allow_third_party_benefit=(
+                    four_player_config.allow_third_party_benefit
+                ),
+                commitment_preference_order=(
+                    four_player_config.commitment_preference_order
+                ),
+                four_player_plateau_report=plateau_report,
+            ),
+        )
     if mode_facts.mode is not StrategyMode.TWO_PLAYER:
         return config
 
-    base_config = StrategyDispatchConfig() if config is None else config
     two_player_config = (
         TwoPlayerSelectionConfig()
         if base_config.two_player_config is None

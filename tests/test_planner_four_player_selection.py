@@ -15,6 +15,7 @@ from ow_planner import (
     CommitmentOptionStatus,
     CommitmentOptionType,
     FourPlayerBoardFacts,
+    FourPlayerPlateauReport,
     FourPlayerSelectionConfig,
     FourPlayerStandingFacts,
     LaunchCandidate,
@@ -104,6 +105,7 @@ def mission_candidate(
     source_planet_id: int,
     ships: int = 6,
     outcome: CandidateOutcome = CandidateOutcome.VALIDATED,
+    mission_type: MissionType = MissionType.ATTACK_ENEMY,
 ) -> MissionCandidate:
     launch = LaunchCandidate(
         source_planet_id=source_planet_id,
@@ -112,7 +114,7 @@ def mission_candidate(
         player_id=0,
     )
     return MissionCandidate(
-        mission_type=MissionType.ATTACK_ENEMY,
+        mission_type=mission_type,
         target_planet_id=target_planet_id,
         source_planet_ids=(source_planet_id,),
         launches=(launch,),
@@ -199,11 +201,13 @@ def bundle_for(
     ),
     option_status: CommitmentOptionStatus = CommitmentOptionStatus.VALIDATED,
     candidate_outcome: CandidateOutcome = CandidateOutcome.VALIDATED,
+    mission_type: MissionType = MissionType.ATTACK_ENEMY,
 ) -> PlannerDecisionBundle:
     candidate = mission_candidate(
         target_planet_id,
         source_planet_id,
         outcome=candidate_outcome,
+        mission_type=mission_type,
     )
     evaluation = mission_evaluation(candidate, value_facts, total_score=total_score)
     options = tuple(
@@ -235,6 +239,31 @@ def bundle_for(
     )
 
 
+def plateau_report(*, underexpanded: bool = True) -> FourPlayerPlateauReport:
+    return FourPlayerPlateauReport(
+        player_id=0,
+        active_opponent_ids=(1, 2, 3),
+        declared_player_count=4,
+        active_player_count=4,
+        is_four_player_context=True,
+        owned_planet_count=3,
+        owned_production=9,
+        owned_ships=100,
+        candidate_count=6,
+        action_count=0,
+        runtime_status="no_action",
+        no_action_reason="strategy_selection_no_action",
+        plateaued=underexpanded,
+        underexpanded=underexpanded,
+        candidate_backlog_no_action=underexpanded,
+        labels=(
+            ("four_player_plateau", "underexpanded_four_player")
+            if underexpanded
+            else ()
+        ),
+    )
+
+
 class PlannerFourPlayerSelectionTests(unittest.TestCase):
     def test_four_player_selection_module_imports_and_exports_are_available(
         self,
@@ -250,6 +279,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
         self.assertEqual(config.minimum_total_score, -100.0)
         self.assertFalse(config.allow_source_counterattack_risk)
         self.assertFalse(config.allow_third_party_benefit)
+        self.assertIsNone(config.four_player_plateau_report)
         self.assertEqual(
             config.commitment_preference_order,
             (
@@ -271,6 +301,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
             {"allow_source_counterattack_risk": 1},
             {"allow_third_party_benefit": 1},
             {"commitment_preference_order": (CommitmentOptionType.NO_ATTACK, "bad")},
+            {"four_player_plateau_report": object()},
         )
 
         for kwargs in invalid_configs:
@@ -638,6 +669,112 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
             custom_result.selected_commitment_option,
             bundle.commitment_options.options[0],
         )
+
+    def test_plateau_recovery_selects_owned_retention_when_no_normal_candidate(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            value_facts=mission_value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=-2.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_four_player_strategy(
+            (reinforcement,),
+            board_facts(),
+            config=FourPlayerSelectionConfig(
+                four_player_plateau_report=plateau_report(),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reinforcement)
+        self.assertEqual(
+            result.selected_commitment_option.option_type,
+            CommitmentOptionType.RESERVE_PRESERVING,
+        )
+        self.assertIn(
+            "four-player plateau recovery: reserve_preserving retention",
+            result.notes,
+        )
+
+    def test_plateau_recovery_prefers_productive_candidate_over_retention(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            value_facts=mission_value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=-2.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        below_floor_capture = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            value_facts=mission_value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=5,
+                production_delta_vs_baseline=5,
+            ),
+            total_score=-500.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_four_player_strategy(
+            (reinforcement, below_floor_capture),
+            board_facts(),
+            config=FourPlayerSelectionConfig(
+                four_player_plateau_report=plateau_report(),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, below_floor_capture)
+        self.assertIn(
+            "four-player plateau recovery: productive candidate",
+            result.notes,
+        )
+
+    def test_no_plateau_context_preserves_owned_retention_rejection(self) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            value_facts=mission_value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=-2.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_four_player_strategy(
+            (reinforcement,),
+            board_facts(),
+            config=FourPlayerSelectionConfig(
+                four_player_plateau_report=plateau_report(underexpanded=False),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
 
     def test_no_action_when_no_validated_non_no_attack_commitment_exists(self) -> None:
         no_attack_only = bundle_for(

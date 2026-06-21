@@ -149,3 +149,22 @@ while the action-emitting `80982912` fixture is labeled separately as an
 action-emitting plateau. This cycle is observability only: it does not change
 four-player selection, candidate generation, scoring, simulator mechanics,
 action conversion, evaluation gates, or submission behavior.
+
+## Cycle 8 Four-Player Plateau No-Action Recovery
+
+Cycle 8 threads the plateau report into the four-player selector. When true 4P
+underexpanded plateau context reaches the selector and normal 4P selection
+would otherwise return no action, the selector can recover a safe validated
+candidate through the existing planner/evaluation/commitment/action path. It
+prefers productive expansion or denial candidates when available, and otherwise
+allows conservative reserve-preserving owned-retention actions instead of
+idling.
+
+The `80981260` fixture now emits a reserve-preserving reinforcement action via
+the normal 4P selector with a `four-player plateau recovery` note. The
+`80982912` action-emitting plateau remains action-emitting. The `80984201`
+fixture remains no-action because only two owners are active in the current
+state, so live runtime dispatches it through the 2P selector; this is left for a
+later late-game/mode-detection cycle. This cycle does not change candidate
+generation, simulator mechanics, scoring, action conversion, evaluation gates,
+or submission behavior.

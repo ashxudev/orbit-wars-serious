@@ -163,7 +163,7 @@ class FourPlayerPlateauFactsTests(unittest.TestCase):
 
     def test_v1_four_player_plateau_fixtures_expose_plateau_facts(self) -> None:
         expected = {
-            "four_p_plateau_80981260_t060_p2.json": (True, False),
+            "four_p_plateau_80981260_t060_p2.json": (False, True),
             "four_p_plateau_80984201_t240_p0.json": (True, False),
             "four_p_plateau_80982912_t250_p0.json": (False, True),
         }

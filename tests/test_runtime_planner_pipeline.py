@@ -20,6 +20,7 @@ from ow_planner import (
     EvaluationConfig,
     EnemyDenialOpportunityReport,
     FourPlayerBoardFacts,
+    FourPlayerPlateauReport,
     LaunchCandidate,
     MissionCandidate,
     MissionEvaluation,
@@ -187,6 +188,13 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         )
         bundles = (PlannerDecisionBundle(candidate=candidate),)
         selection = StrategySelectionResult(status=StrategySelectionStatus.REJECTED)
+        plateau_report = FourPlayerPlateauReport(
+            player_id=0,
+            active_opponent_ids=(1, 2, 3),
+            is_four_player_context=True,
+            underexpanded=True,
+            labels=("four_player_plateau",),
+        )
 
         with (
             patch(
@@ -214,6 +222,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
                 return_value=board_facts,
             ) as four_player_board_facts,
             patch(
+                "agents.runtime_planner.four_player_plateau_facts",
+                return_value=plateau_report,
+            ) as four_player_plateau_facts,
+            patch(
                 "agents.runtime_planner.planner_decision_bundles",
                 return_value=bundles,
             ) as planner_decision_bundles,
@@ -239,6 +251,7 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         )
         strategy_mode_facts.assert_called_once_with(state)
         four_player_board_facts.assert_called_once_with(state, mode_facts)
+        four_player_plateau_facts.assert_called_once_with(state)
         planner_decision_bundles.assert_called_once_with(
             candidates,
             strategy_mode_facts=mode_facts,
@@ -246,11 +259,16 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
             response_evaluations=responses,
             commitment_options=commitments,
         )
-        select_strategy_for_mode.assert_called_once_with(
-            bundles,
-            strategy_mode_facts=mode_facts,
-            four_player_board_facts=board_facts,
-            config=dispatch_config,
+        _args, kwargs = select_strategy_for_mode.call_args
+        self.assertEqual(_args, (bundles,))
+        self.assertIs(kwargs["strategy_mode_facts"], mode_facts)
+        self.assertIs(kwargs["four_player_board_facts"], board_facts)
+        injected_dispatch_config = kwargs["config"]
+        self.assertIsNot(injected_dispatch_config, dispatch_config)
+        self.assertIsNone(injected_dispatch_config.two_player_config)
+        self.assertIs(
+            injected_dispatch_config.four_player_config.four_player_plateau_report,
+            plateau_report,
         )
         self.assertIs(result.candidates, candidates)
         self.assertIs(result.four_player_board_facts, board_facts)

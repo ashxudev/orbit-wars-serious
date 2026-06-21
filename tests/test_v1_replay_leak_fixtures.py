@@ -142,7 +142,6 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
 
     def test_no_action_cases_are_selector_rejections_not_parse_failures(self) -> None:
         no_action_cases = {
-            "four_p_plateau_80981260_t060_p2.json",
             "four_p_plateau_80984201_t240_p0.json",
         }
 
@@ -266,7 +265,7 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
         self,
     ) -> None:
         expected_flags = {
-            "four_p_plateau_80981260_t060_p2.json": (True, False),
+            "four_p_plateau_80981260_t060_p2.json": (False, True),
             "four_p_plateau_80984201_t240_p0.json": (True, False),
             "four_p_plateau_80982912_t250_p0.json": (False, True),
         }
