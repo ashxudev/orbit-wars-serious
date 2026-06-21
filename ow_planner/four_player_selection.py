@@ -21,6 +21,7 @@ from .four_player_missions import (
     four_player_mission_facts_for_bundles,
 )
 from .four_player_plateau import FourPlayerPlateauReport
+from .four_player_rank import FourPlayerRankReport
 from .four_player_strategy import FourPlayerBoardFacts
 from .strategy_decisions import (
     PlannerDecisionBundle,
@@ -51,6 +52,7 @@ class FourPlayerSelectionConfig:
         DEFAULT_FOUR_PLAYER_COMMITMENT_PREFERENCE_ORDER
     )
     four_player_plateau_report: FourPlayerPlateauReport | None = None
+    four_player_rank_report: FourPlayerRankReport | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -76,6 +78,13 @@ class FourPlayerSelectionConfig:
         ):
             raise ValueError(
                 "four_player_plateau_report must be None or FourPlayerPlateauReport"
+            )
+        if self.four_player_rank_report is not None and not isinstance(
+            self.four_player_rank_report,
+            FourPlayerRankReport,
+        ):
+            raise ValueError(
+                "four_player_rank_report must be None or FourPlayerRankReport"
             )
 
 
@@ -176,13 +185,20 @@ def select_four_player_strategy(
         if recovery_pool:
             selected_facts, _index, selected_commitment = max(
                 recovery_pool,
-                key=_selection_key,
+                key=lambda item: _selection_key(
+                    item,
+                    effective_config.four_player_rank_report,
+                ),
             )
             return selected_strategy_result(
                 selected_facts.bundle,
                 selected_commitment,
                 notes=(
-                    *_selected_notes(selected_facts, selected_commitment),
+                    *_selected_notes(
+                        selected_facts,
+                        selected_commitment,
+                        effective_config.four_player_rank_report,
+                    ),
                     recovery_note,
                 ),
             )
@@ -191,11 +207,21 @@ def select_four_player_strategy(
             notes=_no_action_notes(ineligible_reasons),
         )
 
-    selected_facts, _index, selected_commitment = max(eligible, key=_selection_key)
+    selected_facts, _index, selected_commitment = max(
+        eligible,
+        key=lambda item: _selection_key(
+            item,
+            effective_config.four_player_rank_report,
+        ),
+    )
     return selected_strategy_result(
         selected_facts.bundle,
         selected_commitment,
-        notes=_selected_notes(selected_facts, selected_commitment),
+        notes=_selected_notes(
+            selected_facts,
+            selected_commitment,
+            effective_config.four_player_rank_report,
+        ),
     )
 
 
@@ -302,13 +328,46 @@ def _is_owned_retention_candidate(facts: FourPlayerMissionFacts) -> bool:
     )
 
 
+def _is_rank_aware_continuation_candidate(
+    facts: FourPlayerMissionFacts,
+    rank_report: FourPlayerRankReport | None,
+) -> bool:
+    if rank_report is None:
+        return False
+    if not (
+        rank_report.leader_pressure
+        or rank_report.underexpanded_trailing
+        or rank_report.swing_opportunity
+    ):
+        return False
+    if facts.bundle.candidate.mission_type not in (
+        MissionType.CAPTURE_NEUTRAL,
+        MissionType.ATTACK_ENEMY,
+    ):
+        return False
+    if facts.target_was_current_player_owned is True:
+        return False
+    target_ids = {
+        target_facts.target_planet_id
+        for target_facts in rank_report.swing_target_facts
+        if (
+            target_facts.high_value_swing_target
+            or target_facts.target_owner_is_leader
+            or target_facts.plausible_with_nearest_source
+        )
+    }
+    return facts.bundle.candidate.target_planet_id in target_ids
+
+
 def _selection_key(
     item: tuple[FourPlayerMissionFacts, int, CommitmentOption],
-) -> tuple[bool, bool, int, int, float, float, int, int]:
+    rank_report: FourPlayerRankReport | None = None,
+) -> tuple[bool, bool, bool, int, int, float, float, int, int]:
     facts, input_index, _commitment_option = item
     return (
         facts.target_taken_from_production_leader is True,
         facts.target_taken_from_total_ship_leader is True,
+        _is_rank_aware_continuation_candidate(facts, rank_report),
         _int_or_zero(facts.leader_production_denied),
         _int_or_zero(facts.production_delta_vs_baseline),
         float(facts.evaluation_total_score),
@@ -321,6 +380,7 @@ def _selection_key(
 def _selected_notes(
     facts: FourPlayerMissionFacts,
     commitment_option: CommitmentOption,
+    rank_report: FourPlayerRankReport | None = None,
 ) -> tuple[str, ...]:
     notes = [
         "four-player strategy selected",
@@ -332,6 +392,8 @@ def _selected_notes(
         notes.append("total ship leader target")
     elif facts.survival_pressure is True:
         notes.append("survival pressure context")
+    if _is_rank_aware_continuation_candidate(facts, rank_report):
+        notes.append("rank-aware four-player continuation")
     return tuple(notes)
 
 

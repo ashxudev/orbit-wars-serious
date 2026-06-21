@@ -318,6 +318,7 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
             with self.subTest(fixture_name=fixture_name):
                 payload = load_case(FIXTURE_DIR / fixture_name)
                 state = observation_to_game_state(payload["observation"])
+                _action_count, metadata = self.runtime_results[fixture_name]
 
                 report = four_player_rank_facts(
                     state,
@@ -331,6 +332,11 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
                 if fixture_name == "four_p_plateau_80984201_t240_p0.json":
                     self.assertEqual(report.active_player_count, 2)
                     self.assertFalse(report.is_active_four_player_context)
+                else:
+                    self.assertIn(
+                        "rank-aware four-player continuation",
+                        metadata["runtime_diagnostic_selection_notes"],
+                    )
 
     def test_action_emitting_leaks_preserve_current_commitment_characterization(
         self,

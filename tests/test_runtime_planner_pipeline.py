@@ -21,6 +21,7 @@ from ow_planner import (
     EnemyDenialOpportunityReport,
     FourPlayerBoardFacts,
     FourPlayerPlateauReport,
+    FourPlayerRankReport,
     LaunchCandidate,
     MissionCandidate,
     MissionEvaluation,
@@ -195,6 +196,16 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
             underexpanded=True,
             labels=("four_player_plateau",),
         )
+        rank_report = FourPlayerRankReport(
+            player_id=0,
+            active_player_ids=(0, 1, 2, 3),
+            active_opponent_ids=(1, 2, 3),
+            active_player_count=4,
+            is_active_four_player_context=True,
+            is_four_player_context=True,
+            leader_pressure=True,
+            labels=("leader_pressure",),
+        )
 
         with (
             patch(
@@ -226,6 +237,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
                 return_value=plateau_report,
             ) as four_player_plateau_facts,
             patch(
+                "agents.runtime_planner.four_player_rank_facts",
+                return_value=rank_report,
+            ) as four_player_rank_facts,
+            patch(
                 "agents.runtime_planner.planner_decision_bundles",
                 return_value=bundles,
             ) as planner_decision_bundles,
@@ -252,6 +267,7 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         strategy_mode_facts.assert_called_once_with(state)
         four_player_board_facts.assert_called_once_with(state, mode_facts)
         four_player_plateau_facts.assert_called_once_with(state)
+        four_player_rank_facts.assert_called_once_with(state)
         planner_decision_bundles.assert_called_once_with(
             candidates,
             strategy_mode_facts=mode_facts,
@@ -269,6 +285,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         self.assertIs(
             injected_dispatch_config.four_player_config.four_player_plateau_report,
             plateau_report,
+        )
+        self.assertIs(
+            injected_dispatch_config.four_player_config.four_player_rank_report,
+            rank_report,
         )
         self.assertIs(result.candidates, candidates)
         self.assertIs(result.four_player_board_facts, board_facts)

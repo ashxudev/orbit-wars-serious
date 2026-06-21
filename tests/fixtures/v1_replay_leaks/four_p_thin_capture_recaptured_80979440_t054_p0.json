@@ -12,7 +12,7 @@
     "player_id": 0,
     "runtime_mode": "direct",
     "selected_commitment_type": "reserve_preserving",
-    "selection_notes": "four-player strategy selected|selected commitment option: reserve_preserving",
+    "selection_notes": "four-player strategy selected|selected commitment option: reserve_preserving|rank-aware four-player continuation",
     "state_step": 54
   },
   "leak_class": "thin_capture_recaptured",

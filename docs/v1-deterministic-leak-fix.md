@@ -191,3 +191,24 @@ This cycle is observability only. It does not change strategy selection,
 candidate generation, scoring, commitment sizing, simulator mechanics, action
 conversion, runtime fallback behavior, evaluation gates, or submission
 behavior.
+
+## Cycle 10 Four-Player Continuation / Rank-Aware Selector Gate
+
+Cycle 10 threads `FourPlayerRankReport` into the four-player selector beside
+the Cycle 7 plateau report. After the existing validation, source-counterattack
+risk, third-party-benefit, and commitment checks pass, the selector can prefer
+validated productive continuation candidates that match rank/swing facts in
+leader-pressure, underexpanded-trailing, or swing-opportunity contexts.
+
+Normal safe 4P selection still runs first: no candidate generation breadth,
+commitment sizing, scoring weights, simulator mechanics, action conversion, or
+runtime fallback behavior changed. The rank-aware gate only changes ordering
+among already-safe validated 4P candidates.
+
+The `80982912` plateau fixture remains action-emitting and now records that
+its selected neutral capture is a rank-aware continuation action. The `80981260`
+plateau fixture remains fixed by Cycle 8's plateau recovery path. The `80984201`
+fixture remains no-action because only two owners are active, so live runtime
+still dispatches it through the 2P selector rather than a forced 4P path. The
+`80979440` thin-capture fixture also records rank-aware continuation context
+without changing its action count or commitment type.

@@ -16,8 +16,10 @@ from ow_planner import (
     CommitmentOptionType,
     FourPlayerBoardFacts,
     FourPlayerPlateauReport,
+    FourPlayerRankReport,
     FourPlayerSelectionConfig,
     FourPlayerStandingFacts,
+    FourPlayerSwingTargetFacts,
     LaunchCandidate,
     MissionCandidate,
     MissionEvaluation,
@@ -264,6 +266,60 @@ def plateau_report(*, underexpanded: bool = True) -> FourPlayerPlateauReport:
     )
 
 
+def rank_report(
+    *,
+    leader_pressure: bool = True,
+    underexpanded_trailing: bool = True,
+    swing_opportunity: bool = True,
+    target_planet_id: int = 8,
+    target_owner: int = 1,
+    target_owner_is_leader: bool = False,
+) -> FourPlayerRankReport:
+    return FourPlayerRankReport(
+        player_id=0,
+        declared_player_count=4,
+        active_player_ids=(0, 1, 2, 3),
+        active_opponent_ids=(1, 2, 3),
+        active_player_count=4,
+        is_declared_four_player_context=True,
+        is_active_four_player_context=True,
+        is_four_player_context=True,
+        production_leader_ids=(2,),
+        current_player_production_rank=3,
+        production_delta_to_leader=10,
+        swing_target_facts=(
+            FourPlayerSwingTargetFacts(
+                target_planet_id=target_planet_id,
+                target_owner=target_owner,
+                target_ships=8,
+                target_production=4,
+                production_bearing=True,
+                target_owner_is_leader=target_owner_is_leader,
+                nearest_owned_source_id=1,
+                nearest_owned_source_ships=30,
+                distance_to_nearest_source=10.0,
+                eta_ticks_from_nearest_source=8,
+                plausible_with_nearest_source=True,
+                high_value_swing_target=True,
+                labels=(
+                    "production_swing_target",
+                    "plausible_with_nearest_source",
+                    "high_value_swing_target",
+                ),
+            ),
+        ),
+        swing_target_count=1,
+        plausible_swing_target_count=1,
+        high_value_swing_target_count=1,
+        leader_owned_swing_target_count=1 if target_owner_is_leader else 0,
+        nearest_swing_target_id=target_planet_id,
+        leader_pressure=leader_pressure,
+        underexpanded_trailing=underexpanded_trailing,
+        swing_opportunity=swing_opportunity,
+        labels=("leader_pressure", "underexpanded_trailing", "swing_opportunity"),
+    )
+
+
 class PlannerFourPlayerSelectionTests(unittest.TestCase):
     def test_four_player_selection_module_imports_and_exports_are_available(
         self,
@@ -280,6 +336,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
         self.assertFalse(config.allow_source_counterattack_risk)
         self.assertFalse(config.allow_third_party_benefit)
         self.assertIsNone(config.four_player_plateau_report)
+        self.assertIsNone(config.four_player_rank_report)
         self.assertEqual(
             config.commitment_preference_order,
             (
@@ -302,6 +359,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
             {"allow_third_party_benefit": 1},
             {"commitment_preference_order": (CommitmentOptionType.NO_ATTACK, "bad")},
             {"four_player_plateau_report": object()},
+            {"four_player_rank_report": object()},
         )
 
         for kwargs in invalid_configs:
@@ -397,7 +455,7 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
             target_planet_id=2,
             source_planet_id=1,
             value_facts=mission_value_facts(
-                target_owner_baseline=2,
+                target_owner_baseline=1,
                 target_owner_mission=0,
                 target_production_before=4,
                 production_delta_vs_baseline=4,
@@ -447,6 +505,112 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
         result = select_four_player_strategy((lower_score, higher_score), board_facts())
 
         self.assertIs(result.selected_bundle, higher_score)
+
+    def test_rank_aware_context_prefers_swing_candidate_over_generic_score(
+        self,
+    ) -> None:
+        generic_higher_score = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            value_facts=mission_value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=6,
+                production_delta_vs_baseline=6,
+            ),
+            total_score=80.0,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+        )
+        swing_lower_score = bundle_for(
+            target_planet_id=8,
+            source_planet_id=1,
+            value_facts=mission_value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=1.0,
+            mission_type=MissionType.ATTACK_ENEMY,
+        )
+
+        result = select_four_player_strategy(
+            (generic_higher_score, swing_lower_score),
+            board_facts(),
+            config=FourPlayerSelectionConfig(four_player_rank_report=rank_report()),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, swing_lower_score)
+        self.assertIn("rank-aware four-player continuation", result.notes)
+
+    def test_without_rank_context_existing_score_ordering_is_preserved(self) -> None:
+        generic_higher_score = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            value_facts=mission_value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=6,
+                production_delta_vs_baseline=6,
+            ),
+            total_score=80.0,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+        )
+        swing_lower_score = bundle_for(
+            target_planet_id=8,
+            source_planet_id=1,
+            value_facts=mission_value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=1.0,
+            mission_type=MissionType.ATTACK_ENEMY,
+        )
+
+        result = select_four_player_strategy(
+            (generic_higher_score, swing_lower_score),
+            board_facts(),
+        )
+
+        self.assertIs(result.selected_bundle, generic_higher_score)
+
+    def test_rank_aware_context_does_not_override_safety_exclusions(self) -> None:
+        risky_swing = bundle_for(
+            target_planet_id=8,
+            source_planet_id=1,
+            value_facts=mission_value_facts(
+                target_owner_baseline=2,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=100.0,
+            source_counterattack_risk=True,
+            mission_type=MissionType.ATTACK_ENEMY,
+        )
+        safe_generic = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            value_facts=mission_value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=1,
+                production_delta_vs_baseline=1,
+            ),
+            total_score=1.0,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+        )
+
+        result = select_four_player_strategy(
+            (risky_swing, safe_generic),
+            board_facts(),
+            config=FourPlayerSelectionConfig(four_player_rank_report=rank_report()),
+        )
+
+        self.assertIs(result.selected_bundle, safe_generic)
 
     def test_input_order_breaks_complete_ties(self) -> None:
         first = bundle_for(

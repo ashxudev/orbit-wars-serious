@@ -34,6 +34,7 @@ from ow_planner import (
     evaluate_responses,
     four_player_board_facts,
     four_player_plateau_facts,
+    four_player_rank_facts,
     generate_candidates,
     own_transfer_intent_facts,
     planner_decision_bundles,
@@ -150,6 +151,10 @@ def _dispatch_config_with_runtime_facts(
             plateau_report = four_player_config.four_player_plateau_report
         else:
             plateau_report = four_player_plateau_facts(state)
+        if four_player_config.four_player_rank_report is not None:
+            rank_report = four_player_config.four_player_rank_report
+        else:
+            rank_report = four_player_rank_facts(state)
         return StrategyDispatchConfig(
             two_player_config=base_config.two_player_config,
             four_player_config=FourPlayerSelectionConfig(
@@ -164,6 +169,7 @@ def _dispatch_config_with_runtime_facts(
                     four_player_config.commitment_preference_order
                 ),
                 four_player_plateau_report=plateau_report,
+                four_player_rank_report=rank_report,
             ),
         )
     if mode_facts.mode is not StrategyMode.TWO_PLAYER:
