@@ -27,6 +27,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = REPO_ROOT / "experiments" / "manifests"
 EXPECTED_FIXTURES = (
     "competitive-baseline-smoke.json",
+    "historical-champion-gauntlet-2p-500.json",
+    "historical-champion-gauntlet-4p-500.json",
     "legacy-opponent-smoke.json",
     "quick-2p-smoke.json",
     "quick-4p-smoke.json",
@@ -36,6 +38,11 @@ DEFAULT_SUITE_FIXTURES = (
     "quick-2p-smoke.json",
     "quick-4p-smoke.json",
     "promotion-smoke.json",
+)
+PYTHON_FILE_OPPONENT_FIXTURES = (
+    "historical-champion-gauntlet-2p-500.json",
+    "historical-champion-gauntlet-4p-500.json",
+    "legacy-opponent-smoke.json",
 )
 EXPECTED_MATCHES = {
     "competitive-baseline-smoke.json": (
@@ -232,7 +239,7 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
                 for scenario in manifest.scenarios:
                     for opponent in scenario.opponent_agents:
                         self.assertIsNone(opponent.agent.module_path)
-                        if name == "legacy-opponent-smoke.json":
+                        if name in PYTHON_FILE_OPPONENT_FIXTURES:
                             self.assertEqual(
                                 opponent.agent.source_kind,
                                 AgentSourceKind.PYTHON_FILE,
@@ -302,23 +309,11 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
         )
         self.assertEqual(
             tuple(result.experiment_report.manifest_name for result in results),
-            (
-                "competitive-baseline-smoke",
-                "legacy-opponent-smoke",
-                "quick-2p-smoke",
-                "quick-4p-smoke",
-                "promotion-smoke",
-            ),
+            tuple(name.removesuffix(".json") for name in EXPECTED_FIXTURES),
         )
         self.assertEqual(
             tuple(seen_manifest_names),
-            (
-                "competitive-baseline-smoke",
-                "legacy-opponent-smoke",
-                "quick-2p-smoke",
-                "quick-4p-smoke",
-                "promotion-smoke",
-            ),
+            tuple(name.removesuffix(".json") for name in EXPECTED_FIXTURES),
         )
 
     def test_fixtures_are_data_only_json_without_generated_outputs(self) -> None:

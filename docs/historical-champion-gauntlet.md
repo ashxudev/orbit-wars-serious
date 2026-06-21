@@ -64,3 +64,41 @@ git diff --check
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.
+
+## Cycle 1 Full-Horizon Scenario Matrix
+
+Cycle 1 adds source-controlled full-horizon manifest definitions only. These
+manifests are Daytona-ready inputs for later sharding work, but this cycle does
+not run any official-environment matches, Daytona packages, Daytona jobs, or
+Kaggle commands.
+
+The committed manifests are:
+
+```text
+experiments/manifests/historical-champion-gauntlet-2p-500.json
+experiments/manifests/historical-champion-gauntlet-4p-500.json
+```
+
+Both manifests use the current modular runtime agent as `candidate_agent` and
+schedule only registry entries with `loadability_status == "loadable"`. Every
+scenario has `metadata.episode_steps` set to `"500"` so future local and
+Daytona runners execute full-horizon gauntlet games intentionally.
+
+The 2P matrix includes every loadable historical champion opponent across both
+candidate seats, producing 22 deterministic scenarios. The 4P matrix includes
+8 deterministic pool scenarios:
+
+- Top-score champion pools across candidate seats 0, 1, 2, and 3.
+- Mixed champion style pools across candidate seats 0 and 2.
+- `orbit-wars-2` smoke-reference pools across candidate seats 0 and 3.
+
+Skipped registry entries remain documented in the registry but are not included
+in runnable manifests.
+
+Cycle 1 validation is manifest parsing and loadability only:
+
+```bash
+.venv/bin/python -m unittest tests.test_historical_champion_registry tests.test_historical_champion_gauntlet_manifests
+.venv/bin/python -m unittest tests.test_evaluation_manifest_fixtures tests.test_evaluation_agent_loading tests.test_evaluation_official_runner
+git diff --check
+```

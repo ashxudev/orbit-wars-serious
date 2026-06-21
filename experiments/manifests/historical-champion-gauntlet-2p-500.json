@@ -1,0 +1,754 @@
+{
+  "candidate_agent": {
+    "callable_name": "agent",
+    "file_path": null,
+    "metadata": {},
+    "module_path": "agents.orbit_wars_agent",
+    "name": "orbit-wars-runtime-v2",
+    "source_kind": "modular_agent"
+  },
+  "description": "Full-horizon 500-step 2P gauntlet against every loadable historical champion registry opponent across both candidate seats. Matrix definition only; do not run in Cycle 1.",
+  "metadata": {
+    "episode_steps": "500",
+    "matrix": "2p-all-loadable-both-candidate-seats",
+    "purpose": "distributed-historical-champion-gauntlet",
+    "registry_path": "experiments/historical_champions/registry.json",
+    "registry_version": "v0"
+  },
+  "name": "historical-champion-gauntlet-2p-500",
+  "promotion_thresholds": {
+    "max_error_rate": 0.0,
+    "max_mean_rank": 2.0,
+    "min_completed_count": 22,
+    "min_win_rate": 0.0
+  },
+  "scenarios": [
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v3-wide-search-forecast",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "912.2",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53555669",
+        "opponent_name": "claude-v3-wide-search-forecast",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v3.py",
+            "metadata": {
+              "historical_public_score": "912.2",
+              "historical_submission_ref": "53555669",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v3-wide-search-forecast",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7210
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v3-wide-search-forecast",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "912.2",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53555669",
+        "opponent_name": "claude-v3-wide-search-forecast",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v3.py",
+            "metadata": {
+              "historical_public_score": "912.2",
+              "historical_submission_ref": "53555669",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v3-wide-search-forecast",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7211
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v28-mode-split-champion",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "872.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53585590",
+        "opponent_name": "claude-v28-mode-split-champion",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v28.py",
+            "metadata": {
+              "historical_public_score": "872.4",
+              "historical_submission_ref": "53585590",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v28-mode-split-champion",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7220
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v28-mode-split-champion",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "872.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53585590",
+        "opponent_name": "claude-v28-mode-split-champion",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v28.py",
+            "metadata": {
+              "historical_public_score": "872.4",
+              "historical_submission_ref": "53585590",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v28-mode-split-champion",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7221
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v37-race-fix-mode-split",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "870.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53602635",
+        "opponent_name": "claude-v37-race-fix-mode-split",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v37.py",
+            "metadata": {
+              "historical_public_score": "870.4",
+              "historical_submission_ref": "53602635",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v37-race-fix-mode-split",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7230
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v37-race-fix-mode-split",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "870.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53602635",
+        "opponent_name": "claude-v37-race-fix-mode-split",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v37.py",
+            "metadata": {
+              "historical_public_score": "870.4",
+              "historical_submission_ref": "53602635",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v37-race-fix-mode-split",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7231
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v14-hammer-discipline",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "859.1",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53585594",
+        "opponent_name": "claude-v14-hammer-discipline",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v14.py",
+            "metadata": {
+              "historical_public_score": "859.1",
+              "historical_submission_ref": "53585594",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v14-hammer-discipline",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7240
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v14-hammer-discipline",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "859.1",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53585594",
+        "opponent_name": "claude-v14-hammer-discipline",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v14.py",
+            "metadata": {
+              "historical_public_score": "859.1",
+              "historical_submission_ref": "53585594",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v14-hammer-discipline",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7241
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v8-leader-weighted-denial",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "851.1",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53556108",
+        "opponent_name": "claude-v8-leader-weighted-denial",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v8.py",
+            "metadata": {
+              "historical_public_score": "851.1",
+              "historical_submission_ref": "53556108",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v8-leader-weighted-denial",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7250
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v8-leader-weighted-denial",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "851.1",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53556108",
+        "opponent_name": "claude-v8-leader-weighted-denial",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v8.py",
+            "metadata": {
+              "historical_public_score": "851.1",
+              "historical_submission_ref": "53556108",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v8-leader-weighted-denial",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7251
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v9-hold-aware-capture",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "841.9",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53556449",
+        "opponent_name": "claude-v9-hold-aware-capture",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v9.py",
+            "metadata": {
+              "historical_public_score": "841.9",
+              "historical_submission_ref": "53556449",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v9-hold-aware-capture",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7260
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v9-hold-aware-capture",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "841.9",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53556449",
+        "opponent_name": "claude-v9-hold-aware-capture",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v9.py",
+            "metadata": {
+              "historical_public_score": "841.9",
+              "historical_submission_ref": "53556449",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v9-hold-aware-capture",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7261
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v31-race-awareness",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "826.6",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53602639",
+        "opponent_name": "claude-v31-race-awareness",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v31.py",
+            "metadata": {
+              "historical_public_score": "826.6",
+              "historical_submission_ref": "53602639",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v31-race-awareness",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7270
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "826.6",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53602639",
+        "opponent_name": "claude-v31-race-awareness",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v31.py",
+            "metadata": {
+              "historical_public_score": "826.6",
+              "historical_submission_ref": "53602639",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v31-race-awareness",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7271
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-v62-low-pickoff-bundled",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "824.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53641340",
+        "opponent_name": "claude-v62-low-pickoff-bundled",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/submissions/main_v62_bundled.py",
+            "metadata": {
+              "historical_public_score": "824.4",
+              "historical_submission_ref": "53641340",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v62-low-pickoff-bundled",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7280
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-v62-low-pickoff-bundled",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "824.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53641340",
+        "opponent_name": "claude-v62-low-pickoff-bundled",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/submissions/main_v62_bundled.py",
+            "metadata": {
+              "historical_public_score": "824.4",
+              "historical_submission_ref": "53641340",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-v62-low-pickoff-bundled",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7281
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-claude-main-v62-bundled",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "824.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53641340",
+        "opponent_name": "claude-main-v62-bundled",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/main.py",
+            "metadata": {
+              "historical_public_score": "824.4",
+              "historical_submission_ref": "53641340",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-main-v62-bundled",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7290
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-claude-main-v62-bundled",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "824.4",
+        "historical_repo": "orbit-wars-claude",
+        "historical_submission_ref": "53641340",
+        "opponent_name": "claude-main-v62-bundled",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/main.py",
+            "metadata": {
+              "historical_public_score": "824.4",
+              "historical_submission_ref": "53641340",
+              "source_repo": "orbit-wars-claude"
+            },
+            "module_path": null,
+            "name": "claude-main-v62-bundled",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7291
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-ow2-current-main",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "",
+        "historical_repo": "orbit-wars-2",
+        "historical_submission_ref": "",
+        "opponent_name": "ow2-current-main",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/current_main.py",
+            "metadata": {
+              "historical_public_score": "",
+              "historical_submission_ref": "",
+              "source_repo": "orbit-wars-2"
+            },
+            "module_path": null,
+            "name": "ow2-current-main",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7300
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-ow2-current-main",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "",
+        "historical_repo": "orbit-wars-2",
+        "historical_submission_ref": "",
+        "opponent_name": "ow2-current-main",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/current_main.py",
+            "metadata": {
+              "historical_public_score": "",
+              "historical_submission_ref": "",
+              "source_repo": "orbit-wars-2"
+            },
+            "module_path": null,
+            "name": "ow2-current-main",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7301
+    },
+    {
+      "controlled_seat": 0,
+      "label": "historical-gauntlet-2p-500-seat-0-vs-ow2-v11-wide-search",
+      "metadata": {
+        "candidate_seat": "0",
+        "episode_steps": "500",
+        "historical_public_score": "",
+        "historical_repo": "orbit-wars-2",
+        "historical_submission_ref": "",
+        "opponent_name": "ow2-v11-wide-search",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/v11.py",
+            "metadata": {
+              "historical_public_score": "",
+              "historical_submission_ref": "",
+              "source_repo": "orbit-wars-2"
+            },
+            "module_path": null,
+            "name": "ow2-v11-wide-search",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7310
+    },
+    {
+      "controlled_seat": 1,
+      "label": "historical-gauntlet-2p-500-seat-1-vs-ow2-v11-wide-search",
+      "metadata": {
+        "candidate_seat": "1",
+        "episode_steps": "500",
+        "historical_public_score": "",
+        "historical_repo": "orbit-wars-2",
+        "historical_submission_ref": "",
+        "opponent_name": "ow2-v11-wide-search",
+        "purpose": "full-horizon-2p-historical-champion-gauntlet",
+        "registry_version": "v0",
+        "scenario_matrix": "historical-champion-gauntlet-2p-500"
+      },
+      "opponent_agents": [
+        {
+          "agent": {
+            "callable_name": "agent",
+            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/v11.py",
+            "metadata": {
+              "historical_public_score": "",
+              "historical_submission_ref": "",
+              "source_repo": "orbit-wars-2"
+            },
+            "module_path": null,
+            "name": "ow2-v11-wide-search",
+            "source_kind": "python_file"
+          }
+        }
+      ],
+      "player_count": 2,
+      "seed": 7311
+    }
+  ],
+  "version": "v0"
+}
