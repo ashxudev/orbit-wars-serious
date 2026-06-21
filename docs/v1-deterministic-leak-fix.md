@@ -212,3 +212,24 @@ fixture remains no-action because only two owners are active, so live runtime
 still dispatches it through the 2P selector rather than a forced 4P path. The
 `80979440` thin-capture fixture also records rank-aware continuation context
 without changing its action count or commitment type.
+
+## Cycle 11 V1 Replay Regression Harness
+
+Cycle 11 adds `ow_eval.v1_replay_regression` as a deterministic local
+measurement harness for the ten compact V1 replay fixtures. It loads fixtures
+from `tests/fixtures/v1_replay_leaks/`, runs each observation through the
+current live runtime path, extracts existing V1 fact labels, and returns frozen
+JSON-safe case, metric, and report dataclasses.
+
+The current compact summary is:
+
+```text
+v1_replay_regression cases=10 live_actions=9 live_no_actions=1 unresolved_planner_no_actions=0 reduced_active_owner_caveats=1 owned_pressure=8 own_transfer_spam=3 enemy_denial_safety_blocked=1 four_player_plateau_actions=3 four_player_plateau_no_actions=1 rank_aware_continuations=2 thin_capture_risks=2
+```
+
+The remaining no-action fixture is still `80984201`, and the harness counts it
+as the known declared-4P reduced-active-owner / live-2P-dispatch caveat rather
+than as an unresolved generic 4P selector leak. This cycle is measurement only:
+it does not change strategy selection, candidate generation, scoring,
+commitment sizing, simulator mechanics, action conversion, runtime fallback
+behavior, budget guards, evaluation gates, or submission behavior.

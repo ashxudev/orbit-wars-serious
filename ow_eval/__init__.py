@@ -258,6 +258,13 @@ from .v0_replay_regression import (
     default_v0_replay_fixture_dir,
     run_v0_replay_regression,
 )
+from .v1_replay_regression import (
+    V1ReplayRegressionCaseResult,
+    V1ReplayRegressionMetrics,
+    V1ReplayRegressionReport,
+    default_v1_replay_fixture_dir,
+    run_v1_replay_regression,
+)
 
 __all__ = (
     "AgentSourceKind",
@@ -350,6 +357,9 @@ __all__ = (
     "V0ReplayRegressionCaseResult",
     "V0ReplayRegressionMetrics",
     "V0ReplayRegressionReport",
+    "V1ReplayRegressionCaseResult",
+    "V1ReplayRegressionMetrics",
+    "V1ReplayRegressionReport",
     "available_builtin_baselines",
     "append_scoreboard_record",
     "build_scoreboard_record",
@@ -364,6 +374,7 @@ __all__ = (
     "build_daytona_sdk_protocol_client",
     "default_manifest_paths",
     "default_v0_replay_fixture_dir",
+    "default_v1_replay_fixture_dir",
     "evaluate_promotion_gate",
     "evaluation_shard_from_job",
     "extract_match_metrics",
@@ -413,6 +424,7 @@ __all__ = (
     "run_submission_preflight",
     "run_submission_preflight_main",
     "run_v0_replay_regression",
+    "run_v1_replay_regression",
     "shard_to_experiment_manifest",
     "submission_agent_spec",
     "summarize_match_results",
