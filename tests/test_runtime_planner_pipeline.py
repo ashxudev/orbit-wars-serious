@@ -18,6 +18,7 @@ from ow_planner import (
     CandidateOutcome,
     CommitmentPolicyConfig,
     EvaluationConfig,
+    EnemyDenialOpportunityReport,
     FourPlayerBoardFacts,
     LaunchCandidate,
     MissionCandidate,
@@ -283,6 +284,12 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
             potentially_spammy_count=1,
             labels=("potentially_spammy_own_transfer",),
         )
+        denial_report = EnemyDenialOpportunityReport(
+            player_id=0,
+            opponent_id=1,
+            high_value_denial_count=1,
+            labels=("high_value_enemy_denial",),
+        )
         selection = StrategySelectionResult(status=StrategySelectionStatus.REJECTED)
 
         with (
@@ -310,6 +317,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
                 return_value=transfer_report,
             ) as own_transfer_intent_facts,
             patch(
+                "agents.runtime_planner.enemy_denial_opportunity_facts",
+                return_value=denial_report,
+            ) as enemy_denial_opportunity_facts,
+            patch(
                 "agents.runtime_planner.select_strategy_for_mode",
                 return_value=selection,
             ) as select_strategy_for_mode,
@@ -321,6 +332,7 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
             state,
             threat_report=threat_report,
         )
+        enemy_denial_opportunity_facts.assert_called_once_with(state)
         _args, kwargs = select_strategy_for_mode.call_args
         dispatch_config = kwargs["config"]
         self.assertIsNot(dispatch_config, base_dispatch_config)
@@ -335,6 +347,10 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         self.assertIs(
             dispatch_config.two_player_config.own_transfer_intent_report,
             transfer_report,
+        )
+        self.assertIs(
+            dispatch_config.two_player_config.enemy_denial_opportunity_report,
+            denial_report,
         )
         self.assertIs(result.selection, selection)
 

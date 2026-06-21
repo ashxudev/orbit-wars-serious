@@ -118,3 +118,19 @@ multiple plausible opponent production targets, including high-value denial
 opportunities. This cycle is observability only: it does not change candidate
 generation, scoring, strategy selection, runtime action conversion, simulator
 mechanics, evaluation gates, or submission behavior.
+
+## Cycle 6 Enemy Production Denial Selection
+
+Cycle 6 threads the enemy-denial opportunity report into the two-player
+selector. When no owned-production pressure or response-pressure safety rule is
+active, the selector now prefers validated `ATTACK_ENEMY` bundles that target
+high-value opponent production denial opportunities identified by
+`ow_planner.enemy_denial`.
+
+Owned-production retention remains higher priority. The live `80989880`
+fixture still selects the existing reserve-preserving retention action because
+its state contains a likely-flip owned-production threat. Direct selector tests
+cover the new no-pressure denial preference, the owned-pressure override, and
+the interaction with own-transfer spam suppression. This cycle does not change
+candidate generation, scoring, simulator mechanics, action conversion,
+evaluation gates, or submission behavior.

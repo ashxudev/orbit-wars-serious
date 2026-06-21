@@ -28,6 +28,7 @@ from ow_planner import (
     StrategySelectionResult,
     TwoPlayerSelectionConfig,
     commitment_options_for_candidates,
+    enemy_denial_opportunity_facts,
     evaluate_and_score_candidates,
     evaluate_responses,
     four_player_board_facts,
@@ -157,6 +158,10 @@ def _dispatch_config_with_owned_threat_facts(
             state,
             threat_report=threat_report,
         )
+    if two_player_config.enemy_denial_opportunity_report is not None:
+        denial_report = two_player_config.enemy_denial_opportunity_report
+    else:
+        denial_report = enemy_denial_opportunity_facts(state)
     return StrategyDispatchConfig(
         two_player_config=TwoPlayerSelectionConfig(
             minimum_total_score=two_player_config.minimum_total_score,
@@ -166,6 +171,7 @@ def _dispatch_config_with_owned_threat_facts(
             commitment_preference_order=two_player_config.commitment_preference_order,
             owned_production_threat_report=threat_report,
             own_transfer_intent_report=transfer_report,
+            enemy_denial_opportunity_report=denial_report,
         ),
         four_player_config=base_config.four_player_config,
     )

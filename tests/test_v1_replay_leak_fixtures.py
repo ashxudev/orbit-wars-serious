@@ -232,6 +232,11 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
         self.assertTrue(
             any(facts.target_planet_id == 10 for facts in report.target_facts),
         )
+        _action_count, metadata = self.runtime_results[payload["case_id"] + ".json"]
+        self.assertIn(
+            "owned-production pressure preference: reserve_preserving retention",
+            metadata["runtime_diagnostic_selection_notes"],
+        )
 
     def test_four_player_plateau_and_capture_hold_fixtures_are_labeled_precisely(
         self,

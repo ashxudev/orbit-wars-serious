@@ -14,6 +14,8 @@ from ow_planner import (
     CommitmentOption,
     CommitmentOptionStatus,
     CommitmentOptionType,
+    EnemyDenialOpportunityReport,
+    EnemyDenialTargetFacts,
     LaunchCandidate,
     MissionCandidate,
     MissionEvaluation,
@@ -211,6 +213,65 @@ def own_transfer_spam_report(
     )
 
 
+def enemy_denial_report(
+    *,
+    high_value_target_ids: tuple[int, ...] = (3,),
+) -> EnemyDenialOpportunityReport:
+    target_facts = tuple(
+        EnemyDenialTargetFacts(
+            player_id=0,
+            opponent_id=1,
+            target_planet_id=target_id,
+            target_owner=1,
+            target_ships=10,
+            target_production=4,
+            production_bearing=True,
+            owned_source_count=2,
+            owned_source_capacity=40,
+            sufficient_source_count=1,
+            nearest_owned_source_id=1,
+            nearest_owned_source_ships=30,
+            nearest_owned_source_production=5,
+            distance_to_nearest_source=10.0,
+            eta_ticks_from_nearest_source=5,
+            player_production=12,
+            opponent_production=8,
+            player_ships=60,
+            opponent_ships=30,
+            player_ahead_by_production=True,
+            player_ahead_by_ships=True,
+            plausible_denial=True,
+            high_value_denial=True,
+            labels=(
+                "opponent_production_target",
+                "plausible_denial_target",
+                "high_value_denial_opportunity",
+            ),
+        )
+        for target_id in high_value_target_ids
+    )
+    return EnemyDenialOpportunityReport(
+        player_id=0,
+        opponent_id=1,
+        target_facts=target_facts,
+        target_count=len(target_facts),
+        plausible_denial_count=len(target_facts),
+        high_value_denial_count=len(target_facts),
+        player_production=12,
+        opponent_production=8,
+        player_ships=60,
+        opponent_ships=30,
+        player_ahead_by_production=True,
+        player_ahead_by_ships=True,
+        labels=(
+            "opponent_production_targets",
+            "ahead_state",
+            "plausible_enemy_denial",
+            "high_value_enemy_denial",
+        ),
+    )
+
+
 def bundle_for(
     *,
     target_planet_id: int,
@@ -285,6 +346,7 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
         )
         self.assertIsNone(config.owned_production_threat_report)
         self.assertIsNone(config.own_transfer_intent_report)
+        self.assertIsNone(config.enemy_denial_opportunity_report)
         self.assertTrue(hasattr(TwoPlayerSelectionConfig, "__slots__"))
         with self.assertRaises(FrozenInstanceError):
             config.minimum_total_score = 1.0
@@ -296,6 +358,8 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
             TwoPlayerSelectionConfig(owned_production_threat_report=object())
         with self.assertRaisesRegex(ValueError, "own_transfer_intent_report"):
             TwoPlayerSelectionConfig(own_transfer_intent_report=object())
+        with self.assertRaisesRegex(ValueError, "enemy_denial_opportunity_report"):
+            TwoPlayerSelectionConfig(enemy_denial_opportunity_report=object())
 
     def test_selects_opponent_owned_capture_over_neutral_capture(self) -> None:
         opponent_bundle = bundle_for(
@@ -1076,6 +1140,192 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
         self.assertIs(result.selected_bundle, reinforcement)
         self.assertIn(
             "owned-production pressure preference: reserve_preserving retention",
+            result.notes,
+        )
+
+    def test_enemy_denial_prefers_high_value_opponent_production_target(
+        self,
+    ) -> None:
+        lower_value_denial = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=6,
+                production_delta_vs_baseline=6,
+            ),
+            total_score=80.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        high_value_report_target = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=10.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (lower_value_denial, high_value_report_target),
+            config=TwoPlayerSelectionConfig(
+                enemy_denial_opportunity_report=enemy_denial_report(
+                    high_value_target_ids=(3,),
+                ),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, high_value_report_target)
+        self.assertIn(
+            "enemy-production denial preference: high_value_denial",
+            result.notes,
+        )
+
+    def test_owned_production_pressure_overrides_enemy_denial_preference(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=1,
+            source_planet_id=4,
+            mission_type=MissionType.REINFORCE,
+            mission_value_facts=value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=-20.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        high_value_denial = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=80.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (high_value_denial, reinforcement),
+            config=TwoPlayerSelectionConfig(
+                owned_production_threat_report=owned_pressure_report(),
+                enemy_denial_opportunity_report=enemy_denial_report(
+                    high_value_target_ids=(3,),
+                ),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reinforcement)
+        self.assertIn(
+            "owned-production pressure preference: reserve_preserving retention",
+            result.notes,
+        )
+        self.assertNotIn(
+            "enemy-production denial preference: high_value_denial",
+            result.notes,
+        )
+
+    def test_spam_suppression_allows_high_value_enemy_denial_as_productive_option(
+        self,
+    ) -> None:
+        ordinary_capture = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=0,
+                target_production_before=8,
+                production_delta_vs_baseline=8,
+            ),
+            total_score=80.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        high_value_denial = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=10.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (ordinary_capture, high_value_denial),
+            config=TwoPlayerSelectionConfig(
+                own_transfer_intent_report=own_transfer_spam_report(),
+                enemy_denial_opportunity_report=enemy_denial_report(
+                    high_value_target_ids=(3,),
+                ),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, high_value_denial)
+        self.assertIn(
+            "own-transfer spam preference: productive alternative",
+            result.notes,
+        )
+        self.assertIn(
+            "enemy-production denial preference: high_value_denial",
+            result.notes,
+        )
+
+    def test_no_enemy_denial_report_preserves_existing_ordering(self) -> None:
+        lower_score_denial = bundle_for(
+            target_planet_id=3,
+            source_planet_id=4,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=4,
+                production_delta_vs_baseline=4,
+            ),
+            total_score=10.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+        higher_denied_target = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.ATTACK_ENEMY,
+            mission_value_facts=value_facts(
+                target_owner_baseline=1,
+                target_owner_mission=0,
+                target_production_before=6,
+                production_delta_vs_baseline=6,
+            ),
+            total_score=80.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage(
+            (lower_score_denial, higher_denied_target),
+        )
+
+        self.assertIs(result.selected_bundle, higher_denied_target)
+        self.assertNotIn(
+            "enemy-production denial preference: high_value_denial",
             result.notes,
         )
 

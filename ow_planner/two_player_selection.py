@@ -15,6 +15,7 @@ from typing import Sequence
 
 from .candidates import MissionType
 from .commitment import CommitmentOption, CommitmentOptionStatus, CommitmentOptionType
+from .enemy_denial import EnemyDenialOpportunityReport
 from .own_transfers import OwnTransferIntentReport
 from .owned_threats import OwnedProductionThreatReport
 from .strategy_decisions import (
@@ -59,6 +60,7 @@ class TwoPlayerSelectionConfig:
     )
     owned_production_threat_report: OwnedProductionThreatReport | None = None
     own_transfer_intent_report: OwnTransferIntentReport | None = None
+    enemy_denial_opportunity_report: EnemyDenialOpportunityReport | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -90,6 +92,14 @@ class TwoPlayerSelectionConfig:
         ):
             raise ValueError(
                 "own_transfer_intent_report must be None or OwnTransferIntentReport"
+            )
+        if self.enemy_denial_opportunity_report is not None and not isinstance(
+            self.enemy_denial_opportunity_report,
+            EnemyDenialOpportunityReport,
+        ):
+            raise ValueError(
+                "enemy_denial_opportunity_report must be None or "
+                "EnemyDenialOpportunityReport"
             )
 
 
@@ -156,17 +166,30 @@ def select_two_player_direct_advantage(
             notes=_no_action_notes(ineligible_reasons),
         )
 
-    selection_pool, pressure_note = _owned_production_retention_pool(
+    selection_pool, preference_note = _owned_production_retention_pool(
         eligible,
         effective_config.owned_production_threat_report,
     )
-    if pressure_note is None:
-        selection_pool, pressure_note = _own_transfer_spam_reduction_pool(
+    preference_notes: list[str] = []
+    if preference_note is not None:
+        preference_notes.append(preference_note)
+    else:
+        selection_pool, preference_note = _own_transfer_spam_reduction_pool(
             eligible,
             effective_config.own_transfer_intent_report,
         )
-    if pressure_note is None:
-        selection_pool, pressure_note = _pressure_retention_pool(eligible)
+        if preference_note is not None:
+            preference_notes.append(preference_note)
+        selection_pool, preference_note = _pressure_retention_pool(selection_pool)
+        if preference_note is not None:
+            preference_notes.append(preference_note)
+        else:
+            selection_pool, preference_note = _enemy_denial_pool(
+                selection_pool,
+                effective_config.enemy_denial_opportunity_report,
+            )
+            if preference_note is not None:
+                preference_notes.append(preference_note)
     selected_facts, _index, selected_commitment = max(
         selection_pool,
         key=_selection_key,
@@ -175,8 +198,7 @@ def select_two_player_direct_advantage(
         "two-player direct advantage selected",
         f"selected commitment option: {selected_commitment.option_type.value}",
     ]
-    if pressure_note is not None:
-        notes.append(pressure_note)
+    notes.extend(preference_notes)
     return selected_strategy_result(
         selected_facts.bundle,
         selected_commitment,
@@ -369,6 +391,48 @@ def _own_transfer_spam_reduction_pool(
     return (
         productive_alternatives,
         "own-transfer spam preference: productive alternative",
+    )
+
+
+def _enemy_denial_pool(
+    eligible: list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]],
+    denial_report: EnemyDenialOpportunityReport | None,
+) -> tuple[list[tuple[TwoPlayerAdvantageFacts, int, CommitmentOption]], str | None]:
+    if (
+        denial_report is None
+        or denial_report.player_id is None
+        or denial_report.high_value_denial_count <= 0
+    ):
+        return eligible, None
+    high_value_target_ids = {
+        facts.target_planet_id
+        for facts in denial_report.target_facts
+        if facts.high_value_denial
+    }
+    if not high_value_target_ids:
+        return eligible, None
+    high_value_denial_candidates = [
+        item
+        for item in eligible
+        if _is_high_value_enemy_denial_candidate(item[0], high_value_target_ids)
+    ]
+    if not high_value_denial_candidates:
+        return eligible, None
+    return (
+        high_value_denial_candidates,
+        "enemy-production denial preference: high_value_denial",
+    )
+
+
+def _is_high_value_enemy_denial_candidate(
+    facts: TwoPlayerAdvantageFacts,
+    high_value_target_ids: set[int],
+) -> bool:
+    return (
+        facts.bundle.candidate.mission_type is MissionType.ATTACK_ENEMY
+        and facts.bundle.candidate.target_planet_id in high_value_target_ids
+        and facts.target_taken_from_opponent is True
+        and _int_or_zero(facts.opponent_production_denied) > 0
     )
 
 
