@@ -41,6 +41,7 @@ Strategy Modes Cycle 2 adds structural strategy-selection results.
 Strategy Modes Cycle 3 adds deterministic two-player direct-advantage facts.
 Strategy Modes Cycle 4 adds first-pass two-player direct-advantage selection.
 V0 Replay Leak Fix Cycle 4 adds two-player pressure-retention facts.
+V1 Deterministic Leak Fix Cycle 1 adds owned-production threat facts.
 Strategy Modes Cycle 5 adds deterministic four-player board/rank facts.
 Strategy Modes Cycle 6 adds deterministic four-player mission/target facts.
 Strategy Modes Cycle 7 adds first-pass four-player strategy selection.
@@ -97,6 +98,13 @@ from .four_player_missions import (
 from .four_player_selection import (
     FourPlayerSelectionConfig,
     select_four_player_strategy,
+)
+from .owned_threats import (
+    DEFAULT_THREAT_HORIZON_TICKS,
+    IncomingFleetThreatFacts,
+    OwnedPlanetThreatFacts,
+    OwnedProductionThreatReport,
+    owned_production_threat_facts,
 )
 from .enumeration import (
     ROUGH_TRAVEL_SHIPS,
@@ -224,6 +232,7 @@ __all__ = (
     "CommitmentOptionType",
     "CommitmentPolicyConfig",
     "CounterattackSourceFacts",
+    "DEFAULT_THREAT_HORIZON_TICKS",
     "DEFAULT_CAPTURE_BUFFER_SHIPS",
     "EstimatedPair",
     "EvaluationConfig",
@@ -245,6 +254,9 @@ __all__ = (
     "MissionType",
     "NearestTarget",
     "OwnerTotals",
+    "IncomingFleetThreatFacts",
+    "OwnedPlanetThreatFacts",
+    "OwnedProductionThreatReport",
     "PlanetDistance",
     "PlanetEvaluationFacts",
     "PlanetFutureDeltaFacts",
@@ -310,6 +322,7 @@ __all__ = (
     "minimum_capture_commitment_option",
     "no_action_strategy_result",
     "no_attack_commitment_option",
+    "owned_production_threat_facts",
     "planet_evaluation_facts",
     "planet_future_delta_facts",
     "planner_decision_bundles",

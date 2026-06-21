@@ -11,6 +11,7 @@ from agents.runtime_turn import (
     last_runtime_diagnostic_metadata,
     safe_actions_for_observation,
 )
+from ow_planner.owned_threats import owned_production_threat_facts
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "v1_replay_leaks"
@@ -181,6 +182,23 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
                     self.assertEqual(payload["player_count"], 2)
                     self.assertGreaterEqual(expected["owned_production"], 12)
                     self.assertGreater(expected["candidate_count"], 0)
+
+    def test_production_retention_fixtures_expose_owned_threat_facts(self) -> None:
+        cases = [
+            load_case(path)
+            for path in fixture_paths()
+            if load_case(path)["leak_class"] == "owned_production_threat_unanswered"
+        ]
+
+        self.assertEqual(len(cases), 3)
+        for payload in cases:
+            with self.subTest(case=payload["case_id"]):
+                state = observation_to_game_state(payload["observation"])
+                report = owned_production_threat_facts(state)
+
+                self.assertGreater(report.production_pressure_count, 0)
+                self.assertGreater(report.production_under_pressure, 0)
+                self.assertIn("owned_production_pressure", report.labels)
 
     def test_four_player_plateau_and_capture_hold_fixtures_are_labeled_precisely(
         self,

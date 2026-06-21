@@ -45,3 +45,17 @@ Later cycles should use these fixtures to prove targeted improvements:
 
 These fixtures intentionally preserve current behavior so future cycles can show
 deterministic before/after movement without relying on live Kaggle feedback.
+
+## Cycle 1 Owned Threat Facts
+
+Cycle 1 adds `ow_planner.owned_threats` as a deterministic fact surface for
+owned production under visible replay pressure. It reports per-owned-planet
+incoming hostile ships, incoming friendly ships, earliest hostile/friendly ETA,
+projected balance, likely-flip and at-risk labels, production under pressure,
+and whether outgoing friendly fleets have drained a threatened source.
+
+The V1 production-retention fixtures now assert that this surface recognizes
+their owned-production pressure windows. The cycle remains observability only:
+it does not change candidate generation, scoring, strategy selection, runtime
+action conversion, simulator mechanics, evaluation gates, or submission
+behavior.
