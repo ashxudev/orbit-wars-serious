@@ -233,3 +233,72 @@ than as an unresolved generic 4P selector leak. This cycle is measurement only:
 it does not change strategy selection, candidate generation, scoring,
 commitment sizing, simulator mechanics, action conversion, runtime fallback
 behavior, budget guards, evaluation gates, or submission behavior.
+
+## Cycle 12 Segment Readiness Report
+
+Cycle 12 is a no-behavior-change readiness check for the V1 deterministic
+leak-fix segment.
+
+- Checked HEAD: `411f6e0 Add V1 replay regression harness`
+- Segment status: `V1_DETERMINISTIC_LEAK_FIX_SEGMENT_COMPLETE`
+- Source-controlled change in this cycle: this readiness note only.
+
+Completed deterministic work across Cycles 0-11:
+
+- Cycle 0 added compact V1 replay-derived fixtures for production retention,
+  own-transfer spam, enemy-denial absence, 4P plateau, and thin-capture
+  recapture contexts.
+- Cycles 1-2 added owned-production threat facts and retention selection.
+- Cycles 3-4 added own-transfer intent facts and spam suppression selection.
+- Cycles 5-6 added enemy-production denial facts and denial selection while
+  preserving owned-production safety.
+- Cycles 7-8 added 4P plateau facts and no-action plateau recovery.
+- Cycles 9-10 added 4P rank/swing facts and rank-aware 4P continuation
+  selection.
+- Cycle 11 added the deterministic V1 replay regression harness.
+
+V1 replay regression summary:
+
+```text
+v1_replay_regression cases=10 live_actions=9 live_no_actions=1 unresolved_planner_no_actions=0 reduced_active_owner_caveats=1 owned_pressure=8 own_transfer_spam=3 enemy_denial_safety_blocked=1 four_player_plateau_actions=3 four_player_plateau_no_actions=1 rank_aware_continuations=2 thin_capture_risks=2
+```
+
+Remaining known caveats:
+
+- `four_p_plateau_80984201_t240_p0.json` remains no-action because the replay
+  fixture is declared as 4P but only two owners are active in the current
+  observation. Live runtime therefore dispatches it through the 2P selector.
+  The regression harness counts this as
+  `reduced_active_owner_live_2p_dispatch_caveat`, not as an unresolved generic
+  4P selector leak.
+- The V1 harness is deterministic fixture coverage, not proof of broad
+  competitive strength. The next broad-improvement path should use explicit
+  benchmark/autoresearch work rather than adding more fixture-specific gates
+  without new replay evidence.
+
+Verifier results:
+
+| Check | Result |
+|---|---|
+| `tests.test_v1_replay_leak_fixtures tests.test_v1_replay_regression` | `PASS`, 22 tests |
+| `unittest discover -s tests` | `PASS`, 1328 tests |
+| `scripts/evaluation_gate.py` | `PASS`, `gate=PASS matches=2 win_rate=1 mean_rank=1 error_rate=0 parity=pass failures=0` |
+| `scripts/submission_preflight.py` | `PASS`, `submission_preflight=PASS total=4 passed=4 failed=0` |
+| `legacy-opponent-smoke` | `PASS`, 4 completed matches, `error_rate=0.0`, promotion passed |
+| `competitive-baseline-smoke` | `PASS`, 6 completed matches, `error_rate=0.0`, promotion passed |
+| `git diff --check` | `PASS` |
+
+Benchmark reports were generated under `/tmp` only:
+
+- `/tmp/ow-v1-deterministic-legacy-smoke.json`
+- `/tmp/ow-v1-deterministic-competitive-baseline.json`
+
+Recommendation:
+
+- Treat the V1 deterministic leak-fix segment as complete.
+- The next work should be either a no-submit/live-submission-readiness segment
+  if the goal is to measure these deterministic fixes on Kaggle, or a separate
+  autoresearch/tuning segment if the goal is broader strength improvement.
+- Do not extend this deterministic leak segment unless new replay evidence
+  identifies a concrete reproducible leak class that is not already covered by
+  the V1 harness.
