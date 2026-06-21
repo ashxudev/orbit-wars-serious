@@ -13,6 +13,7 @@ from agents.runtime_turn import (
 )
 from ow_planner.enemy_denial import enemy_denial_opportunity_facts
 from ow_planner.four_player_plateau import four_player_plateau_facts
+from ow_planner.four_player_rank import four_player_rank_facts
 from ow_planner.owned_threats import owned_production_threat_facts
 from ow_planner.own_transfers import own_transfer_intent_facts
 
@@ -293,6 +294,43 @@ class V1ReplayLeakFixtureTests(unittest.TestCase):
                     expected,
                 )
                 self.assertIn("four_player_plateau", report.labels)
+
+    def test_four_player_fixtures_expose_rank_and_swing_facts(self) -> None:
+        expected_labels = {
+            "four_p_plateau_80982912_t250_p0.json": {
+                "active_four_player_context",
+                "leader_pressure",
+                "underexpanded_trailing",
+                "swing_opportunity",
+            },
+            "four_p_plateau_80984201_t240_p0.json": {
+                "declared_four_player_reduced_active_owners",
+                "leader_pressure",
+            },
+            "four_p_thin_capture_recaptured_80979440_t054_p0.json": {
+                "active_four_player_context",
+                "swing_opportunity",
+                "thin_capture_risk_context",
+            },
+        }
+
+        for fixture_name, labels in expected_labels.items():
+            with self.subTest(fixture_name=fixture_name):
+                payload = load_case(FIXTURE_DIR / fixture_name)
+                state = observation_to_game_state(payload["observation"])
+
+                report = four_player_rank_facts(
+                    state,
+                    declared_player_count=payload["player_count"],
+                )
+
+                self.assertTrue(report.is_four_player_context)
+                self.assertGreater(report.swing_target_count, 0)
+                for label in labels:
+                    self.assertIn(label, report.labels)
+                if fixture_name == "four_p_plateau_80984201_t240_p0.json":
+                    self.assertEqual(report.active_player_count, 2)
+                    self.assertFalse(report.is_active_four_player_context)
 
     def test_action_emitting_leaks_preserve_current_commitment_characterization(
         self,

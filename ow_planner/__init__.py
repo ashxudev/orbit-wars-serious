@@ -44,6 +44,7 @@ Strategy Modes Cycle 4 adds first-pass two-player direct-advantage selection.
 V0 Replay Leak Fix Cycle 4 adds two-player pressure-retention facts.
 V1 Deterministic Leak Fix Cycle 1 adds owned-production threat facts.
 V1 Deterministic Leak Fix Cycle 3 adds own-transfer intent facts.
+V1 Deterministic Leak Fix Cycle 9 adds four-player rank and swing facts.
 Strategy Modes Cycle 5 adds deterministic four-player board/rank facts.
 Strategy Modes Cycle 6 adds deterministic four-player mission/target facts.
 Strategy Modes Cycle 7 adds first-pass four-player strategy selection.
@@ -103,6 +104,16 @@ from .four_player_plateau import (
     UNDEREXPANDED_PLANET_COUNT_THRESHOLD,
     UNDEREXPANDED_PRODUCTION_THRESHOLD,
     four_player_plateau_facts,
+)
+from .four_player_rank import (
+    FourPlayerRankReport,
+    FourPlayerRankStandingFacts,
+    FourPlayerSwingTargetFacts,
+    HIGH_SWING_PRODUCTION_THRESHOLD,
+    RANK_PRESERVATION_PRODUCTION_MARGIN,
+    UNDEREXPANDED_PLANET_RANK_THRESHOLD,
+    UNDEREXPANDED_PRODUCTION_RANK_THRESHOLD,
+    four_player_rank_facts,
 )
 from .four_player_selection import (
     FourPlayerSelectionConfig,
@@ -262,9 +273,13 @@ __all__ = (
     "FourPlayerMissionFacts",
     "FourPlayerPlateauReport",
     "FourPlayerPlateauTargetFacts",
+    "FourPlayerRankReport",
+    "FourPlayerRankStandingFacts",
     "FourPlayerSelectionConfig",
     "FourPlayerStandingFacts",
+    "FourPlayerSwingTargetFacts",
     "HIGH_VALUE_PRODUCTION_THRESHOLD",
+    "HIGH_SWING_PRODUCTION_THRESHOLD",
     "LaunchCandidate",
     "MissionCandidate",
     "MissionEvaluation",
@@ -290,6 +305,7 @@ __all__ = (
     "PlanetFacts",
     "PlannerDecisionBundle",
     "PRESSURE_RESPONSE_LABELS",
+    "RANK_PRESERVATION_PRODUCTION_MARGIN",
     "ROUGH_TRAVEL_SHIPS",
     "RaceSourceFacts",
     "ReinforcementSourceFacts",
@@ -318,7 +334,9 @@ __all__ = (
     "TwoPlayerPressureFacts",
     "TwoPlayerSelectionConfig",
     "UNDEREXPANDED_PLANET_COUNT_THRESHOLD",
+    "UNDEREXPANDED_PLANET_RANK_THRESHOLD",
     "UNDEREXPANDED_PRODUCTION_THRESHOLD",
+    "UNDEREXPANDED_PRODUCTION_RANK_THRESHOLD",
     "baseline_state_after_horizon",
     "candidate_state_after_horizon",
     "classify_response_facts",
@@ -340,6 +358,7 @@ __all__ = (
     "four_player_mission_facts",
     "four_player_mission_facts_for_bundles",
     "four_player_plateau_facts",
+    "four_player_rank_facts",
     "full_source_commitment_option",
     "generate_candidates",
     "launch_candidate_to_action",

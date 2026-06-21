@@ -168,3 +168,26 @@ state, so live runtime dispatches it through the 2P selector; this is left for a
 later late-game/mode-detection cycle. This cycle does not change candidate
 generation, simulator mechanics, scoring, action conversion, evaluation gates,
 or submission behavior.
+
+## Cycle 9 Four-Player Rank / Leader / Swing Facts
+
+Cycle 9 adds `ow_planner.four_player_rank` as a deterministic fact surface for
+four-player rank, leader-pressure, and swing-risk context. It reports active
+player ids, current-player planet/production/ship ranks, leader ids, deltas to
+leaders and adjacent rivals, fleet ships, and non-owned production swing
+targets with nearest-source distance/ETA facts.
+
+The V1 four-player fixtures now assert this observability layer:
+
+- `80982912` is characterized as an action-emitting plateau with active 4P
+  leader pressure, underexpanded trailing context, and swing opportunities.
+- `80984201` is characterized as a declared-4P replay fixture with only two
+  active owners, matching the current live runtime's 2P dispatch behavior.
+- `80979440` is characterized as a 4P swing/capture-risk context where
+  high-production swing targets exist but some are too thin for the nearest
+  owned source.
+
+This cycle is observability only. It does not change strategy selection,
+candidate generation, scoring, commitment sizing, simulator mechanics, action
+conversion, runtime fallback behavior, evaluation gates, or submission
+behavior.
