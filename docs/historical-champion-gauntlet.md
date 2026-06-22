@@ -831,6 +831,55 @@ The fixture layer is intentionally characterization-only. It changes no
 planner, runtime, simulator, scoring, candidate generation, action conversion,
 submission, Daytona, or Kaggle behavior.
 
+## Segment Completion And Fix Queue Handoff
+
+The Distributed Historical Champion Gauntlet segment is complete.
+
+Completion sentinel:
+
+```text
+HISTORICAL_CHAMPION_GAUNTLET_COMPLETE
+```
+
+Final segment status:
+
+- Cycle 10 audited the completed real Daytona full-gauntlet run: all `6/6`
+  shards completed and all `30/30` full-500 scenarios produced shard result
+  files under `/tmp/ow-historical-gauntlet-cycle9-full-real/`.
+- Cycle 11 merged the six shard outputs into local `/tmp` summary artifacts and
+  recorded aggregate outcome metrics: `30/30` completed scenarios, `0` errors,
+  `0` invalid actions, `0` timeouts, win rate `0.0`, mean final rank `2.0`,
+  rank distribution `{"2": 30}`, and no-action count `2569`.
+- Cycle 12 triaged the loss-heavy result into deterministic leak candidates
+  versus broader autoresearch/tuning surfaces.
+- Cycle 13 extracted compact, source-controlled historical gauntlet leak
+  fixtures from an artifact-enabled local rerun of the six highest-value
+  candidate scenarios.
+
+Final evidence set:
+
+- Daytona execution evidence remains under `/tmp/ow-historical-gauntlet-cycle9-full-real/`
+  and is not committed.
+- Artifact-enabled local rerun evidence remains under
+  `/tmp/ow-historical-gauntlet-cycle13-artifacts/` and is not committed.
+- Source-controlled compact fixtures are committed under
+  `tests/fixtures/historical_gauntlet_leaks/`.
+- Fixture characterization coverage is in
+  `tests/test_historical_gauntlet_leak_fixtures.py`.
+
+Prioritized deterministic fix queue:
+
+| Priority | Leak class | Evidence | Recommended next segment |
+|---:|---|---|---|
+| `1` | 2P early collapse / candidate starvation | Claude v31, Claude v9, and OW2 control-pressure fixtures all reproduce `no_candidates_generated` with `0` candidates in early full-500 champion windows | Add deterministic 2P recovery for reachable production/control pressure before ordinary expansion stalls |
+| `2` | 2P control-pressure response weakness | `ow2-current-main` fixture gives a non-Claude pressure case with early no-candidate collapse | Extend 2P pressure facts/selection to recognize non-Claude control pressure and produce conservative validated responses |
+| `3` | 4P plateau / no-action / rank-pressure behavior | Top-score seat-3 fixture has `36` candidates but returns `strategy_selection_no_action`; Cycle 12 also showed high 4P no-action volume | Add 4P continuation/rank-pressure selector recovery for candidate-backed plateau windows |
+| `4` | 4P budget-heavy strategy windows | Mixed-style and OW2 reference fixtures map to source scenarios with budget-guard-heavy and strategy-selection no-action summaries | Separate true runtime budget pressure from downstream strategy rejection, then tighten bounded 4P selection paths without weakening budget guards |
+
+This segment deliberately stops at evidence and handoff. It does not implement
+the follow-up leak fixes, change runtime/planner behavior, rerun Daytona, run
+Kaggle commands, or commit generated `/tmp` artifacts.
+
 ## Cycle 1 Full-Horizon Scenario Matrix
 
 Cycle 1 adds source-controlled full-horizon manifest definitions only. These
