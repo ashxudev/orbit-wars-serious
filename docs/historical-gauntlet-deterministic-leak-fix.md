@@ -266,3 +266,64 @@ Remaining fix queue:
 | Priority | Target | Current post-Cycle-4 status |
 |---:|---|---|
 | `1` | Full-gauntlet competitive weakness | The compact deterministic historical leak fixtures are now classified or action-emitting; broader losses should move to the next deterministic/autoresearch planning segment |
+
+## Cycle 5 Historical Leak Regression Harness
+
+Cycle 5 adds a measurement-only local regression harness for the committed
+historical gauntlet leak fixtures:
+
+```text
+/Users/user/dev/hackathons/orbit-wars-serious/ow_eval/historical_leak_regression.py
+/Users/user/dev/hackathons/orbit-wars-serious/tests/test_historical_leak_regression.py
+```
+
+The harness loads every compact fixture under:
+
+```text
+/Users/user/dev/hackathons/orbit-wars-serious/tests/fixtures/historical_gauntlet_leaks/
+```
+
+It runs the current runtime path for each fixture, records JSON-safe case
+results, and classifies outcomes into:
+
+- `action_emitted`
+- `source_less_no_owned_planets`
+- `budget_guarded`
+- `candidate_starvation_unresolved`
+- `strategy_selection_no_action_unresolved`
+- `other_no_action`
+
+Stable Cycle 5 summary:
+
+```text
+historical_leak_regression cases=6 action_emitting=5 action_rate=0.833333 source_less_no_owned=1 budget_guarded=0 unresolved_no_candidates=0 unresolved_strategy_no_action=0 other_no_action=0 unresolved_deterministic_leaks=0
+```
+
+Aggregate status:
+
+| Metric | Value |
+|---|---:|
+| Total cases | `6` |
+| Action-emitting cases | `5` |
+| Source-less / no-owned cases | `1` |
+| Budget-guarded no-actions | `0` |
+| Unresolved `no_candidates_generated` cases | `0` |
+| Unresolved `strategy_selection_no_action` cases | `0` |
+| Other no-action cases | `0` |
+| Unresolved deterministic leaks | `0` |
+
+Current case classifications:
+
+| Fixture | Classification |
+|---|---|
+| `four_p_mixed_style_budget_pressure_t220_p2.json` | `source_less_no_owned_planets` |
+| `four_p_ow2_reference_strategy_pressure_t189_p0.json` | `action_emitted` |
+| `four_p_top_score_plateau_t080_p3.json` | `action_emitted` |
+| `two_p_collapse_claude_v31_t002_p1.json` | `action_emitted` |
+| `two_p_collapse_claude_v9_t001_p1.json` | `action_emitted` |
+| `two_p_control_pressure_ow2_main_t002_p0.json` | `action_emitted` |
+
+Cycle 5 does not change planner, runtime, simulator, candidate generation,
+scoring, action conversion, budget guards, Daytona tooling, Kaggle behavior, or
+submission behavior. It only adds deterministic measurement infrastructure for
+later segment handoff.

@@ -134,6 +134,13 @@ from .historical_gauntlet_shards import (
     write_historical_champion_full_shard_package,
     write_historical_champion_probe_shard_package,
 )
+from .historical_leak_regression import (
+    HistoricalLeakRegressionCaseResult,
+    HistoricalLeakRegressionMetrics,
+    HistoricalLeakRegressionReport,
+    default_historical_leak_fixture_dir,
+    run_historical_leak_regression,
+)
 from .experiment_manifest import (
     ExperimentManifest,
     ExperimentScenario,
@@ -350,6 +357,9 @@ __all__ = (
     "HistoricalChampionShard",
     "HistoricalChampionShardPlan",
     "HistoricalChampionShardScenario",
+    "HistoricalLeakRegressionCaseResult",
+    "HistoricalLeakRegressionMetrics",
+    "HistoricalLeakRegressionReport",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
     "EvaluationBatchResult",
@@ -425,6 +435,7 @@ __all__ = (
     "build_historical_champion_shard_plan",
     "build_unittest_command",
     "default_historical_champion_manifest_paths",
+    "default_historical_leak_fixture_dir",
     "default_manifest_paths",
     "default_worker_count",
     "default_v0_replay_fixture_dir",
@@ -479,6 +490,7 @@ __all__ = (
     "run_evaluation_suite",
     "run_evaluation_suite_main",
     "run_experiment_manifest",
+    "run_historical_leak_regression",
     "run_official_match",
     "run_regression_gate",
     "run_submission_parity_check",
