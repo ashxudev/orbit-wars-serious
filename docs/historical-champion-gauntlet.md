@@ -657,6 +657,117 @@ Unavailable or limited metrics in the current shard result schema:
 The merge establishes infrastructure-complete, loss-heavy gauntlet evidence for
 Cycle 12 triage. It does not classify leaks or extract fixtures.
 
+## Cycle 12 Loss And Leak Triage
+
+Cycle 12 analyzed the merged 30-match historical champion gauntlet results
+without rerunning Daytona, running Kaggle commands, changing agent behavior, or
+extracting fixtures.
+
+Source inputs:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-merged-report.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-merged-summary.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-000/historical-gauntlet-shard-000.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-001/historical-gauntlet-shard-001.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-002/historical-gauntlet-shard-002.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-003/historical-gauntlet-shard-003.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-004/historical-gauntlet-shard-004.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-005/historical-gauntlet-shard-005.shard-result.json
+```
+
+Triage summary:
+
+- The run is infrastructure-clean but competitively loss-heavy:
+  `30/30` matches completed, `0` match errors, `0` invalid actions, `0`
+  timeouts, `0` wins, and rank distribution `{"2": 30}`.
+- Every match ended with `final_planets=0`, `final_production=0`, and
+  `final_ships=0`, so production-collapse evidence is present across the full
+  gauntlet.
+- Total no-action count is `2569`; runtime diagnostics attribute most no-action
+  turns to candidate starvation.
+- Primary no-action reason by match: `no_candidates_generated` in `28/30`
+  matches, `budget_guard_budget_exhausted` in `1/30`, and
+  `strategy_selection_no_action` in `1/30`.
+- Aggregated diagnostic reason counts across matches:
+  `no_candidates_generated=2050`, `budget_guard_budget_exhausted=202`,
+  `strategy_selection_rejected=143`, `strategy_selection_no_action=79`, and
+  `budget_guard_low_budget=65`.
+
+Mode split:
+
+| Split | Matches | Mean turns survived | No-action count | Dominant issue |
+|---|---:|---:|---:|---|
+| `2P` | `22` | `121.82` | `1349` | early production collapse plus candidate starvation |
+| `4P` | `8` | `241.38` | `1220` | plateau/rank continuation with late no-action pressure |
+
+Controlled-seat split:
+
+| Seat | Matches | Mean turns survived | No-action count | Note |
+|---|---:|---:|---:|---|
+| `0` | `14` | `132.79` | `957` | highest volume, mixed 2P and 4P failures |
+| `1` | `12` | `140.42` | `887` | repeated 2P short-survival losses |
+| `2` | `2` | `274.00` | `372` | 4P-only plateau pressure |
+| `3` | `2` | `259.50` | `353` | 4P-only plateau pressure |
+
+Opponent-family split:
+
+| Family | Matches | Mean turns survived | No-action count | Note |
+|---|---:|---:|---:|---|
+| `orbit-wars-claude` | `24` | `154.21` | `2102` | strongest recurring pressure; most loss evidence |
+| `orbit-wars-2` | `4` | `120.25` | `226` | smaller 2P sample, still all losses |
+| `orbit-wars-2+orbit-wars-claude` | `2` | `214.50` | `241` | mixed 4P pool, all losses |
+
+Shortest-survival losses:
+
+| Shard | Scenario | Mode | Seat | Opponent/pool | Turns | No-actions | Primary reason |
+|---|---|---:|---:|---|---:|---:|---|
+| `001` | `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` | `2P` | `1` | `claude-v31-race-awareness` | `85` | `40` | `no_candidates_generated` |
+| `005` | `historical-gauntlet-2p-500-seat-1-vs-claude-v9-hold-aware-capture` | `2P` | `1` | `claude-v9-hold-aware-capture` | `91` | `53` | `no_candidates_generated` |
+| `004` | `historical-gauntlet-2p-500-seat-0-vs-claude-v37-race-fix-mode-split` | `2P` | `0` | `claude-v37-race-fix-mode-split` | `93` | `53` | `no_candidates_generated` |
+| `002` | `historical-gauntlet-2p-500-seat-0-vs-claude-v62-low-pickoff-bundled` | `2P` | `0` | `claude-v62-low-pickoff-bundled` | `93` | `26` | `no_candidates_generated` |
+| `000` | `historical-gauntlet-2p-500-seat-0-vs-claude-v3-wide-search-forecast` | `2P` | `0` | `claude-v3-wide-search-forecast` | `103` | `48` | `no_candidates_generated` |
+
+Highest no-action counts:
+
+| Shard | Scenario | Mode | Seat | Opponent/pool | Turns | No-actions | Primary reason |
+|---|---|---:|---:|---|---:|---:|---|
+| `001` | `historical-gauntlet-4p-500-top-score-seat-3` | `4P` | `3` | `claude-v3-wide-search-forecast+claude-v28-mode-split-champion+claude-v37-race-fix-mode-split` | `305` | `222` | `no_candidates_generated` |
+| `000` | `historical-gauntlet-4p-500-top-score-seat-2` | `4P` | `2` | `claude-v3-wide-search-forecast+claude-v28-mode-split-champion+claude-v37-race-fix-mode-split` | `301` | `196` | `no_candidates_generated` |
+| `003` | `historical-gauntlet-4p-500-mixed-style-seat-2` | `4P` | `2` | `claude-v14-hammer-discipline+claude-v8-leader-weighted-denial+claude-v62-low-pickoff-bundled` | `247` | `176` | `budget_guard_budget_exhausted` |
+| `005` | `historical-gauntlet-4p-500-top-score-seat-1` | `4P` | `1` | `claude-v3-wide-search-forecast+claude-v28-mode-split-champion+claude-v37-race-fix-mode-split` | `242` | `135` | `no_candidates_generated` |
+| `004` | `historical-gauntlet-4p-500-top-score-seat-0` | `4P` | `0` | `claude-v3-wide-search-forecast+claude-v28-mode-split-champion+claude-v37-race-fix-mode-split` | `189` | `132` | `no_candidates_generated` |
+
+Prioritized failure classes:
+
+| Priority | Failure class | Tag | Evidence | Next action |
+|---:|---|---|---|---|
+| `1` | Late-game candidate starvation after losing production/targets | `deterministic leak` | `no_candidates_generated=2050`; primary in `28/30` matches | Extract compact late-game observations from shortest-survival and high-no-action cases |
+| `2` | 2P production collapse under champion pressure | `deterministic leak` | all `22` 2P losses ended with zero planets/production/ships; mean survival `121.82` | Extract early/mid pressure windows before collapse, especially short-survival 2P losses |
+| `3` | 4P plateau/rank continuation failure | `deterministic leak` | `8` 4P losses, no-action count `1220`, top-score seats 0-3 all rank `2` | Extract 4P top-score pool windows around first long no-action streak |
+| `4` | Runtime budget pressure in 4P long games | `deterministic leak` | `budget_guard_budget_exhausted=202`, concentrated in 4P mixed/top-score cases | Extract positive-overage and low-budget 4P states separately; do not weaken budget guard without fixture proof |
+| `5` | Thin-capture / missing-denial / hold quality | `unclear / needs fixture extraction` | final metrics show collapse but do not expose capture/denial target context directly | Extract replay/observation windows before production reaches zero |
+| `6` | Broad scoring strength against 800+ historical champions | `autoresearch/tuning surface` | no wins against high-score champion pool despite clean execution | Defer weight/search tuning until deterministic fixture leaks are separated |
+
+Cycle 13 fixture extraction candidates:
+
+| Shard | Scenario | Mode | Seat | Opponent/pool | Why useful |
+|---|---|---:|---:|---|---|
+| `001` | `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` | `2P` | `1` | `claude-v31-race-awareness` | shortest survival, early collapse, `no_candidates_generated:39` |
+| `005` | `historical-gauntlet-2p-500-seat-1-vs-claude-v9-hold-aware-capture` | `2P` | `1` | `claude-v9-hold-aware-capture` | hold-aware opponent pressure, short survival, high no-action ratio |
+| `000` | `historical-gauntlet-2p-500-seat-0-vs-ow2-current-main` | `2P` | `0` | `ow2-current-main` | `83` no-actions in `115` turns, useful non-Claude control pressure case |
+| `001` | `historical-gauntlet-4p-500-top-score-seat-3` | `4P` | `3` | `claude-v3-wide-search-forecast+claude-v28-mode-split-champion+claude-v37-race-fix-mode-split` | highest no-action count, mixed rejection/starvation reasons |
+| `003` | `historical-gauntlet-4p-500-mixed-style-seat-2` | `4P` | `2` | `claude-v14-hammer-discipline+claude-v8-leader-weighted-denial+claude-v62-low-pickoff-bundled` | strongest budget-guard signal with `budget_guard_budget_exhausted:115` |
+| `004` | `historical-gauntlet-4p-500-ow2-smoke-reference-seat-0` | `4P` | `0` | `ow2-current-main+ow2-v11-wide-search+claude-main-v62-bundled` | primary `strategy_selection_no_action`, useful selector-specific fixture |
+
+Metrics not available in current generated outputs:
+
+- No raw replay paths are present in the merged shard result schema.
+- The report has final production/ships/planets but not per-turn production
+  history.
+- Capture/denial/hold labels are not first-class metrics in the gauntlet
+  report; those require Cycle 13 compact observation extraction.
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.
