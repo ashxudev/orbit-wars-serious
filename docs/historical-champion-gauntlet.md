@@ -768,9 +768,68 @@ Metrics not available in current generated outputs:
 - Capture/denial/hold labels are not first-class metrics in the gauntlet
   report; those require Cycle 13 compact observation extraction.
 
-Future cycles should build full 500-step local/Daytona gauntlet manifests from
-this registry, keeping generated match reports, logs, scoreboards, replays, and
-temporary artifacts out of source control.
+## Cycle 13 Compact Failure Fixture Extraction
+
+Cycle 13 first confirmed that the original Cycle 9 Daytona gauntlet outputs
+were score/triage artifacts only. The completed shard reports under the Cycle 9
+root did not include raw observations, replay payloads, or per-turn match data,
+so fixtures were not fabricated from metrics-only JSON.
+
+Original checked source root:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/
+```
+
+Original evidence checked:
+
+- `historical-gauntlet-merged-report.json` contains all six candidate scenario
+  records and confirms `episode_steps == "500"`.
+- Candidate match records have `artifact_path=null` and `replay_path=null`.
+- `find /tmp/ow-historical-gauntlet-cycle9-full-real -type f` found no replay,
+  artifact, observation, or match payload files beyond package specs, reports,
+  shard results, logs, and packaged agent files.
+
+To make fixture extraction possible without changing agent behavior or running
+Daytona again, Cycle 13 locally reran exactly the six Cycle 12 candidate
+scenarios with artifact capture enabled:
+
+```text
+/tmp/ow-historical-gauntlet-cycle13-artifacts/
+```
+
+The local rerun used the existing evaluation harness with
+`EvaluationArtifactConfig(write_replay=True, write_result=True)`. It produced
+six completed full-500 scenario results, six replay payloads, and zero runner
+errors. The generated replay/result artifacts remain `/tmp` files and are not
+committed.
+
+Candidate extraction status:
+
+| Scenario | Shard | Fixture | Turn | Current compact-case symptom | Future fix category |
+|---|---|---|---:|---|---|
+| `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` | `001` | `tests/fixtures/historical_gauntlet_leaks/two_p_collapse_claude_v31_t002_p1.json` | `2` | `no_candidates_generated`, `0` candidates | 2P early production/candidate-starvation collapse |
+| `historical-gauntlet-2p-500-seat-1-vs-claude-v9-hold-aware-capture` | `005` | `tests/fixtures/historical_gauntlet_leaks/two_p_collapse_claude_v9_t001_p1.json` | `1` | `no_candidates_generated`, `0` candidates | 2P early production/candidate-starvation collapse |
+| `historical-gauntlet-2p-500-seat-0-vs-ow2-current-main` | `000` | `tests/fixtures/historical_gauntlet_leaks/two_p_control_pressure_ow2_main_t002_p0.json` | `2` | `no_candidates_generated`, `0` candidates | 2P non-Claude control pressure |
+| `historical-gauntlet-4p-500-top-score-seat-3` | `001` | `tests/fixtures/historical_gauntlet_leaks/four_p_top_score_plateau_t080_p3.json` | `80` | `strategy_selection_no_action`, `36` candidates | 4P top-score plateau/no-action pressure |
+| `historical-gauntlet-4p-500-mixed-style-seat-2` | `003` | `tests/fixtures/historical_gauntlet_leaks/four_p_mixed_style_budget_pressure_t220_p2.json` | `220` | compact observation: `no_candidates_generated`; source rerun: `budget_guard_budget_exhausted:59`, `budget_guard_low_budget:14` | 4P budget-guard-heavy long-game pressure |
+| `historical-gauntlet-4p-500-ow2-smoke-reference-seat-0` | `004` | `tests/fixtures/historical_gauntlet_leaks/four_p_ow2_reference_strategy_pressure_t189_p0.json` | `189` | compact observation: `no_candidates_generated`; source rerun also includes `strategy_selection_no_action:3` and `strategy_selection_rejected:4` | 4P strategy-selection/no-action pressure |
+
+The source-controlled fixtures are compact single-observation cases, not full
+replay dumps. They preserve source scenario label, shard id, full horizon
+`episode_steps=500`, generated `/tmp` replay/result paths, current runtime
+diagnostic expectations, and match-level no-action reason summaries from the
+artifact-enabled local rerun.
+
+Focused characterization test:
+
+```bash
+.venv/bin/python -m unittest tests.test_historical_gauntlet_leak_fixtures
+```
+
+The fixture layer is intentionally characterization-only. It changes no
+planner, runtime, simulator, scoring, candidate generation, action conversion,
+submission, Daytona, or Kaggle behavior.
 
 ## Cycle 1 Full-Horizon Scenario Matrix
 
