@@ -102,3 +102,48 @@ Cycle 1 validation is manifest parsing and loadability only:
 .venv/bin/python -m unittest tests.test_evaluation_manifest_fixtures tests.test_evaluation_agent_loading tests.test_evaluation_official_runner
 git diff --check
 ```
+
+## Cycle 2 Local Full-500 Micro-Probe
+
+Cycle 2 ran a minimal local official-environment probe to verify that the
+committed full-horizon gauntlet matrix is executable before Daytona sharding.
+It did not run the full gauntlet, create Daytona jobs, submit to Kaggle, or
+write generated artifacts into the repo.
+
+Temporary one-scenario probe manifests were written under `/tmp` from the
+committed Cycle 1 manifests. The selected scenarios preserved
+`metadata.episode_steps == "500"`. The temporary manifests set
+`min_completed_count` to `1` so the micro-probe measured selected-scenario
+executability rather than full-matrix promotion thresholds.
+
+Commands:
+
+```bash
+.venv/bin/python -m unittest tests.test_historical_champion_registry tests.test_historical_champion_gauntlet_manifests
+.venv/bin/python -m unittest tests.test_evaluation_manifest_fixtures tests.test_evaluation_agent_loading tests.test_evaluation_official_runner
+.venv/bin/python scripts/run_evaluation_experiment.py /tmp/ow-historical-gauntlet-cycle2-2p-probe-manifest.json --report-output /tmp/ow-historical-gauntlet-cycle2-2p-probe.json
+.venv/bin/python scripts/run_evaluation_experiment.py /tmp/ow-historical-gauntlet-cycle2-4p-probe-manifest.json --report-output /tmp/ow-historical-gauntlet-cycle2-4p-probe.json
+git diff --check
+```
+
+Probe results:
+
+| Probe | Source manifest | Scenario label | Seed | Seat | Opponents | Runtime | Status | Triage | Error count |
+|---|---|---|---:|---:|---|---:|---|---|---:|
+| 2P | `historical-champion-gauntlet-2p-500.json` | `historical-gauntlet-2p-500-seat-0-vs-claude-v3-wide-search-forecast` | `7210` | `0` | `claude-v3-wide-search-forecast` | `21.21s` | `completed` | `normal_loss` | `0` |
+| 4P | `historical-champion-gauntlet-4p-500.json` | `historical-gauntlet-4p-500-top-score-seat-0` | `8100` | `0` | `claude-v3-wide-search-forecast`, `claude-v28-mode-split-champion`, `claude-v37-race-fix-mode-split` | `31.16s` | `completed` | `normal_loss` | `0` |
+
+Both reports had `completed_matches=1`, `error_rate=0.0`,
+`promotion_passed=true`, and no timeout or invalid-action errors. The losses
+are expected for a micro-probe against historical champions; Cycle 2 validates
+that the full-500 matrix can execute through the local harness, not that the
+current agent wins.
+
+Generated probe files remained under `/tmp`:
+
+```text
+/tmp/ow-historical-gauntlet-cycle2-2p-probe-manifest.json
+/tmp/ow-historical-gauntlet-cycle2-2p-probe.json
+/tmp/ow-historical-gauntlet-cycle2-4p-probe-manifest.json
+/tmp/ow-historical-gauntlet-cycle2-4p-probe.json
+```
