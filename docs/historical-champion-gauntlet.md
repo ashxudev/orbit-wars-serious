@@ -61,6 +61,55 @@ Daytona plans.
 git diff --check
 ```
 
+## Cycle 4 Daytona Package Compatibility
+
+Cycle 4 makes the recommended probe shard compatible with the existing
+distributed evaluation shard/job package infrastructure. It remains
+package-planning/materialization only: it does not run the shard, launch Daytona
+jobs, upload files, download files, generate reports, create replays, or call
+Kaggle.
+
+The package adapter APIs are:
+
+```python
+from pathlib import Path
+from ow_eval.historical_gauntlet_shards import (
+    build_historical_champion_evaluation_shard_plan,
+    write_historical_champion_probe_shard_package,
+)
+
+plan = build_historical_champion_evaluation_shard_plan(
+    output_root=Path("/tmp/ow-historical-gauntlet-cycle4-package")
+)
+package = write_historical_champion_probe_shard_package(
+    Path("/tmp/ow-historical-gauntlet-cycle4-package")
+)
+```
+
+The adapter selects `historical-gauntlet-shard-000` by default. The converted
+`EvaluationShardPlan` contains exactly the five scenarios assigned to that
+historical shard, with original scenario labels, seeds, controlled seats,
+opponent specs, and `episode_steps == "500"` preserved.
+
+The package writer reuses existing shard job/package primitives and writes only
+package specs:
+
+- `manifest.json`: shard-local experiment manifest.
+- `historical-gauntlet-shard-000.job.json`: local shard job spec.
+- `shard-jobs.index.json`: deterministic package index.
+- Planned future paths for `report.json` and `shard-result.json`.
+
+Cycle 4 materialization smoke output should be under `/tmp`, for example:
+
+```text
+/tmp/ow-historical-gauntlet-cycle4-package/historical-gauntlet-shard-000/manifest.json
+/tmp/ow-historical-gauntlet-cycle4-package/historical-gauntlet-shard-000/historical-gauntlet-shard-000.job.json
+/tmp/ow-historical-gauntlet-cycle4-package/shard-jobs.index.json
+```
+
+Cycle 5 should use this package-ready `historical-gauntlet-shard-000` unit for
+the first single-shard Daytona dry/probe path before any multi-shard pilot.
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.

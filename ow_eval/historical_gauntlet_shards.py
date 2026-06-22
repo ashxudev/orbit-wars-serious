@@ -8,11 +8,19 @@ run matches, create Daytona jobs, write reports, or touch Kaggle.
 from __future__ import annotations
 
 import json
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+from .contracts import MatchConfig
 from .experiment_manifest import ExperimentManifest
+from .experiment_manifest import manifest_to_match_configs
+from .shard_jobs import EvaluationShardJobPackageResult
+from .shard_jobs import write_evaluation_shard_job_package
+from .sharding import EvaluationShard
+from .sharding import EvaluationShardPlan
+from .sharding import ShardPlanConfig
 
 
 DEFAULT_SHARD_COUNT = 6
@@ -158,6 +166,96 @@ def build_historical_champion_shard_plan(
     )
 
 
+def select_historical_champion_shard(
+    plan: HistoricalChampionShardPlan,
+    shard_id: str | None = None,
+) -> HistoricalChampionShard:
+    """Select a deterministic shard from a historical champion shard plan."""
+
+    if not isinstance(plan, HistoricalChampionShardPlan):
+        raise ValueError("plan must be a HistoricalChampionShardPlan")
+    selected_shard_id = shard_id or plan.recommended_probe_shard_id
+    for shard in plan.shards:
+        if shard.shard_id == selected_shard_id:
+            return shard
+    raise ValueError(f"unknown historical champion shard id: {selected_shard_id}")
+
+
+def build_historical_champion_evaluation_shard_plan(
+    plan: HistoricalChampionShardPlan | None = None,
+    *,
+    shard_id: str | None = None,
+    output_root: str | Path = DEFAULT_RESULT_ROOT,
+    command_python: str = ".venv/bin/python",
+) -> EvaluationShardPlan:
+    """Convert one historical champion shard into existing shard contracts."""
+
+    historical_plan = plan if plan is not None else build_historical_champion_shard_plan()
+    historical_shard = select_historical_champion_shard(historical_plan, shard_id)
+    matches_by_label = _match_configs_by_label(historical_plan.source_manifest_paths)
+    matches = tuple(
+        _match_for_scenario(matches_by_label, scenario)
+        for scenario in historical_shard.scenarios
+    )
+    output_dir = Path(output_root) / historical_shard.shard_id
+    planned_manifest_path = str(output_dir / "manifest.json")
+    planned_report_path = str(output_dir / "report.json")
+    evaluation_shard = EvaluationShard(
+        shard_id=historical_shard.shard_id,
+        label=historical_shard.shard_id,
+        source_manifest_refs=tuple(
+            dict.fromkeys(
+                scenario.source_manifest_path
+                for scenario in historical_shard.scenarios
+            )
+        ),
+        match_labels=tuple(scenario.scenario_label for scenario in historical_shard.scenarios),
+        seeds=tuple(scenario.seed for scenario in historical_shard.scenarios),
+        matches=matches,
+        planned_manifest_path=planned_manifest_path,
+        planned_report_path=planned_report_path,
+        command=_shard_command(command_python, planned_manifest_path, planned_report_path),
+    )
+    config = ShardPlanConfig(
+        shard_count=1,
+        output_root=str(output_root),
+        command_python=command_python,
+        label_prefix="historical-gauntlet",
+    )
+    return EvaluationShardPlan(
+        config=config,
+        shards=(evaluation_shard,),
+        total_matches=len(matches),
+        summary_text=(
+            "historical_champion_package_plan "
+            f"shard_id={historical_shard.shard_id} matches={len(matches)} "
+            f"output_root={output_root}"
+        ),
+    )
+
+
+def write_historical_champion_probe_shard_package(
+    output_root: str | Path,
+    *,
+    plan: HistoricalChampionShardPlan | None = None,
+    shard_id: str | None = None,
+    command_python: str = ".venv/bin/python",
+    materialize_manifests: bool = True,
+) -> EvaluationShardJobPackageResult:
+    """Materialize the recommended probe shard as a standard shard job package."""
+
+    evaluation_plan = build_historical_champion_evaluation_shard_plan(
+        plan,
+        shard_id=shard_id,
+        output_root=output_root,
+        command_python=command_python,
+    )
+    return write_evaluation_shard_job_package(
+        evaluation_plan,
+        materialize_manifests=materialize_manifests,
+    )
+
+
 def _read_manifest_scenarios(
     paths: tuple[Path, ...],
 ) -> tuple[HistoricalChampionShardScenario, ...]:
@@ -190,6 +288,52 @@ def _read_manifest_scenarios(
                 )
             )
     return tuple(planned)
+
+
+def _match_configs_by_label(
+    source_manifest_paths: tuple[str, ...],
+) -> dict[str, MatchConfig]:
+    matches: dict[str, MatchConfig] = {}
+    for path in source_manifest_paths:
+        manifest = _read_manifest(Path(path))
+        for match in manifest_to_match_configs(manifest):
+            if match.label is None:
+                raise ValueError(f"{path} match label is required")
+            if match.label in matches:
+                raise ValueError(f"duplicate match label: {match.label}")
+            matches[match.label] = match
+    return matches
+
+
+def _match_for_scenario(
+    matches_by_label: dict[str, MatchConfig],
+    scenario: HistoricalChampionShardScenario,
+) -> MatchConfig:
+    try:
+        match = matches_by_label[scenario.scenario_label]
+    except KeyError as exc:
+        raise ValueError(f"missing match config for {scenario.scenario_label}") from exc
+    metadata = dict(match.metadata)
+    if metadata.get("episode_steps") != "500":
+        raise ValueError(f"{scenario.scenario_label} must have episode_steps=500")
+    return match
+
+
+def _shard_command(
+    command_python: str,
+    planned_manifest_path: str,
+    planned_report_path: str,
+) -> str:
+    return " ".join(
+        shlex.quote(part)
+        for part in (
+            command_python,
+            "scripts/run_evaluation_experiment.py",
+            planned_manifest_path,
+            "--report-output",
+            planned_report_path,
+        )
+    )
 
 
 def _read_manifest(path: Path) -> ExperimentManifest:
@@ -248,6 +392,9 @@ __all__ = (
     "HistoricalChampionShard",
     "HistoricalChampionShardPlan",
     "HistoricalChampionShardScenario",
+    "build_historical_champion_evaluation_shard_plan",
     "build_historical_champion_shard_plan",
     "default_historical_champion_manifest_paths",
+    "select_historical_champion_shard",
+    "write_historical_champion_probe_shard_package",
 )
