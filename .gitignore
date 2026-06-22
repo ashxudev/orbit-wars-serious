@@ -6,3 +6,7 @@ htmlcov/
 .venv/
 venv/
 .env
+
+# Generated Kaggle replay-analysis outputs.
+docs/submission_replay_analyses/
+docs/top_player_analysis/
