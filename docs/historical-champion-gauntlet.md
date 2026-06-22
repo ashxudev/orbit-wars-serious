@@ -354,6 +354,52 @@ Generated package files, Daytona plans, smoke reports, client reports, shard
 results, match reports, scoreboards, logs, replays, and temporary files are
 `/tmp` artifacts and must not be committed.
 
+## Cycle 8 Full-Gauntlet Package And Daytona Dry-Run Plan
+
+Cycle 8 extends the package path from the single probe shard to the full
+six-shard, 30-scenario historical champion gauntlet package. This remains
+package materialization and Daytona dry-run preparation only. It does not run
+local full-gauntlet matches, launch real Daytona jobs, submit to Kaggle, or
+produce source-controlled result artifacts.
+
+Full package command:
+
+```bash
+.venv/bin/python scripts/prepare_historical_champion_gauntlet_package.py --output-root /tmp/ow-historical-gauntlet-full-package
+```
+
+Expected package properties:
+
+- Shards: `6`.
+- Scenarios: `30`.
+- Scenarios per shard: `5,5,5,5,5,5`.
+- Every scenario keeps `metadata.episode_steps == "500"`.
+- Historical `python_file` opponents are copied into package-local
+  `agent_files/` directories under `/tmp/ow-historical-gauntlet-full-package`.
+- Every shard job records those package-local historical agent files in
+  `extra_upload_paths`.
+
+Daytona plan dry-run commands:
+
+```bash
+.venv/bin/python scripts/prepare_daytona_shard_jobs.py /tmp/ow-historical-gauntlet-full-package/shard-jobs.index.json --output-path /tmp/ow-historical-gauntlet-full-package/daytona-shard-jobs.json --working-dir /workspace/orbit-wars-serious --sandbox-name-prefix ow-historical-gauntlet-full
+.venv/bin/python scripts/validate_daytona_shard_jobs.py /tmp/ow-historical-gauntlet-full-package/daytona-shard-jobs.json
+.venv/bin/python scripts/run_daytona_shard_jobs.py /tmp/ow-historical-gauntlet-full-package/daytona-shard-jobs.json --dry-run --json-output /tmp/ow-historical-gauntlet-full-package/daytona-dry-run-result.json
+```
+
+Expected Daytona dry-run properties:
+
+- Daytona plan specs: `6`.
+- Each job includes its job JSON, shard manifest, and package-local historical
+  agent files in expected uploads.
+- Validation passes with no missing upload paths and no duplicate sandbox names.
+- Fake/dry-run execution passes locally.
+
+All generated package directories, Daytona plans, dry-run reports, future shard
+results, match reports, scoreboards, logs, and replays from this workflow remain
+`/tmp` artifacts and must not be committed. Real Daytona full-gauntlet execution
+is a later cycle and still requires the guarded real CLI boundary.
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.
