@@ -477,6 +477,77 @@ readiness/smoke. No Kaggle command or live submission was run. Raw package
 files, Daytona plans, smoke reports, dry-run reports, logs, scoreboards, replays,
 and any future client reports remain `/tmp` artifacts and must not be committed.
 
+## Cycle 10 Real Run Completion Audit
+
+Cycle 10 audited the detached real Daytona full-gauntlet run that completed
+after the Cycle 9 environment-policy block. No Daytona command was rerun in
+Cycle 10, no Kaggle command was run, and no agent/planner/runtime behavior was
+changed.
+
+Run root:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/
+```
+
+Final Daytona client report:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/daytona-real-report.json
+```
+
+Final report status:
+
+```text
+passed=True
+exit_code=0
+summary_text=daytona_client_execution_report=COMPLETE plan_path=/tmp/ow-historical-gauntlet-cycle9-full-real/daytona-shard-jobs.json jobs=6 events=144 operation_plans=6 exit_code=0
+operation_plans=6
+client_event_trace=144
+batch_result.execution_results=6
+batch_result.shard_result_paths=6
+```
+
+Shard result paths:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-000/historical-gauntlet-shard-000.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-001/historical-gauntlet-shard-001.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-002/historical-gauntlet-shard-002.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-003/historical-gauntlet-shard-003.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-004/historical-gauntlet-shard-004.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-005/historical-gauntlet-shard-005.shard-result.json
+```
+
+Shard completion audit:
+
+| Shard | Status | Matches | Completed | Errors |
+|---|---|---:|---:|---:|
+| `historical-gauntlet-shard-000` | `COMPLETE` | `5` | `5` | `0` |
+| `historical-gauntlet-shard-001` | `COMPLETE` | `5` | `5` | `0` |
+| `historical-gauntlet-shard-002` | `COMPLETE` | `5` | `5` | `0` |
+| `historical-gauntlet-shard-003` | `COMPLETE` | `5` | `5` | `0` |
+| `historical-gauntlet-shard-004` | `COMPLETE` | `5` | `5` | `0` |
+| `historical-gauntlet-shard-005` | `COMPLETE` | `5` | `5` | `0` |
+
+Aggregate completion:
+
+- Shard results present: `6/6`.
+- Scheduled scenarios accounted for: `30/30`.
+- Completed matches: `30/30`.
+- Shard execution errors: `0`.
+- Horizon: full `episode_steps=500` scenarios.
+- Agent under test: current V2/runtime agent.
+- Opponents: historical champion `python_file` agents packaged into Daytona
+  job uploads.
+
+This is a completed real Daytona execution of the full historical champion
+gauntlet. It is infrastructure/result-accounting evidence only; deeper match
+outcome analysis, merge summaries, fixture extraction, and strategy follow-up
+belong to later cycles. Generated JSON reports, shard result files, logs,
+scoreboards, replays, Daytona client reports, package files, and other `/tmp`
+artifacts must remain uncommitted.
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.
