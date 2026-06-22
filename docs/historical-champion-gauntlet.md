@@ -147,3 +147,53 @@ Generated probe files remained under `/tmp`:
 /tmp/ow-historical-gauntlet-cycle2-4p-probe-manifest.json
 /tmp/ow-historical-gauntlet-cycle2-4p-probe.json
 ```
+
+## Cycle 3 Daytona Shard Plan
+
+Cycle 3 adds deterministic shard planning for the two committed full-horizon
+gauntlet manifests. This is plan-only: no gauntlet matches, Daytona packages,
+Daytona jobs, uploads, downloads, generated reports, scoreboards, logs, or
+replays are created.
+
+The planner API is:
+
+```python
+from ow_eval.historical_gauntlet_shards import build_historical_champion_shard_plan
+
+plan = build_historical_champion_shard_plan()
+print(plan.summary_text)
+```
+
+Default summary:
+
+```text
+historical_champion_shard_plan shards=6 total_scenarios=30 scenarios_per_shard=5,5,5,5,5,5 recommended_probe_shard=historical-gauntlet-shard-000
+```
+
+The default plan:
+
+- Reads `historical-champion-gauntlet-2p-500.json` and
+  `historical-champion-gauntlet-4p-500.json`.
+- Assigns all 30 committed scenarios to exactly one shard.
+- Preserves `episode_steps == "500"` for every planned scenario.
+- Uses six deterministic round-robin shards with five scenarios per shard.
+- Records stable shard ids, scenario labels, seeds, controlled seats, player
+  counts, opponent names, source manifest names, and intended future output
+  paths under `generated_results/historical_champion_gauntlet/`.
+- Marks `historical-gauntlet-shard-000` as the recommended next single-shard
+  Daytona probe input.
+
+Cycle 3 validation:
+
+```bash
+.venv/bin/python -m unittest tests.test_historical_champion_registry tests.test_historical_champion_gauntlet_manifests
+.venv/bin/python -m unittest tests.test_historical_champion_gauntlet_shards
+.venv/bin/python -m unittest tests.test_evaluation_manifest_fixtures tests.test_evaluation_agent_loading tests.test_evaluation_official_runner
+.venv/bin/python - <<'PY'
+from ow_eval.historical_gauntlet_shards import build_historical_champion_shard_plan
+plan = build_historical_champion_shard_plan()
+print(plan.summary_text)
+print(len(plan.shards), plan.total_scenarios)
+PY
+git diff --check
+```
