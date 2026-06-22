@@ -211,6 +211,109 @@ Focused regression checks:
 git diff --check
 ```
 
+## Cycle 6 Guarded Real Daytona Single-Shard Probe
+
+Cycle 6 rebuilt the recommended real-probe package for exactly one shard,
+`historical-gauntlet-shard-000`, and revalidated the local Daytona preparation
+path. Real Daytona execution was not run because the explicit readiness gate was
+still blocked.
+
+Generated files were written only under:
+
+```text
+/tmp/ow-historical-gauntlet-cycle6-real-shard-000/
+```
+
+Selected package:
+
+- Shard id: `historical-gauntlet-shard-000`.
+- Scenario count: `5`.
+- Episode steps: `500`.
+- Package manifest:
+  `/tmp/ow-historical-gauntlet-cycle6-real-shard-000/historical-gauntlet-shard-000/manifest.json`.
+- Job path:
+  `/tmp/ow-historical-gauntlet-cycle6-real-shard-000/historical-gauntlet-shard-000/historical-gauntlet-shard-000.job.json`.
+- Job index:
+  `/tmp/ow-historical-gauntlet-cycle6-real-shard-000/shard-jobs.index.json`.
+
+Selected scenario labels:
+
+- `historical-gauntlet-2p-500-seat-0-vs-claude-v3-wide-search-forecast`.
+- `historical-gauntlet-2p-500-seat-0-vs-claude-v14-hammer-discipline`.
+- `historical-gauntlet-2p-500-seat-0-vs-claude-v31-race-awareness`.
+- `historical-gauntlet-2p-500-seat-0-vs-ow2-current-main`.
+- `historical-gauntlet-4p-500-top-score-seat-2`.
+
+Daytona plan generation:
+
+```bash
+.venv/bin/python scripts/prepare_daytona_shard_jobs.py /tmp/ow-historical-gauntlet-cycle6-real-shard-000/shard-jobs.index.json --output-path /tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-shard-jobs.json --working-dir /workspace/orbit-wars-serious --sandbox-name-prefix ow-historical-gauntlet-real-probe
+```
+
+Result:
+
+```text
+daytona_shard_job_plan=WRITTEN index_path=/tmp/ow-historical-gauntlet-cycle6-real-shard-000/shard-jobs.index.json output_path=/tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-shard-jobs.json jobs=1 exit_code=0
+```
+
+Daytona preflight:
+
+```bash
+.venv/bin/python scripts/validate_daytona_shard_jobs.py /tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-shard-jobs.json
+```
+
+Result:
+
+```text
+daytona_shard_job_plan_validation=PASS plan_path=/tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-shard-jobs.json specs=1 missing_upload_paths=0 duplicate_sandbox_names=0 exit_code=0
+```
+
+Dry-run executor:
+
+```bash
+.venv/bin/python scripts/run_daytona_shard_jobs.py /tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-shard-jobs.json --dry-run --json-output /tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-dry-run-result.json
+```
+
+Result:
+
+```text
+daytona_shard_jobs_cli=COMPLETE plan_path=/tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-shard-jobs.json dry_run=True jobs=1 exit_code=0
+daytona_shard_execution=COMPLETE plan_path=/tmp/ow-historical-gauntlet-cycle6-real-shard-000/daytona-shard-jobs.json jobs=1 merged=False exit_code=0
+```
+
+Daytona plan inspection:
+
+- Specs: `1`.
+- Job id: `job-0000`.
+- Shard id: `historical-gauntlet-shard-000`.
+- Sandbox name:
+  `ow-historical-gauntlet-real-probe-0000-historical-gauntlet-shard-000`.
+- Manifest scenario count: `5`.
+- Manifest episode steps: `500`.
+
+Real Daytona readiness:
+
+```text
+daytona_real_execution_readiness=BLOCKED allow_real_daytona=False missing_env_vars=1 exit_code=2
+passed False
+missing_env_vars DAYTONA_API_KEY
+error_text real Daytona execution is not explicitly allowed; missing env vars: DAYTONA_API_KEY
+```
+
+Because readiness was blocked, no
+`scripts/run_daytona_real_shard_jobs.py --allow-real-daytona` command was run.
+No real Daytona sandbox was created, uploaded to, executed, downloaded from, or
+closed in this cycle. This is blocked by environment/configuration, not by the
+package, Daytona plan, validation, or dry-run path.
+
+Focused regression checks:
+
+```bash
+.venv/bin/python -m unittest tests.test_historical_champion_gauntlet_shards tests.test_historical_champion_gauntlet_packages
+.venv/bin/python -m unittest tests.test_evaluation_daytona_plan_cli tests.test_evaluation_daytona_preflight tests.test_evaluation_daytona_executor_cli tests.test_evaluation_daytona_real_cli tests.test_evaluation_daytona_client_report
+git diff --check
+```
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.
