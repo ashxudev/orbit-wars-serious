@@ -548,6 +548,115 @@ belong to later cycles. Generated JSON reports, shard result files, logs,
 scoreboards, replays, Daytona client reports, package files, and other `/tmp`
 artifacts must remain uncommitted.
 
+## Cycle 11 Merge Full Gauntlet Results
+
+Cycle 11 merged the six completed Daytona shard result files locally under
+`/tmp` and recorded aggregate outcome metrics. No Daytona command was rerun, no
+Kaggle command was run, and no generated result artifact was copied into the
+repository.
+
+Source run root:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/
+```
+
+Input shard result files:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-000/historical-gauntlet-shard-000.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-001/historical-gauntlet-shard-001.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-002/historical-gauntlet-shard-002.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-003/historical-gauntlet-shard-003.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-004/historical-gauntlet-shard-004.shard-result.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-shard-005/historical-gauntlet-shard-005.shard-result.json
+```
+
+Generated local merge artifacts:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-merged-report.json
+/tmp/ow-historical-gauntlet-cycle9-full-real/historical-gauntlet-merged-summary.json
+```
+
+Merge status:
+
+```text
+shard_merge=COMPLETE shards=6 matches=30 completed=30 errors=0
+```
+
+Aggregate metrics:
+
+| Metric | Value |
+|---|---:|
+| Scenarios accounted for | `30/30` |
+| Completed matches | `30` |
+| Error matches | `0` |
+| Win rate | `0.0` |
+| Wins | `0` |
+| Mean final rank | `2.0` |
+| Rank distribution | `{"2": 30}` |
+| Mean final score | `-1.0` |
+| Mean final production | `0.0` |
+| Mean final ships | `0.0` |
+| Mean final planets | `0.0` |
+| Mean turns survived | `153.7` |
+| No-action count | `2569` |
+| Invalid action count | `0` |
+| Timeout count | `0` |
+| Metric error count | `0` |
+
+Player-count split:
+
+| Split | Matches | Completed | Errors | Win rate | Mean rank | No-action count |
+|---|---:|---:|---:|---:|---:|---:|
+| `2P` | `22` | `22` | `0` | `0.0` | `2.0` | `1349` |
+| `4P` | `8` | `8` | `0` | `0.0` | `2.0` | `1220` |
+
+Controlled-seat split:
+
+| Seat | Matches | Completed | Errors | Win rate | Mean rank | No-action count |
+|---|---:|---:|---:|---:|---:|---:|
+| `0` | `14` | `14` | `0` | `0.0` | `2.0` | `957` |
+| `1` | `12` | `12` | `0` | `0.0` | `2.0` | `887` |
+| `2` | `2` | `2` | `0` | `0.0` | `2.0` | `372` |
+| `3` | `2` | `2` | `0` | `0.0` | `2.0` | `353` |
+
+Opponent-family split:
+
+| Family | Matches | Completed | Errors | Win rate | Mean rank | No-action count |
+|---|---:|---:|---:|---:|---:|---:|
+| `orbit-wars-claude` | `24` | `24` | `0` | `0.0` | `2.0` | `2102` |
+| `orbit-wars-2` | `4` | `4` | `0` | `0.0` | `2.0` | `226` |
+| `orbit-wars-2+orbit-wars-claude` | `2` | `2` | `0` | `0.0` | `2.0` | `241` |
+
+Shard split:
+
+| Shard | Matches | Completed | Errors | Win rate | Mean rank | No-action count |
+|---|---:|---:|---:|---:|---:|---:|
+| `historical-gauntlet-shard-000` | `5` | `5` | `0` | `0.0` | `2.0` | `442` |
+| `historical-gauntlet-shard-001` | `5` | `5` | `0` | `0.0` | `2.0` | `442` |
+| `historical-gauntlet-shard-002` | `5` | `5` | `0` | `0.0` | `2.0` | `327` |
+| `historical-gauntlet-shard-003` | `5` | `5` | `0` | `0.0` | `2.0` | `458` |
+| `historical-gauntlet-shard-004` | `5` | `5` | `0` | `0.0` | `2.0` | `384` |
+| `historical-gauntlet-shard-005` | `5` | `5` | `0` | `0.0` | `2.0` | `516` |
+
+Opponent-name or pool split is available in
+`historical-gauntlet-merged-summary.json`. The compact high-level result is
+consistent across every opponent/pool: all splits completed without errors,
+with win rate `0.0`, mean final rank `2.0`, invalid action count `0`, and
+timeout count `0`.
+
+Unavailable or limited metrics in the current shard result schema:
+
+- Remaining production beyond `final_production` is not present.
+- Budget-guard counts are not first-class metrics; `timeout_count` and runtime
+  diagnostic metadata are available.
+- Raw replay paths are `null` in these shard results.
+
+The merge establishes infrastructure-complete, loss-heavy gauntlet evidence for
+Cycle 12 triage. It does not classify leaks or extract fixtures.
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.
