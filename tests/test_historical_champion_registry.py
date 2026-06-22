@@ -13,6 +13,8 @@ from ow_eval.agent_loading import load_agent_callable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = REPO_ROOT / "experiments" / "historical_champions" / "registry.json"
+OPPONENT_MANIFEST_PATH = REPO_ROOT / "historical_opponents" / "manifest.json"
+OPPONENT_AGENT_DIR = REPO_ROOT / "historical_opponents" / "agents"
 HISTORICAL_ROOTS = (
     Path("/Users/user/dev/hackathons/orbit-wars"),
     Path("/Users/user/dev/hackathons/orbit-wars-2"),
@@ -25,6 +27,10 @@ def load_registry() -> dict[str, Any]:
     return json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
 
 
+def load_opponent_manifest() -> dict[str, Any]:
+    return json.loads(OPPONENT_MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
 def registry_entries() -> list[dict[str, Any]]:
     entries = load_registry()["entries"]
     assert isinstance(entries, list)
@@ -32,10 +38,12 @@ def registry_entries() -> list[dict[str, Any]]:
 
 
 def agent_spec_from_entry(entry: dict[str, Any]) -> AgentSpec:
+    path = Path(str(entry["source_file_path"]))
+    file_path = str(path if path.is_absolute() else REPO_ROOT / path)
     return AgentSpec(
         name=str(entry["name"]),
         source_kind=AgentSourceKind(str(entry["source_kind"])),
-        file_path=str(entry["source_file_path"]),
+        file_path=file_path,
         callable_name=str(entry["callable_name"]),
         metadata=(
             ("historical_public_score", str(entry["historical_public_score"])),
@@ -55,6 +63,24 @@ class HistoricalChampionRegistryTests(unittest.TestCase):
         self.assertEqual(REGISTRY_PATH.read_text(encoding="utf-8"), expected_text)
         self.assertEqual(payload["name"], "historical-champion-registry")
         self.assertEqual(payload["version"], "v0")
+
+    def test_historical_opponent_manifest_exists_and_is_deterministic(self) -> None:
+        self.assertTrue(OPPONENT_MANIFEST_PATH.is_file())
+
+        payload = load_opponent_manifest()
+        expected_text = json.dumps(payload, sort_keys=True, indent=2) + "\n"
+
+        self.assertEqual(OPPONENT_MANIFEST_PATH.read_text(encoding="utf-8"), expected_text)
+        self.assertEqual(payload["name"], "historical-opponents-manifest")
+        self.assertEqual(payload["version"], "v0")
+        self.assertEqual(
+            tuple(entry["stable_opponent_id"] for entry in payload["entries"]),
+            tuple(
+                entry["name"]
+                for entry in registry_entries()
+                if entry["loadability_status"] == "loadable"
+            ),
+        )
 
     def test_entries_have_required_gauntlet_fields(self) -> None:
         required_fields = {
@@ -94,13 +120,32 @@ class HistoricalChampionRegistryTests(unittest.TestCase):
         for entry in loadable_entries:
             with self.subTest(name=entry["name"]):
                 path = Path(str(entry["source_file_path"]))
+                resolved_path = path if path.is_absolute() else REPO_ROOT / path
 
-                self.assertTrue(path.is_file(), str(path))
-                self.assertTrue(
-                    any(path.is_relative_to(root) for root in HISTORICAL_ROOTS),
-                    str(path),
-                )
+                self.assertFalse(path.is_absolute(), str(path))
+                self.assertTrue(resolved_path.is_file(), str(resolved_path))
+                self.assertTrue(resolved_path.is_relative_to(OPPONENT_AGENT_DIR))
                 self.assertIsNone(entry["skip_reason"])
+
+    def test_opponent_manifest_records_original_provenance_for_copied_files(self) -> None:
+        manifest_entries = load_opponent_manifest()["entries"]
+        by_name = {entry["stable_opponent_id"]: entry for entry in manifest_entries}
+
+        for entry in registry_entries():
+            if entry["loadability_status"] != "loadable":
+                continue
+            with self.subTest(name=entry["name"]):
+                manifest_entry = by_name[entry["name"]]
+                copied_path = OPPONENT_AGENT_DIR / manifest_entry["copied_filename"]
+
+                self.assertTrue(copied_path.is_file())
+                self.assertEqual(manifest_entry["callable_name"], "agent")
+                self.assertEqual(manifest_entry["source_kind"], AgentSourceKind.PYTHON_FILE.value)
+                self.assertIn(manifest_entry["source_repo"], {"orbit-wars-2", "orbit-wars-claude"})
+                self.assertTrue(
+                    any(Path(manifest_entry["origin_path"]).is_relative_to(root) for root in HISTORICAL_ROOTS),
+                    manifest_entry["origin_path"],
+                )
 
     def test_strong_historical_public_score_entries_are_registered(self) -> None:
         strong_entries = [

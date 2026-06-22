@@ -27,6 +27,11 @@ from .daytona_real_config import (
     validate_daytona_real_execution_readiness,
 )
 from .daytona_sdk_adapter import DaytonaSdkAdapter, DaytonaSdkAdapterConfig
+from .daytona_source import (
+    DAYTONA_SOURCE_MODE_GITHUB,
+    DaytonaGitPreflightResult,
+    validate_daytona_git_preflight,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +42,7 @@ class DaytonaRealCliResult:
     allow_real_daytona: bool
     readiness: DaytonaRealExecutionReadiness
     expected_git_commit: str | None = None
+    git_preflight: DaytonaGitPreflightResult | None = None
     report: DaytonaClientExecutionReport | None = None
     json_output_path: str | None = None
     exit_code: int = 2
@@ -51,6 +57,11 @@ class DaytonaRealCliResult:
             raise ValueError("readiness must be a DaytonaRealExecutionReadiness")
         if self.expected_git_commit is not None:
             _validate_nonempty_string(self.expected_git_commit, "expected_git_commit")
+        if self.git_preflight is not None and not isinstance(
+            self.git_preflight,
+            DaytonaGitPreflightResult,
+        ):
+            raise ValueError("git_preflight must be a DaytonaGitPreflightResult")
         if self.report is not None and not isinstance(
             self.report,
             DaytonaClientExecutionReport,
@@ -78,6 +89,11 @@ class DaytonaRealCliResult:
             "allow_real_daytona": self.allow_real_daytona,
             "readiness": self.readiness.to_dict(),
             "expected_git_commit": self.expected_git_commit,
+            "git_preflight": (
+                self.git_preflight.to_dict()
+                if self.git_preflight is not None
+                else None
+            ),
             "report": self.report.to_dict() if self.report is not None else None,
             "json_output_path": self.json_output_path,
             "exit_code": self.exit_code,
@@ -141,6 +157,27 @@ def run_daytona_real_shard_jobs(
                 ),
                 error_text=readiness.error_text,
             )
+        git_preflight = validate_daytona_git_preflight(
+            source_mode=config.source_mode,
+            remote=config.git_remote,
+            branch=config.git_branch,
+        )
+        if not git_preflight.passed:
+            return DaytonaRealCliResult(
+                plan_path=plan_path_text,
+                allow_real_daytona=True,
+                readiness=readiness,
+                git_preflight=git_preflight,
+                json_output_path=json_output_text,
+                exit_code=git_preflight.exit_code,
+                summary_text=_summary_text(
+                    plan_path_text,
+                    allow_real_daytona=True,
+                    report=None,
+                    exit_code=git_preflight.exit_code,
+                ),
+                error_text=git_preflight.error_text,
+            )
         expected_git_commit = _local_git_commit()
         adapter = DaytonaSdkAdapter(
             DaytonaSdkAdapterConfig(
@@ -156,7 +193,11 @@ def run_daytona_real_shard_jobs(
             require_upload_paths_exist=require_upload_paths_exist,
             require_unique_sandbox_names=require_unique_sandbox_names,
             merge_results=False,
-            expected_remote_git_commit=expected_git_commit,
+            expected_remote_git_commit=(
+                None
+                if config.source_mode == DAYTONA_SOURCE_MODE_GITHUB
+                else expected_git_commit
+            ),
         )
         if json_output is not None:
             json_output_text = str(_write_json(report.to_dict(), json_output))
@@ -165,6 +206,7 @@ def run_daytona_real_shard_jobs(
             allow_real_daytona=True,
             readiness=readiness,
             expected_git_commit=expected_git_commit,
+            git_preflight=git_preflight,
             report=report,
             json_output_path=json_output_text,
             exit_code=report.exit_code,

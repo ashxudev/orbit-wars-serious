@@ -14,10 +14,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ow_eval import (
+    DAYTONA_SOURCE_MODE_SNAPSHOT,
     DaytonaClientCommandResult,
     DaytonaRealCliResult,
     DaytonaRealExecutionConfig,
     DaytonaSandboxHandle,
+    DaytonaShardJobPlanConfig,
     ShardPlanConfig,
     build_daytona_shard_job_plan,
     build_evaluation_shard_plan,
@@ -46,9 +48,14 @@ def packaged_index(temp_dir: str | Path):
     return write_evaluation_shard_job_package(plan)
 
 
-def written_daytona_plan(temp_dir: str | Path):
+def written_daytona_plan(
+    temp_dir: str | Path,
+    *,
+    source_mode: str | None = DAYTONA_SOURCE_MODE_SNAPSHOT,
+):
     package = packaged_index(temp_dir)
-    plan = build_daytona_shard_job_plan(package.index_path)
+    config = None if source_mode is None else DaytonaShardJobPlanConfig(source_mode=source_mode)
+    plan = build_daytona_shard_job_plan(package.index_path, config)
     plan_path = Path(temp_dir) / "daytona-plan.json"
     write_daytona_shard_job_plan(plan, plan_path)
     return package, plan, plan_path
@@ -102,6 +109,7 @@ def ready_env() -> dict[str, str]:
         "OW_EVAL_ALLOW_REAL_DAYTONA": "1",
         "DAYTONA_API_KEY_ENV_VAR": "TOKEN",
         "TOKEN": "secret",
+        "DAYTONA_SOURCE_MODE": DAYTONA_SOURCE_MODE_SNAPSHOT,
     }
 
 

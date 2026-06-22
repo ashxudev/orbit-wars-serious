@@ -41,7 +41,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v3.py",
+            "file_path": "historical_opponents/agents/claude_v3_wide_search_forecast.py",
             "metadata": {
               "historical_public_score": "912.2",
               "historical_submission_ref": "53555669",
@@ -74,7 +74,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v3.py",
+            "file_path": "historical_opponents/agents/claude_v3_wide_search_forecast.py",
             "metadata": {
               "historical_public_score": "912.2",
               "historical_submission_ref": "53555669",
@@ -107,7 +107,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v28.py",
+            "file_path": "historical_opponents/agents/claude_v28_mode_split_champion.py",
             "metadata": {
               "historical_public_score": "872.4",
               "historical_submission_ref": "53585590",
@@ -140,7 +140,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v28.py",
+            "file_path": "historical_opponents/agents/claude_v28_mode_split_champion.py",
             "metadata": {
               "historical_public_score": "872.4",
               "historical_submission_ref": "53585590",
@@ -173,7 +173,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v37.py",
+            "file_path": "historical_opponents/agents/claude_v37_race_fix_mode_split.py",
             "metadata": {
               "historical_public_score": "870.4",
               "historical_submission_ref": "53602635",
@@ -206,7 +206,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v37.py",
+            "file_path": "historical_opponents/agents/claude_v37_race_fix_mode_split.py",
             "metadata": {
               "historical_public_score": "870.4",
               "historical_submission_ref": "53602635",
@@ -239,7 +239,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v14.py",
+            "file_path": "historical_opponents/agents/claude_v14_hammer_discipline.py",
             "metadata": {
               "historical_public_score": "859.1",
               "historical_submission_ref": "53585594",
@@ -272,7 +272,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v14.py",
+            "file_path": "historical_opponents/agents/claude_v14_hammer_discipline.py",
             "metadata": {
               "historical_public_score": "859.1",
               "historical_submission_ref": "53585594",
@@ -305,7 +305,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v8.py",
+            "file_path": "historical_opponents/agents/claude_v8_leader_weighted_denial.py",
             "metadata": {
               "historical_public_score": "851.1",
               "historical_submission_ref": "53556108",
@@ -338,7 +338,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v8.py",
+            "file_path": "historical_opponents/agents/claude_v8_leader_weighted_denial.py",
             "metadata": {
               "historical_public_score": "851.1",
               "historical_submission_ref": "53556108",
@@ -371,7 +371,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v9.py",
+            "file_path": "historical_opponents/agents/claude_v9_hold_aware_capture.py",
             "metadata": {
               "historical_public_score": "841.9",
               "historical_submission_ref": "53556449",
@@ -404,7 +404,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v9.py",
+            "file_path": "historical_opponents/agents/claude_v9_hold_aware_capture.py",
             "metadata": {
               "historical_public_score": "841.9",
               "historical_submission_ref": "53556449",
@@ -437,7 +437,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v31.py",
+            "file_path": "historical_opponents/agents/claude_v31_race_awareness.py",
             "metadata": {
               "historical_public_score": "826.6",
               "historical_submission_ref": "53602639",
@@ -470,7 +470,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v31.py",
+            "file_path": "historical_opponents/agents/claude_v31_race_awareness.py",
             "metadata": {
               "historical_public_score": "826.6",
               "historical_submission_ref": "53602639",
@@ -503,7 +503,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/submissions/main_v62_bundled.py",
+            "file_path": "historical_opponents/agents/claude_v62_low_pickoff_bundled.py",
             "metadata": {
               "historical_public_score": "824.4",
               "historical_submission_ref": "53641340",
@@ -536,7 +536,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/submissions/main_v62_bundled.py",
+            "file_path": "historical_opponents/agents/claude_v62_low_pickoff_bundled.py",
             "metadata": {
               "historical_public_score": "824.4",
               "historical_submission_ref": "53641340",
@@ -569,7 +569,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/main.py",
+            "file_path": "historical_opponents/agents/claude_main_v62_bundled.py",
             "metadata": {
               "historical_public_score": "824.4",
               "historical_submission_ref": "53641340",
@@ -602,7 +602,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-claude/main.py",
+            "file_path": "historical_opponents/agents/claude_main_v62_bundled.py",
             "metadata": {
               "historical_public_score": "824.4",
               "historical_submission_ref": "53641340",
@@ -635,7 +635,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/current_main.py",
+            "file_path": "historical_opponents/agents/ow2_current_main.py",
             "metadata": {
               "historical_public_score": "",
               "historical_submission_ref": "",
@@ -668,7 +668,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/current_main.py",
+            "file_path": "historical_opponents/agents/ow2_current_main.py",
             "metadata": {
               "historical_public_score": "",
               "historical_submission_ref": "",
@@ -701,7 +701,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/v11.py",
+            "file_path": "historical_opponents/agents/ow2_v11_wide_search.py",
             "metadata": {
               "historical_public_score": "",
               "historical_submission_ref": "",
@@ -734,7 +734,7 @@
         {
           "agent": {
             "callable_name": "agent",
-            "file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/v11.py",
+            "file_path": "historical_opponents/agents/ow2_v11_wide_search.py",
             "metadata": {
               "historical_public_score": "",
               "historical_submission_ref": "",

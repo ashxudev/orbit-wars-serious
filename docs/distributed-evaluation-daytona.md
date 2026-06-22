@@ -102,19 +102,21 @@ They are local evaluation manifests, not live Kaggle submission records.
 .venv/bin/python scripts/run_daytona_real_smoke.py --allow-real-daytona --json-output /tmp/ow-daytona-smoke/result.json
 ```
 
-10. If no prebuilt Daytona snapshot or image exists yet, prepare a clean runtime
-   snapshot context from committed tracked source. The default command is a
-   local dry-run: it uses `git archive HEAD`, writes the materialized source and
-   dependency lock context under `/tmp`, and does not create a Daytona resource.
+10. Optional fallback/cache setup: if you intentionally want a prebuilt Daytona
+   snapshot or image for dependency caching or non-GitHub source mode, prepare a
+   clean runtime snapshot context from committed tracked source. The default
+   command is a local dry-run: it uses `git archive HEAD`, writes the
+   materialized source and dependency lock context under `/tmp`, and does not
+   create a Daytona resource.
 
 ```bash
 .venv/bin/python scripts/prepare_daytona_runtime_snapshot.py --output-dir /tmp/ow-daytona-runtime-snapshot
 ```
 
-11. Create the real runtime snapshot only after the dry-run context looks
-    correct and real Daytona readiness is intentionally enabled. This command is
-    the setup step that creates one reusable Daytona snapshot; it still does not
-    run gauntlet matches or submit to Kaggle.
+11. Create the real runtime snapshot only if you are maintaining the
+    snapshot/local fallback path or refreshing the dependency cache. This command
+    creates one reusable Daytona snapshot; it still does not run gauntlet
+    matches or submit to Kaggle.
 
 ```bash
 .venv/bin/python scripts/prepare_daytona_runtime_snapshot.py --allow-real-daytona --json-output /tmp/ow-daytona-runtime-snapshot/result.json
@@ -190,36 +192,31 @@ environment variables. When `env` is not passed explicitly, the config reader
 also loads a local `.env` file through `python-dotenv` with `override=False`.
 That lets shell-provided values win over `.env` values.
 
-The recommended setup for repeated full-horizon historical gauntlets is a
-prebuilt Daytona snapshot or image that already has this repository checked out
-at `DAYTONA_WORKING_DIR` with `.venv` dependencies installed. That keeps shard
-startup fast and avoids passing a GitHub token into every sandbox.
+The default real-run source mode is GitHub. The local launcher records an exact
+commit SHA in the Daytona job plan, then the sandbox clones
+`DAYTONA_GITHUB_REPO`, checks out that SHA, verifies `git rev-parse HEAD`, and
+runs the shard command from that checkout. Historical opponent agents used by
+the gauntlet are committed under `historical_opponents/`, so GitHub mode does
+not upload repo source or package-local copies of historical agents.
 
-When no prepared snapshot/image exists, create one through
-`scripts/prepare_daytona_runtime_snapshot.py`. It deliberately packages only
-committed tracked files via `git archive HEAD`, so `.env`, `.venv`, untracked
-analysis files, generated reports, logs, and scratch artifacts are excluded from
-the snapshot source context. Commit intended setup changes before creating a
-snapshot if those changes must exist inside the remote runtime. The snapshot
-context writes `.ow-runtime-git-commit` at the repository root with the exact
-local `HEAD` used to build the snapshot.
+Real GitHub-mode shard execution fails closed unless the local source commit is
+ready for the sandbox to fetch. Before opening a real Daytona client, the
+guarded runner verifies local `HEAD`, checks for relevant uncommitted source
+changes, fetches the configured remote branch, and requires local
+`HEAD == origin/main` unless overridden. Failures include the operator-facing
+message `commit and push before Daytona real run`.
 
-Real shard execution now fails closed unless the sandbox snapshot is compatible
-with the local launcher commit. After opening the sandbox and before uploading
-job files, `scripts/run_daytona_real_shard_jobs.py` reads
-`.ow-runtime-git-commit` inside `DAYTONA_WORKING_DIR` and compares it to local
-`git rev-parse HEAD`. A missing marker, stale marker, or mismatched commit
-blocks execution before uploads or match commands. This means real gauntlet
-runs should use a freshly prepared snapshot for the current committed `HEAD`.
-Set `DAYTONA_SNAPSHOT_ID=auto` to resolve the default snapshot name from local
-`HEAD` as `ow-serious-runtime-<commit12>`; with that setting, committing new
-runner/package code requires recreating the snapshot, not editing `.env`.
-Use an explicit snapshot id only for custom snapshot naming.
+Snapshots/images remain useful as dependency caches or explicit fallback source
+paths. In GitHub mode, they are not source of truth. Set
+`DAYTONA_SOURCE_MODE=snapshot` or `DAYTONA_SOURCE_MODE=local` only when
+intentionally using the older snapshot/upload path. Snapshot fallback still uses
+`.ow-runtime-git-commit` compatibility checks to avoid silently running stale
+worker code.
 
 Copy `.env.example` to `.env` and fill local values. `.env` must stay
 untracked.
 
-Recommended prebuilt snapshot/image variables:
+Recommended GitHub-mode variables:
 
 - `OW_EVAL_ALLOW_REAL_DAYTONA`: must be truthy, for example `1` or `true`.
 - `DAYTONA_API_KEY_ENV_VAR`: optional name of the token env var. Defaults to
@@ -229,21 +226,30 @@ Recommended prebuilt snapshot/image variables:
 - `DAYTONA_TARGET`: optional Daytona runner target/region, for example `us`.
 - `DAYTONA_API_URL`: optional Daytona API URL override. Leave unset for the SDK
   default.
-- `DAYTONA_SNAPSHOT_ID`: optional prepared snapshot identifier. Use `auto`,
-  `current`, `current-head`, or `latest` to resolve the default current-HEAD
-  snapshot name `ow-serious-runtime-<commit12>`.
-- `DAYTONA_IMAGE`: optional prepared image identifier.
+- `DAYTONA_SOURCE_MODE`: defaults to `github`. Accepted fallback values are
+  `snapshot` and `local`.
+- `DAYTONA_GITHUB_REPO`: GitHub clone URL. The default is
+  `https://github.com/ashxudev/orbit-wars-serious.git`.
+- `DAYTONA_GIT_REF`: defaults to `auto`, which resolves to local `HEAD` when
+  the plan is generated. Explicit refs are preserved.
+- `DAYTONA_GITHUB_TOKEN_ENV_VAR`: optional name of the GitHub token env var.
+  Defaults to `DAYTONA_GITHUB_TOKEN`. Plans and reports record this env-var
+  name only, never the token value.
+- `DAYTONA_GITHUB_TOKEN`: optional token for authenticated/private clone.
+- `DAYTONA_GIT_REMOTE`: remote used by the commit/push preflight. Defaults to
+  `origin`.
+- `DAYTONA_GIT_BRANCH`: branch used by the commit/push preflight. Defaults to
+  `main`.
 - `DAYTONA_WORKING_DIR`: optional worker working directory override. Defaults
   to `/workspace/orbit-wars-serious`.
 - `DAYTONA_SANDBOX_NAME_PREFIX`: optional sandbox name prefix override.
 
-Optional clone-bootstrap variables:
+Snapshot/local fallback variables:
 
-- `OW_EVAL_REQUIRE_GITHUB_TOKEN`: set to `1` only for a clone-bootstrap path
-  where the remote sandbox must clone a private GitHub repository.
-- `GITHUB_TOKEN_ENV_VAR`: optional name of the GitHub token env var. Defaults
-  to `GITHUB_TOKEN`.
-- `GITHUB_TOKEN`: required only when `OW_EVAL_REQUIRE_GITHUB_TOKEN=1`.
+- `DAYTONA_SNAPSHOT_ID`: optional prepared snapshot identifier. Use `auto`,
+  `current`, `current-head`, or `latest` to resolve the default current-HEAD
+  snapshot name `ow-serious-runtime-<commit12>`.
+- `DAYTONA_IMAGE`: optional prepared image identifier.
 
 Legacy/placeholder variables still parsed for compatibility:
 
@@ -256,19 +262,23 @@ Both gates are required:
 OW_EVAL_ALLOW_REAL_DAYTONA=1 DAYTONA_API_KEY=... .venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-eval-shards/daytona-shard-jobs.json --allow-real-daytona
 ```
 
-For actual shard execution, keep `DAYTONA_SNAPSHOT_ID=auto` when using snapshots
-created by `scripts/prepare_daytona_runtime_snapshot.py` with the default naming
-scheme. The runner resolves that value to the current local commit's default
-snapshot name, then verifies the remote `.ow-runtime-git-commit` marker before
-uploads. Keep `DAYTONA_IMAGE` unset unless intentionally testing a raw image
-path; raw images must also contain `.ow-runtime-git-commit` with the current
-commit or real shard execution will fail before uploads.
-
 If `OW_EVAL_ALLOW_REAL_DAYTONA` or the required Daytona token env var is
 missing, the CLI returns a structured failure before importing `daytona` or
-touching any SDK client. If `OW_EVAL_REQUIRE_GITHUB_TOKEN=1`, the configured
-GitHub token env var is also required. If `--allow-real-daytona` is missing,
-readiness alone is not enough and the CLI still fails closed.
+touching any SDK client. If GitHub mode is active and the commit/push preflight
+fails, the CLI returns a structured failure before opening a Daytona sandbox. If
+`--allow-real-daytona` is missing, readiness alone is not enough and the CLI
+still fails closed.
+
+Recommended operator workflow for real GitHub-mode runs:
+
+1. Finish code and fixture changes.
+2. Run the relevant local tests and package/plan dry-runs.
+3. Commit the intended source changes.
+4. Push the commit to the configured remote branch.
+5. Generate the Daytona plan; `DAYTONA_GIT_REF=auto` records the exact commit.
+6. Run the guarded real Daytona command.
+7. Verify the sandbox report shows the expected commit checkout and downloaded
+   shard artifacts under `/tmp`.
 
 Install the Daytona Python SDK into the local launcher environment before a real
 attempt:
@@ -347,22 +357,28 @@ reports, logs, scoreboards, or temporary package directories.
   prefix, or use `--allow-duplicate-sandbox-names` only for local validation
   cases where duplicate names are intentional.
 - Missing env/token: set `OW_EVAL_ALLOW_REAL_DAYTONA=1`, `DAYTONA_API_KEY`,
-  and `DAYTONA_TARGET` before using the guarded real CLI. If using
-  clone-bootstrap, also set `OW_EVAL_REQUIRE_GITHUB_TOKEN=1` and `GITHUB_TOKEN`.
+  and `DAYTONA_TARGET` before using the guarded real CLI. For authenticated
+  GitHub clone, set `DAYTONA_GITHUB_TOKEN_ENV_VAR` to the env var name and set
+  that token variable locally. Do not put token values in plan JSON, reports,
+  docs, or command output.
 - Blocked readiness: inspect the readiness error. Common causes are missing
   `OW_EVAL_ALLOW_REAL_DAYTONA`, missing token env vars, or forgetting
   `--allow-real-daytona`.
+- Git preflight failure: commit and push before Daytona real run. The GitHub
+  source path requires a clean relevant worktree and local `HEAD` equal to the
+  configured remote branch, normally `origin/main`, after fetch.
 - Daytona SDK/proxy failures: run `scripts/run_daytona_real_smoke.py` first.
   `diagnosis=command_transport_failed` means sandbox creation succeeded but the
   Daytona process-execution endpoint failed before the smoke command returned.
   `diagnosis=snapshot_command_failed` means the endpoint worked and the command
   ran inside the sandbox but the snapshot command failed, usually because the
   working directory or dependencies are wrong.
-- Snapshot commit mismatch: prepare a new runtime snapshot from the current
-  committed `HEAD` and rerun validation. If using `DAYTONA_SNAPSHOT_ID=auto`,
-  no `.env` edit is needed; if using a custom explicit snapshot id, update that
-  id intentionally. Do not bypass the check; it prevents local Daytona plans
-  from expecting behavior that the remote worker code does not have.
+- Snapshot commit mismatch: this applies only to explicit `snapshot` or `local`
+  fallback mode. Prepare a new runtime snapshot from the current committed
+  `HEAD` and rerun validation. If using `DAYTONA_SNAPSHOT_ID=auto`, no `.env`
+  edit is needed; if using a custom explicit snapshot id, update that id
+  intentionally. Do not bypass the check; it prevents local Daytona plans from
+  expecting behavior that the remote worker code does not have.
 - No-op-heavy regression gate failures: run the local regression gate and
   analysis pack workflow from `docs/evaluation-harness.md`, then inspect triage
   and planner diagnostics before attempting distributed or real Daytona work.

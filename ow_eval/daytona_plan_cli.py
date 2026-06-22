@@ -24,6 +24,12 @@ from .daytona_jobs import (
     DaytonaShardJobPlanConfig,
     build_daytona_shard_job_plan,
 )
+from .daytona_real_config import read_daytona_real_execution_config_from_env
+from .daytona_source import (
+    DEFAULT_DAYTONA_GIT_REF,
+    DEFAULT_DAYTONA_GITHUB_REPO,
+    DEFAULT_DAYTONA_SOURCE_MODE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +106,10 @@ def prepare_daytona_shard_job_plan(
     python_command: str = DEFAULT_PYTHON_COMMAND,
     runner_script: str = DEFAULT_RUNNER_SCRIPT,
     sandbox_name_prefix: str | None = DEFAULT_SANDBOX_NAME_PREFIX,
+    source_mode: str | None = None,
+    github_repo: str | None = None,
+    git_ref: str | None = None,
+    github_token_env_var: str | None = None,
 ) -> DaytonaShardJobPlanWriteResult:
     """Build and write one deterministic Daytona shard job plan JSON file."""
 
@@ -108,11 +118,26 @@ def prepare_daytona_shard_job_plan(
     try:
         index_path_text = _path_text(index_path, "index_path")
         output_path_text = _path_text(output_path, "output_path")
+        real_config = (
+            read_daytona_real_execution_config_from_env()
+            if source_mode is None or source_mode == "github"
+            else None
+        )
         config = DaytonaShardJobPlanConfig(
             working_dir=working_dir,
             python_command=python_command,
             runner_script=runner_script,
             sandbox_name_prefix=sandbox_name_prefix,
+            source_mode=source_mode or real_config.source_mode,
+            github_repo=github_repo
+            or (real_config.github_repo if real_config else DEFAULT_DAYTONA_GITHUB_REPO),
+            git_ref=git_ref
+            or (real_config.git_ref if real_config else DEFAULT_DAYTONA_GIT_REF),
+            github_token_env_var=(
+                github_token_env_var
+                if github_token_env_var is not None
+                else (real_config.github_token_env_var if real_config else None)
+            ),
         )
         plan = build_daytona_shard_job_plan(index_path, config)
         written_path = write_daytona_shard_job_plan(plan, output_path)
@@ -181,6 +206,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Do not generate sandbox names in job specs.",
     )
+    parser.add_argument(
+        "--source-mode",
+        choices=("github", "snapshot", "local"),
+        default=None,
+        help=(
+            "Source mode for real Daytona jobs. Defaults to DAYTONA_SOURCE_MODE "
+            f"or {DEFAULT_DAYTONA_SOURCE_MODE}."
+        ),
+    )
+    parser.add_argument(
+        "--github-repo",
+        default=None,
+        help="GitHub repository URL for source-mode github.",
+    )
+    parser.add_argument(
+        "--git-ref",
+        default=None,
+        help="Git commit/ref for source-mode github. Defaults to DAYTONA_GIT_REF.",
+    )
+    parser.add_argument(
+        "--github-token-env-var",
+        default=None,
+        help="Environment variable name containing a GitHub token. Never a token value.",
+    )
     args = parser.parse_args(argv)
 
     result = prepare_daytona_shard_job_plan(
@@ -194,6 +243,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.no_sandbox_name_prefix
             else args.sandbox_name_prefix
         ),
+        source_mode=args.source_mode,
+        github_repo=args.github_repo,
+        git_ref=args.git_ref,
+        github_token_env_var=args.github_token_env_var,
     )
     print(result.summary_text)
     if result.error_text is not None:

@@ -14,6 +14,8 @@ from ow_eval import (
     DaytonaShardJobPlan,
     DaytonaShardJobPlanConfig,
     DaytonaShardJobSpec,
+    DAYTONA_SOURCE_MODE_GITHUB,
+    DAYTONA_SOURCE_MODE_LOCAL,
     ShardPlanConfig,
     build_daytona_shard_job_plan,
     build_evaluation_shard_plan,
@@ -100,14 +102,12 @@ class DaytonaShardJobTests(unittest.TestCase):
 
             for spec, job in zip(plan.specs, package.jobs, strict=True):
                 self.assertIsInstance(spec.worker_argv, tuple)
-                self.assertEqual(
-                    spec.worker_argv,
-                    (
-                        ".venv/bin/python",
-                        "scripts/run_evaluation_shard_job.py",
-                        job.job_path,
-                    ),
-                )
+                self.assertEqual(spec.source_mode, DAYTONA_SOURCE_MODE_GITHUB)
+                self.assertEqual(spec.worker_argv[:2], ("bash", "-lc"))
+                self.assertIn("git clone", spec.worker_argv[2])
+                self.assertIn("checkout --detach", spec.worker_argv[2])
+                self.assertIn("scripts/run_evaluation_shard_job.py", spec.worker_argv[2])
+                self.assertIn(job.job_path, spec.worker_argv[2])
                 self.assertEqual(spec.local_job_path, job.job_path)
                 self.assertEqual(spec.local_manifest_path, job.manifest_path)
                 self.assertEqual(spec.local_shard_result_path, job.shard_result_path)
@@ -124,6 +124,25 @@ class DaytonaShardJobTests(unittest.TestCase):
                 )
                 self.assertTrue(spec.sandbox_name.startswith("ow-eval-shard-"))
 
+    def test_local_source_mode_preserves_direct_worker_argv_and_extra_uploads(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            package = packaged_index(temp_dir)
+            config = DaytonaShardJobPlanConfig(source_mode=DAYTONA_SOURCE_MODE_LOCAL)
+
+            plan = build_daytona_shard_job_plan(package.index_path, config)
+            spec = plan.specs[0]
+            job = package.jobs[0]
+
+            self.assertEqual(
+                spec.worker_argv,
+                (
+                    ".venv/bin/python",
+                    "scripts/run_evaluation_shard_job.py",
+                    job.job_path,
+                ),
+            )
+            self.assertEqual(spec.expected_upload_paths, (job.job_path, job.manifest_path))
+
     def test_custom_config_overrides_worker_defaults_deterministically(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             package = packaged_index(temp_dir)
@@ -138,7 +157,8 @@ class DaytonaShardJobTests(unittest.TestCase):
 
             self.assertIs(plan.config, config)
             self.assertEqual(plan.specs[0].working_dir, "/workspace/custom")
-            self.assertEqual(plan.specs[0].worker_argv[0], "python3")
+            self.assertEqual(plan.specs[0].worker_argv[0], "bash")
+            self.assertIn("python3", plan.specs[0].worker_argv[2])
             self.assertEqual(
                 plan.specs[0].sandbox_name,
                 f"custom-sandbox-0000-{package.jobs[0].label}",
@@ -185,6 +205,7 @@ class DaytonaShardJobTests(unittest.TestCase):
                 sandbox_name=None,
                 expected_upload_paths=("/tmp/job.json", "/tmp/manifest.json"),
                 expected_download_paths=("/tmp/result.json",),
+                source_mode=DAYTONA_SOURCE_MODE_LOCAL,
             )
         with self.assertRaisesRegex(ValueError, "local_job_path"):
             DaytonaShardJobSpec(
@@ -200,6 +221,7 @@ class DaytonaShardJobTests(unittest.TestCase):
                 sandbox_name=None,
                 expected_upload_paths=("/tmp/job.json", "/tmp/manifest.json"),
                 expected_download_paths=("/tmp/result.json",),
+                source_mode=DAYTONA_SOURCE_MODE_LOCAL,
             )
 
     def test_malformed_index_or_job_metadata_fails_from_reader_validation(self) -> None:
@@ -249,7 +271,11 @@ class DaytonaShardJobTests(unittest.TestCase):
             self.assertEqual(decoded["specs"][0]["job_id"], "job-0000")
             self.assertEqual(
                 decoded["specs"][0]["worker_argv"][1],
+                "-lc",
+            )
+            self.assertIn(
                 "scripts/run_evaluation_shard_job.py",
+                decoded["specs"][0]["worker_argv"][2],
             )
             self.assertEqual(decoded["job_index"]["job_paths"], list(package.job_paths))
 
@@ -268,7 +294,12 @@ class DaytonaShardJobTests(unittest.TestCase):
                         with patch(
                             "ow_eval.official_runner.run_official_match",
                         ) as official_runner:
-                            plan = build_daytona_shard_job_plan(package.index_path)
+                            plan = build_daytona_shard_job_plan(
+                                package.index_path,
+                                DaytonaShardJobPlanConfig(
+                                    source_mode=DAYTONA_SOURCE_MODE_LOCAL,
+                                ),
+                            )
 
             self.assertEqual(len(plan.specs), 2)
             subprocess_run.assert_not_called()

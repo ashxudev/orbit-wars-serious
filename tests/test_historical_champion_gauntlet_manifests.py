@@ -9,6 +9,7 @@ from typing import Any
 
 from ow_eval import (
     AgentSourceKind,
+    AgentSpec,
     ExperimentManifest,
     PlayerCount,
     manifest_to_match_configs,
@@ -200,8 +201,18 @@ class HistoricalChampionGauntletManifestTests(unittest.TestCase):
                     with self.subTest(name=agent.name):
                         self.assertEqual(agent.source_kind, AgentSourceKind.PYTHON_FILE)
                         self.assertIsNotNone(agent.file_path)
-                        self.assertTrue(Path(agent.file_path or "").is_file())
-                        self.assertTrue(callable(load_agent_callable(agent)))
+                        path = Path(agent.file_path or "")
+                        self.assertFalse(path.is_absolute(), str(path))
+                        resolved_path = REPO_ROOT / path
+                        self.assertTrue(resolved_path.is_file())
+                        resolved_agent = AgentSpec(
+                            name=agent.name,
+                            source_kind=agent.source_kind,
+                            file_path=str(resolved_path),
+                            callable_name=agent.callable_name,
+                            metadata=agent.metadata,
+                        )
+                        self.assertTrue(callable(load_agent_callable(resolved_agent)))
 
         self.assertEqual(
             tuple(name for path in MANIFEST_PATHS for name in expected_opponent_names_by_path()[path])[:3],

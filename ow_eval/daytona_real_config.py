@@ -15,6 +15,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .daytona_jobs import DEFAULT_SANDBOX_NAME_PREFIX, DEFAULT_WORKING_DIR
+from .daytona_source import (
+    DEFAULT_DAYTONA_GIT_BRANCH,
+    DEFAULT_DAYTONA_GIT_REF,
+    DEFAULT_DAYTONA_GIT_REMOTE,
+    DEFAULT_DAYTONA_GITHUB_REPO,
+    DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR,
+    DEFAULT_DAYTONA_SOURCE_MODE,
+    normalize_daytona_source_mode,
+)
 
 
 DEFAULT_DAYTONA_API_KEY_ENV_VAR = "DAYTONA_API_KEY"
@@ -34,6 +43,12 @@ DAYTONA_WORKING_DIR_ENV_VAR = "DAYTONA_WORKING_DIR"
 DAYTONA_SANDBOX_NAME_PREFIX_ENV_VAR = "DAYTONA_SANDBOX_NAME_PREFIX"
 DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX = "ow-serious-runtime"
 AUTO_DAYTONA_SNAPSHOT_ID_VALUES = ("auto", "current", "current-head", "latest")
+DAYTONA_SOURCE_MODE_ENV_VAR = "DAYTONA_SOURCE_MODE"
+DAYTONA_GITHUB_REPO_ENV_VAR = "DAYTONA_GITHUB_REPO"
+DAYTONA_GIT_REF_ENV_VAR = "DAYTONA_GIT_REF"
+DAYTONA_GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR = "DAYTONA_GITHUB_TOKEN_ENV_VAR"
+DAYTONA_GIT_REMOTE_ENV_VAR = "DAYTONA_GIT_REMOTE"
+DAYTONA_GIT_BRANCH_ENV_VAR = "DAYTONA_GIT_BRANCH"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +67,12 @@ class DaytonaRealExecutionConfig:
     image: str | None = None
     default_working_dir: str = DEFAULT_WORKING_DIR
     sandbox_name_prefix: str | None = DEFAULT_SANDBOX_NAME_PREFIX
+    source_mode: str = DEFAULT_DAYTONA_SOURCE_MODE
+    github_repo: str = DEFAULT_DAYTONA_GITHUB_REPO
+    git_ref: str = DEFAULT_DAYTONA_GIT_REF
+    github_token_env_var: str | None = DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR
+    git_remote: str = DEFAULT_DAYTONA_GIT_REMOTE
+    git_branch: str = DEFAULT_DAYTONA_GIT_BRANCH
 
     def __post_init__(self) -> None:
         if not isinstance(self.allow_real_daytona, bool):
@@ -74,6 +95,16 @@ class DaytonaRealExecutionConfig:
             self.sandbox_name_prefix,
             "sandbox_name_prefix",
         )
+        normalized_source_mode = normalize_daytona_source_mode(self.source_mode)
+        object.__setattr__(self, "source_mode", normalized_source_mode)
+        _validate_nonempty_string(self.github_repo, "github_repo")
+        _validate_nonempty_string(self.git_ref, "git_ref")
+        _validate_optional_nonempty_string(
+            self.github_token_env_var,
+            "github_token_env_var",
+        )
+        _validate_nonempty_string(self.git_remote, "git_remote")
+        _validate_nonempty_string(self.git_branch, "git_branch")
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
@@ -91,6 +122,12 @@ class DaytonaRealExecutionConfig:
             "image": self.image,
             "default_working_dir": self.default_working_dir,
             "sandbox_name_prefix": self.sandbox_name_prefix,
+            "source_mode": self.source_mode,
+            "github_repo": self.github_repo,
+            "git_ref": self.git_ref,
+            "github_token_env_var": self.github_token_env_var,
+            "git_remote": self.git_remote,
+            "git_branch": self.git_branch,
         }
 
 
@@ -149,17 +186,32 @@ def read_daytona_real_execution_config_from_env(
         DAYTONA_API_KEY_ENV_VAR_NAME_ENV_VAR,
         default=DEFAULT_DAYTONA_API_KEY_ENV_VAR,
     )
-    github_token_env_var = _env_optional(
+    legacy_github_token_env_var = _env_optional(
         effective_env,
         GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR,
-        default=DEFAULT_GITHUB_TOKEN_ENV_VAR,
+    )
+    github_token_env_var = _env_optional(
+        effective_env,
+        DAYTONA_GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR,
+        default=legacy_github_token_env_var or DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR,
+    )
+    source_mode = normalize_daytona_source_mode(
+        _env_optional(
+            effective_env,
+            DAYTONA_SOURCE_MODE_ENV_VAR,
+            default=DEFAULT_DAYTONA_SOURCE_MODE,
+        )
+    )
+    git_ref = _env_optional(
+        effective_env,
+        DAYTONA_GIT_REF_ENV_VAR,
+        default=DEFAULT_DAYTONA_GIT_REF,
     )
     return DaytonaRealExecutionConfig(
         allow_real_daytona=_env_flag(effective_env, ALLOW_REAL_DAYTONA_ENV_VAR),
         api_key_env_var=api_key_env_var,
         api_url=_env_optional(effective_env, DAYTONA_API_URL_ENV_VAR),
         target=_env_optional(effective_env, DAYTONA_TARGET_ENV_VAR),
-        github_token_env_var=github_token_env_var,
         require_github_token=_env_flag(effective_env, REQUIRE_GITHUB_TOKEN_ENV_VAR),
         project_id=_env_optional(effective_env, DAYTONA_PROJECT_ID_ENV_VAR),
         workspace_id=_env_optional(effective_env, DAYTONA_WORKSPACE_ID_ENV_VAR),
@@ -178,6 +230,27 @@ def read_daytona_real_execution_config_from_env(
             DAYTONA_SANDBOX_NAME_PREFIX_ENV_VAR,
             default=DEFAULT_SANDBOX_NAME_PREFIX,
         ),
+        source_mode=source_mode,
+        github_repo=_env_optional(
+            effective_env,
+            DAYTONA_GITHUB_REPO_ENV_VAR,
+            default=DEFAULT_DAYTONA_GITHUB_REPO,
+        )
+        or DEFAULT_DAYTONA_GITHUB_REPO,
+        git_ref=git_ref,
+        github_token_env_var=github_token_env_var,
+        git_remote=_env_optional(
+            effective_env,
+            DAYTONA_GIT_REMOTE_ENV_VAR,
+            default=DEFAULT_DAYTONA_GIT_REMOTE,
+        )
+        or DEFAULT_DAYTONA_GIT_REMOTE,
+        git_branch=_env_optional(
+            effective_env,
+            DAYTONA_GIT_BRANCH_ENV_VAR,
+            default=DEFAULT_DAYTONA_GIT_BRANCH,
+        )
+        or DEFAULT_DAYTONA_GIT_BRANCH,
     )
 
 
@@ -341,6 +414,12 @@ __all__ = (
     "DaytonaRealExecutionConfig",
     "DaytonaRealExecutionReadiness",
     "DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX",
+    "DAYTONA_GIT_BRANCH_ENV_VAR",
+    "DAYTONA_GIT_REF_ENV_VAR",
+    "DAYTONA_GIT_REMOTE_ENV_VAR",
+    "DAYTONA_GITHUB_REPO_ENV_VAR",
+    "DAYTONA_GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR",
+    "DAYTONA_SOURCE_MODE_ENV_VAR",
     "read_daytona_real_execution_config_from_env",
     "resolve_daytona_snapshot_id",
     "validate_daytona_real_execution_readiness",

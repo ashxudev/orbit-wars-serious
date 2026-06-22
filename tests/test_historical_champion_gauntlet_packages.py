@@ -80,7 +80,7 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
                 self.assertTrue(scenario.label)
                 self.assertTrue(scenario.opponent_agents)
 
-    def test_probe_shard_package_writes_only_package_specs_under_output_root(self) -> None:
+    def test_probe_shard_package_uses_committed_historical_paths_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ow-historical-gauntlet-package-") as tmp:
             output_root = Path(tmp)
             result = write_historical_champion_probe_shard_package(output_root)
@@ -102,12 +102,7 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
             self.assertTrue(str(Path(job.manifest_path)).startswith(str(output_root)))
             self.assertTrue(str(Path(job.job_path)).startswith(str(output_root)))
             self.assertTrue(str(Path(result.index_path)).startswith(str(output_root)))
-            self.assertTrue(job.extra_upload_paths)
-            for upload_path in job.extra_upload_paths:
-                with self.subTest(upload_path=upload_path):
-                    self.assertTrue(Path(upload_path).is_file())
-                    self.assertTrue(str(Path(upload_path)).startswith(str(output_root)))
-                    self.assertIn("agent_files", Path(upload_path).parts)
+            self.assertEqual(job.extra_upload_paths, ())
 
             manifest_payload = json.loads(Path(job.manifest_path).read_text(encoding="utf-8"))
             manifest = ExperimentManifest.from_dict(manifest_payload)
@@ -123,10 +118,12 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
                 if opponent["agent"]["source_kind"] == "python_file"
             ]
             self.assertTrue(file_paths)
-            self.assertEqual(set(file_paths), set(job.extra_upload_paths))
             for file_path in file_paths:
                 with self.subTest(file_path=file_path):
-                    self.assertTrue(str(Path(file_path)).startswith(str(output_root)))
+                    path = Path(file_path)
+                    self.assertFalse(path.is_absolute(), file_path)
+                    self.assertTrue((REPO_ROOT / path).is_file())
+                    self.assertTrue(path.is_relative_to("historical_opponents/agents"))
 
             job_payload = json.loads(Path(job.job_path).read_text(encoding="utf-8"))
             self.assertEqual(job_payload["shard_id"], "historical-gauntlet-shard-000")
@@ -134,7 +131,7 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
             daytona_plan = build_daytona_shard_job_plan(result.index_path)
             self.assertEqual(
                 set(daytona_plan.specs[0].expected_upload_paths),
-                {job.job_path, job.manifest_path, *job.extra_upload_paths},
+                {job.job_path, job.manifest_path},
             )
             serialized_package = json.dumps(result.to_dict(), sort_keys=True)
             for term in ("replay_path", "scoreboard_record", "daytona_job_id", "credentials"):
@@ -150,6 +147,31 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
                     tmp,
                     materialize_manifests=False,
                 )
+
+    def test_probe_shard_package_can_materialize_local_python_file_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ow-historical-gauntlet-package-") as tmp:
+            output_root = Path(tmp)
+            result = write_historical_champion_probe_shard_package(
+                output_root,
+                package_historical_python_files=True,
+            )
+            job = result.jobs[0]
+
+            self.assertTrue(job.extra_upload_paths)
+            for upload_path in job.extra_upload_paths:
+                with self.subTest(upload_path=upload_path):
+                    self.assertTrue(Path(upload_path).is_file())
+                    self.assertTrue(str(Path(upload_path)).startswith(str(output_root)))
+                    self.assertIn("agent_files", Path(upload_path).parts)
+
+            manifest_payload = json.loads(Path(job.manifest_path).read_text(encoding="utf-8"))
+            file_paths = [
+                opponent["agent"]["file_path"]
+                for scenario in manifest_payload["scenarios"]
+                for opponent in scenario["opponent_agents"]
+                if opponent["agent"]["source_kind"] == "python_file"
+            ]
+            self.assertEqual(set(file_paths), set(job.extra_upload_paths))
 
     def test_full_gauntlet_converts_all_shards_to_existing_evaluation_plan(self) -> None:
         historical_plan = build_historical_champion_shard_plan()
@@ -176,7 +198,7 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
             [f"historical-gauntlet-shard-{index:03d}" for index in range(6)],
         )
 
-    def test_full_gauntlet_package_writes_all_shards_and_package_local_agents(self) -> None:
+    def test_full_gauntlet_package_writes_all_shards_without_historical_uploads_by_default(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ow-historical-gauntlet-full-package-") as tmp:
             output_root = Path(tmp)
             result = write_historical_champion_full_shard_package(output_root)
@@ -198,13 +220,9 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
                     self.assertEqual(spec.shard_id, job.shard_id)
                     self.assertEqual(
                         set(spec.expected_upload_paths),
-                        {job.job_path, job.manifest_path, *job.extra_upload_paths},
+                        {job.job_path, job.manifest_path},
                     )
-                    self.assertTrue(job.extra_upload_paths)
-                    for upload_path in job.extra_upload_paths:
-                        self.assertTrue(Path(upload_path).is_file())
-                        self.assertTrue(str(Path(upload_path)).startswith(str(output_root)))
-                        self.assertIn("agent_files", Path(upload_path).parts)
+                    self.assertEqual(job.extra_upload_paths, ())
 
                     payload = json.loads(Path(job.manifest_path).read_text(encoding="utf-8"))
                     manifest = ExperimentManifest.from_dict(payload)
@@ -220,9 +238,11 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
                         if opponent["agent"]["source_kind"] == "python_file"
                     ]
                     self.assertTrue(file_paths)
-                    self.assertEqual(set(file_paths), set(job.extra_upload_paths))
                     for file_path in file_paths:
-                        self.assertTrue(str(Path(file_path)).startswith(str(output_root)))
+                        path = Path(file_path)
+                        self.assertFalse(path.is_absolute(), file_path)
+                        self.assertTrue((REPO_ROOT / path).is_file())
+                        self.assertTrue(path.is_relative_to("historical_opponents/agents"))
                     all_labels.extend(scenario.label or "" for scenario in manifest.scenarios)
 
             self.assertEqual(len(all_labels), 30)

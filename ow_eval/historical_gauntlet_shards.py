@@ -266,6 +266,7 @@ def write_historical_champion_probe_shard_package(
     shard_id: str | None = None,
     command_python: str = ".venv/bin/python",
     materialize_manifests: bool = True,
+    package_historical_python_files: bool = False,
 ) -> EvaluationShardJobPackageResult:
     """Materialize the recommended probe shard as a standard shard job package."""
 
@@ -280,7 +281,9 @@ def write_historical_champion_probe_shard_package(
         evaluation_plan,
         materialize_manifests=materialize_manifests,
     )
-    return _materialize_historical_python_files(package)
+    if package_historical_python_files:
+        return _materialize_historical_python_files(package)
+    return package
 
 
 def write_historical_champion_full_shard_package(
@@ -289,6 +292,7 @@ def write_historical_champion_full_shard_package(
     plan: HistoricalChampionShardPlan | None = None,
     command_python: str = ".venv/bin/python",
     materialize_manifests: bool = True,
+    package_historical_python_files: bool = False,
 ) -> EvaluationShardJobPackageResult:
     """Materialize all historical champion shards as a standard job package."""
 
@@ -302,7 +306,9 @@ def write_historical_champion_full_shard_package(
         evaluation_plan,
         materialize_manifests=materialize_manifests,
     )
-    return _materialize_historical_python_files(package)
+    if package_historical_python_files:
+        return _materialize_historical_python_files(package)
+    return package
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -323,12 +329,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=".venv/bin/python",
         help="Python command to include in suggested shard commands.",
     )
+    parser.add_argument(
+        "--package-historical-python-files",
+        action="store_true",
+        help=(
+            "Fallback local/snapshot mode: copy historical python_file opponents "
+            "into package-local agent_files and rewrite manifests."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
         result = write_historical_champion_full_shard_package(
             args.output_root,
             command_python=args.command_python,
+            package_historical_python_files=args.package_historical_python_files,
         )
     except Exception as exc:  # noqa: BLE001 - CLI boundary reports deterministic errors.
         print(

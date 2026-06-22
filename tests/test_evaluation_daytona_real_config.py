@@ -215,7 +215,7 @@ class DaytonaRealExecutionConfigTests(unittest.TestCase):
         readiness = validate_daytona_real_execution_readiness(config, env={})
         self.assertEqual(readiness.exit_code, 2)
         self.assertIn("api_key_env_var is required", readiness.error_text)
-        self.assertIn("github_token_env_var is required", readiness.error_text)
+        self.assertIn("missing env vars: DAYTONA_GITHUB_TOKEN", readiness.error_text)
 
     def test_dotenv_file_is_loaded_for_process_env_without_overriding_existing_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -227,7 +227,7 @@ class DaytonaRealExecutionConfigTests(unittest.TestCase):
                         "DAYTONA_API_KEY=from-dotenv",
                         "DAYTONA_TARGET=from-dotenv",
                         "OW_EVAL_REQUIRE_GITHUB_TOKEN=1",
-                        "GITHUB_TOKEN=from-dotenv",
+                        "DAYTONA_GITHUB_TOKEN=from-dotenv",
                     )
                 ),
                 encoding="utf-8",
@@ -246,7 +246,7 @@ class DaytonaRealExecutionConfigTests(unittest.TestCase):
         self.assertTrue(config.allow_real_daytona)
         self.assertEqual(config.api_key_env_var, "DAYTONA_API_KEY")
         self.assertEqual(config.target, "from-process-env")
-        self.assertEqual(config.github_token_env_var, "GITHUB_TOKEN")
+        self.assertEqual(config.github_token_env_var, "DAYTONA_GITHUB_TOKEN")
         self.assertTrue(config.require_github_token)
         self.assertTrue(readiness.passed)
 

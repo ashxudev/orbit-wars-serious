@@ -1,0 +1,183 @@
+{
+  "description": "Committed single-file historical opponent sources used by Daytona/local historical champion gauntlets.",
+  "entries": [
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v3_wide_search_forecast.py",
+      "description": "v3: wide search plus forecast-aware target ranking; strongest known local historical public-score anchor from the visible submission list.",
+      "historical_public_score": 912.2,
+      "historical_submission_ref": "53555669",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/v3.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v3-wide-search-forecast"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v28_mode_split_champion.py",
+      "description": "v28: mode-split champion with no-leak gate and 2p pinning / 4p pessimism gate.",
+      "historical_public_score": 872.4,
+      "historical_submission_ref": "53585590",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/v28.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v28-mode-split-champion"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v37_race_fix_mode_split.py",
+      "description": "v37: race-fix plus 2p opportunism window plus mode-split gates.",
+      "historical_public_score": 870.4,
+      "historical_submission_ref": "53602635",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/v37.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v37-race-fix-mode-split"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v14_hammer_discipline.py",
+      "description": "v14: hammer-discipline variant kept as a style hedge against the historical top cluster.",
+      "historical_public_score": 859.1,
+      "historical_submission_ref": "53585594",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/v14.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v14-hammer-discipline"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v8_leader_weighted_denial.py",
+      "description": "v8: leader-weighted denial in FFA plus mode-aware neutral response discount.",
+      "historical_public_score": 851.1,
+      "historical_submission_ref": "53556108",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/v8.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v8-leader-weighted-denial"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v9_hold_aware_capture.py",
+      "description": "v9: hold-aware capture sizing with counter-snipe deterrence.",
+      "historical_public_score": 841.9,
+      "historical_submission_ref": "53556449",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/v9.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v9-hold-aware-capture"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v31_race_awareness.py",
+      "description": "v31: race-awareness plus seat tie-break on mode-split base.",
+      "historical_public_score": 826.6,
+      "historical_submission_ref": "53602639",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/v31.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v31-race-awareness"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_v62_low_pickoff_bundled.py",
+      "description": "v62 bundled: low-pickoff veto bundled champion.",
+      "historical_public_score": 824.4,
+      "historical_submission_ref": "53641340",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/submissions/main_v62_bundled.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-v62-low-pickoff-bundled"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "claude_main_v62_bundled.py",
+      "description": "Historical claude main.py bundled from v62.py; retained because existing smoke benchmarks already use it.",
+      "historical_public_score": 824.4,
+      "historical_submission_ref": "53641340",
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-claude/main.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-claude",
+      "stable_opponent_id": "claude-main-v62-bundled"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "ow2_current_main.py",
+      "description": "orbit-wars-2 frozen current main from the prior local smoke benchmark; public submission ref not recorded.",
+      "historical_public_score": null,
+      "historical_submission_ref": null,
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/current_main.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-2",
+      "stable_opponent_id": "ow2-current-main"
+    },
+    {
+      "callable_name": "agent",
+      "copied_filename": "ow2_v11_wide_search.py",
+      "description": "orbit-wars-2 frozen v11 wide-search agent from the prior local smoke benchmark; public submission ref not recorded.",
+      "historical_public_score": null,
+      "historical_submission_ref": null,
+      "intended_modes": [
+        "2p",
+        "4p"
+      ],
+      "notes": "Committed single-file historical opponent used by historical champion gauntlets.",
+      "origin_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/v11.py",
+      "source_kind": "python_file",
+      "source_repo": "orbit-wars-2",
+      "stable_opponent_id": "ow2-v11-wide-search"
+    }
+  ],
+  "name": "historical-opponents-manifest",
+  "version": "v0"
+}

@@ -10,6 +10,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .daytona_source import (
+    DEFAULT_DAYTONA_GIT_REF,
+    DEFAULT_DAYTONA_GITHUB_REPO,
+    DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR,
+    DEFAULT_DAYTONA_SOURCE_MODE,
+    DAYTONA_SOURCE_MODE_GITHUB,
+    build_github_bootstrap_argv,
+    normalize_daytona_source_mode,
+    redacted_github_repo_url,
+    resolve_daytona_git_ref,
+)
 from .shard_index_runner import EvaluationShardJobIndex, read_evaluation_shard_job_index
 
 
@@ -27,6 +38,10 @@ class DaytonaShardJobPlanConfig:
     python_command: str = DEFAULT_PYTHON_COMMAND
     runner_script: str = DEFAULT_RUNNER_SCRIPT
     sandbox_name_prefix: str | None = DEFAULT_SANDBOX_NAME_PREFIX
+    source_mode: str = DEFAULT_DAYTONA_SOURCE_MODE
+    github_repo: str = DEFAULT_DAYTONA_GITHUB_REPO
+    git_ref: str = DEFAULT_DAYTONA_GIT_REF
+    github_token_env_var: str | None = DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR
 
     def __post_init__(self) -> None:
         _validate_nonempty_string(self.working_dir, "working_dir")
@@ -37,15 +52,33 @@ class DaytonaShardJobPlanConfig:
                 self.sandbox_name_prefix,
                 "sandbox_name_prefix",
             )
+        object.__setattr__(
+            self,
+            "source_mode",
+            normalize_daytona_source_mode(self.source_mode),
+        )
+        _validate_nonempty_string(self.github_repo, "github_repo")
+        if self.source_mode == DAYTONA_SOURCE_MODE_GITHUB:
+            object.__setattr__(self, "git_ref", resolve_daytona_git_ref(self.git_ref))
+        _validate_nonempty_string(self.git_ref, "git_ref")
+        if self.github_token_env_var is not None:
+            _validate_nonempty_string(
+                self.github_token_env_var,
+                "github_token_env_var",
+            )
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
 
         return {
+            "git_ref": self.git_ref,
+            "github_repo": redacted_github_repo_url(self.github_repo),
+            "github_token_env_var": self.github_token_env_var,
             "working_dir": self.working_dir,
             "python_command": self.python_command,
             "runner_script": self.runner_script,
             "sandbox_name_prefix": self.sandbox_name_prefix,
+            "source_mode": self.source_mode,
         }
 
 
@@ -65,6 +98,10 @@ class DaytonaShardJobSpec:
     sandbox_name: str | None
     expected_upload_paths: tuple[str, ...]
     expected_download_paths: tuple[str, ...]
+    source_mode: str = DEFAULT_DAYTONA_SOURCE_MODE
+    github_repo: str = DEFAULT_DAYTONA_GITHUB_REPO
+    git_ref: str = DEFAULT_DAYTONA_GIT_REF
+    github_token_env_var: str | None = DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR
 
     def __post_init__(self) -> None:
         _validate_nonempty_string(self.job_id, "job_id")
@@ -77,20 +114,35 @@ class DaytonaShardJobSpec:
             "local_shard_result_path",
         )
         _validate_string_tuple(self.worker_argv, "worker_argv")
+        if not self.worker_argv:
+            raise ValueError("worker_argv must contain at least one argument")
         _validate_nonempty_string(self.working_dir, "working_dir")
         _validate_nonempty_string(self.runner_script, "runner_script")
         if self.sandbox_name is not None:
             _validate_nonempty_string(self.sandbox_name, "sandbox_name")
         _validate_string_tuple(self.expected_upload_paths, "expected_upload_paths")
         _validate_string_tuple(self.expected_download_paths, "expected_download_paths")
+        object.__setattr__(
+            self,
+            "source_mode",
+            normalize_daytona_source_mode(self.source_mode),
+        )
+        _validate_nonempty_string(self.github_repo, "github_repo")
+        _validate_nonempty_string(self.git_ref, "git_ref")
+        if self.github_token_env_var is not None:
+            _validate_nonempty_string(
+                self.github_token_env_var,
+                "github_token_env_var",
+            )
         if not self.expected_upload_paths:
             raise ValueError("expected_upload_paths must contain at least one path")
         if not self.expected_download_paths:
             raise ValueError("expected_download_paths must contain at least one path")
-        if self.runner_script not in self.worker_argv:
-            raise ValueError("worker_argv must include runner_script")
-        if self.local_job_path not in self.worker_argv:
-            raise ValueError("worker_argv must include local_job_path")
+        if self.source_mode != DAYTONA_SOURCE_MODE_GITHUB:
+            if self.runner_script not in self.worker_argv:
+                raise ValueError("worker_argv must include runner_script")
+            if self.local_job_path not in self.worker_argv:
+                raise ValueError("worker_argv must include local_job_path")
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
@@ -108,6 +160,10 @@ class DaytonaShardJobSpec:
             "sandbox_name": self.sandbox_name,
             "expected_upload_paths": list(self.expected_upload_paths),
             "expected_download_paths": list(self.expected_download_paths),
+            "source_mode": self.source_mode,
+            "github_repo": redacted_github_repo_url(self.github_repo),
+            "git_ref": self.git_ref,
+            "github_token_env_var": self.github_token_env_var,
         }
 
 
@@ -189,9 +245,26 @@ def _spec_for_job(
         else f"{config.sandbox_name_prefix}-{index:04d}-{job.label}"
     )
     worker_argv = (
-        config.python_command,
-        config.runner_script,
-        job.job_path,
+        build_github_bootstrap_argv(
+            github_repo=config.github_repo,
+            git_ref=config.git_ref,
+            github_token_env_var=config.github_token_env_var,
+            checkout_dir=config.working_dir,
+            python_command=config.python_command,
+            runner_script=config.runner_script,
+            job_path=job.job_path,
+        )
+        if config.source_mode == DAYTONA_SOURCE_MODE_GITHUB
+        else (
+            config.python_command,
+            config.runner_script,
+            job.job_path,
+        )
+    )
+    expected_upload_paths = (
+        (job.job_path, job.manifest_path)
+        if config.source_mode == DAYTONA_SOURCE_MODE_GITHUB
+        else (job.job_path, job.manifest_path, *job.extra_upload_paths)
     )
     return DaytonaShardJobSpec(
         job_id=job.job_id,
@@ -204,15 +277,15 @@ def _spec_for_job(
         working_dir=config.working_dir,
         runner_script=config.runner_script,
         sandbox_name=sandbox_name,
-        expected_upload_paths=(
-            job.job_path,
-            job.manifest_path,
-            *job.extra_upload_paths,
-        ),
+        expected_upload_paths=expected_upload_paths,
         expected_download_paths=(
             job.shard_result_path,
             *_default_artifact_download_paths(job),
         ),
+        source_mode=config.source_mode,
+        github_repo=config.github_repo,
+        git_ref=config.git_ref,
+        github_token_env_var=config.github_token_env_var,
     )
 
 

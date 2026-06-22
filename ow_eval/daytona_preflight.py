@@ -211,6 +211,13 @@ def _config_from_dict(data: Mapping[str, object]) -> DaytonaShardJobPlanConfig:
             data.get("sandbox_name_prefix"),
             "config.sandbox_name_prefix",
         ),
+        source_mode=_string_or_raise(data.get("source_mode"), "config.source_mode"),
+        github_repo=_string_or_raise(data.get("github_repo"), "config.github_repo"),
+        git_ref=_string_or_raise(data.get("git_ref"), "config.git_ref"),
+        github_token_env_var=_optional_string(
+            data.get("github_token_env_var"),
+            "config.github_token_env_var",
+        ),
     )
 
 
@@ -316,6 +323,13 @@ def _spec_from_dict(data: Mapping[str, object], index: int) -> DaytonaShardJobSp
         expected_download_paths=_string_tuple_from_data(
             data.get("expected_download_paths"),
             f"specs[{index}].expected_download_paths",
+        ),
+        source_mode=_string_or_raise(data.get("source_mode"), f"specs[{index}].source_mode"),
+        github_repo=_string_or_raise(data.get("github_repo"), f"specs[{index}].github_repo"),
+        git_ref=_string_or_raise(data.get("git_ref"), f"specs[{index}].git_ref"),
+        github_token_env_var=_optional_string(
+            data.get("github_token_env_var"),
+            f"specs[{index}].github_token_env_var",
         ),
     )
 

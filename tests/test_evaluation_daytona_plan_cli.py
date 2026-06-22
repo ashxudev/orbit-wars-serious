@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ow_eval import (
+    DAYTONA_SOURCE_MODE_LOCAL,
     DaytonaShardJobPlanWriteResult,
     ShardPlanConfig,
     build_daytona_shard_job_plan,
@@ -78,7 +79,11 @@ class DaytonaPlanCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 decoded["specs"][0]["worker_argv"][1],
+                "-lc",
+            )
+            self.assertIn(
                 "scripts/run_evaluation_shard_job.py",
+                decoded["specs"][0]["worker_argv"][2],
             )
 
     def test_prepare_writes_plan_with_custom_config(self) -> None:
@@ -99,14 +104,16 @@ class DaytonaPlanCliTests(unittest.TestCase):
             self.assertTrue(result.passed)
             self.assertEqual(result.output_path, str(output_path))
             self.assertEqual(result.config.working_dir, "/workspace/custom")
-            self.assertEqual(result.plan.specs[0].worker_argv[0], "python3")
+            self.assertEqual(result.plan.specs[0].worker_argv[0], "bash")
+            self.assertIn("python3", result.plan.specs[0].worker_argv[2])
             self.assertEqual(
                 result.plan.specs[0].sandbox_name,
                 f"custom-sandbox-0000-{package.jobs[0].label}",
             )
             decoded = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(decoded["config"]["working_dir"], "/workspace/custom")
-            self.assertEqual(decoded["specs"][0]["worker_argv"][0], "python3")
+            self.assertEqual(decoded["specs"][0]["worker_argv"][0], "bash")
+            self.assertIn("python3", decoded["specs"][0]["worker_argv"][2])
 
     def test_no_sandbox_prefix_produces_null_sandbox_names(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -187,7 +194,8 @@ class DaytonaPlanCliTests(unittest.TestCase):
             self.assertIn("daytona_shard_job_plan=WRITTEN", stdout.getvalue())
             decoded = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(decoded["config"]["working_dir"], "/workspace/cli")
-            self.assertEqual(decoded["specs"][0]["worker_argv"][0], "python3")
+            self.assertEqual(decoded["specs"][0]["worker_argv"][0], "bash")
+            self.assertIn("python3", decoded["specs"][0]["worker_argv"][2])
             self.assertTrue(decoded["specs"][0]["sandbox_name"].startswith("cli-sandbox"))
 
     def test_cli_no_sandbox_prefix_writes_null_sandbox_names(self) -> None:
@@ -298,6 +306,7 @@ class DaytonaPlanCliTests(unittest.TestCase):
                             result = prepare_daytona_shard_job_plan(
                                 package.index_path,
                                 output_path=output_path,
+                                source_mode=DAYTONA_SOURCE_MODE_LOCAL,
                             )
 
             self.assertEqual(result.exit_code, 0)

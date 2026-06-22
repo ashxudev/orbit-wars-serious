@@ -13,7 +13,7 @@
       "loadability_status": "loadable",
       "name": "claude-v3-wide-search-forecast",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v3.py",
+      "source_file_path": "historical_opponents/agents/claude_v3_wide_search_forecast.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -29,7 +29,7 @@
       "loadability_status": "loadable",
       "name": "claude-v28-mode-split-champion",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v28.py",
+      "source_file_path": "historical_opponents/agents/claude_v28_mode_split_champion.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -45,7 +45,7 @@
       "loadability_status": "loadable",
       "name": "claude-v37-race-fix-mode-split",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v37.py",
+      "source_file_path": "historical_opponents/agents/claude_v37_race_fix_mode_split.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -61,7 +61,7 @@
       "loadability_status": "loadable",
       "name": "claude-v14-hammer-discipline",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v14.py",
+      "source_file_path": "historical_opponents/agents/claude_v14_hammer_discipline.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -77,7 +77,7 @@
       "loadability_status": "loadable",
       "name": "claude-v8-leader-weighted-denial",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v8.py",
+      "source_file_path": "historical_opponents/agents/claude_v8_leader_weighted_denial.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -93,7 +93,7 @@
       "loadability_status": "loadable",
       "name": "claude-v9-hold-aware-capture",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v9.py",
+      "source_file_path": "historical_opponents/agents/claude_v9_hold_aware_capture.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -109,7 +109,7 @@
       "loadability_status": "loadable",
       "name": "claude-v31-race-awareness",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/v31.py",
+      "source_file_path": "historical_opponents/agents/claude_v31_race_awareness.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -125,7 +125,7 @@
       "loadability_status": "loadable",
       "name": "claude-v62-low-pickoff-bundled",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/submissions/main_v62_bundled.py",
+      "source_file_path": "historical_opponents/agents/claude_v62_low_pickoff_bundled.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -141,7 +141,7 @@
       "loadability_status": "loadable",
       "name": "claude-main-v62-bundled",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-claude/main.py",
+      "source_file_path": "historical_opponents/agents/claude_main_v62_bundled.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-claude"
     },
@@ -157,7 +157,7 @@
       "loadability_status": "loadable",
       "name": "ow2-current-main",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/current_main.py",
+      "source_file_path": "historical_opponents/agents/ow2_current_main.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-2"
     },
@@ -173,7 +173,7 @@
       "loadability_status": "loadable",
       "name": "ow2-v11-wide-search",
       "skip_reason": null,
-      "source_file_path": "/Users/user/dev/hackathons/orbit-wars-2/agents/frozen/v11.py",
+      "source_file_path": "historical_opponents/agents/ow2_v11_wide_search.py",
       "source_kind": "python_file",
       "source_repo": "orbit-wars-2"
     },

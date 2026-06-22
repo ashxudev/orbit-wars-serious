@@ -518,3 +518,40 @@ After that user-run command completes, inspect the same report and shard-result
 paths above. If the report succeeds but `replay_path` and `artifact_path` remain
 `null`, treat the match as valid probe evidence but not as fixture-extraction
 evidence.
+
+## GitHub-Backed Daytona Migration
+
+The Daytona source path has been migrated away from "local package uploaded into
+a prebuilt snapshot" as the default. Real Daytona gauntlet runs now default to
+GitHub source mode:
+
+- Historical champion opponents used by the committed gauntlet are now copied as
+  isolated source-controlled files under `historical_opponents/agents/`, with
+  provenance recorded in `historical_opponents/manifest.json`.
+- The historical champion registry and full-500 2P/4P manifests now reference
+  repo-relative committed opponent paths instead of host-local external repos.
+- Daytona job plans in GitHub mode record `source_mode=github`, the token-free
+  repository URL, the token env-var name, and an exact commit SHA. Token values
+  are never written to plans, reports, docs, or command output.
+- The real Daytona CLI now runs a commit/push preflight before opening a sandbox:
+  the relevant worktree must be clean, the configured remote branch must fetch
+  successfully, and local `HEAD` must match the configured remote branch. Failure
+  tells the operator to `commit and push before Daytona real run`.
+- The sandbox bootstrap clones `DAYTONA_GITHUB_REPO`, checks out the exact SHA,
+  verifies `git rev-parse HEAD`, and then runs the shard job from that checkout.
+- GitHub mode no longer uploads repo source or historical opponent source files.
+  Snapshot/local source modes remain available as explicit fallback paths.
+
+Recommended operator workflow for the next probe cycle:
+
+1. Finish and test local changes.
+2. Commit and push the intended source state.
+3. Regenerate the one-scenario 2P Daytona plan in GitHub mode.
+4. Run the guarded real Daytona command exactly once.
+5. Confirm the sandbox checked out the expected commit and downloaded the shard
+   result plus replay/result artifacts under `/tmp`.
+
+This migration is infrastructure-only. It does not rerun the 2P Daytona probe,
+run a 4P probe, submit to Kaggle, or change planner/runtime behavior. The
+segment should emit `GITHUB_DAYTONA_GAUNTLET_READY` only after GitHub-mode real
+2P and 4P Daytona probes complete end to end.
