@@ -16,6 +16,9 @@ from pathlib import Path
 from .contracts import MatchConfig, MatchResult
 
 
+DEFAULT_EVALUATION_ARTIFACT_DIR = Path("/tmp/ow-eval-artifacts")
+
+
 @dataclass(frozen=True, slots=True)
 class EvaluationArtifactConfig:
     """Config for optional single-match artifact capture."""
@@ -39,6 +42,19 @@ class EvaluationArtifactConfig:
         if self.prefix == "":
             raise ValueError("prefix must be non-empty when provided")
         object.__setattr__(self, "output_dir", Path(self.output_dir))
+
+
+def default_evaluation_artifact_config(
+    *,
+    prefix: str | None = None,
+    output_dir: str | Path | None = None,
+) -> EvaluationArtifactConfig:
+    """Return the default artifact capture config for local match execution."""
+
+    return EvaluationArtifactConfig(
+        output_dir=DEFAULT_EVALUATION_ARTIFACT_DIR if output_dir is None else output_dir,
+        prefix=prefix,
+    )
 
 
 def write_match_result_artifact(result: MatchResult, path: str | Path) -> Path:
@@ -117,8 +133,10 @@ def _json_safe_payload(payload: object) -> object:
 
 
 __all__ = (
+    "DEFAULT_EVALUATION_ARTIFACT_DIR",
     "EvaluationArtifactConfig",
     "artifact_paths_for_config",
+    "default_evaluation_artifact_config",
     "write_match_result_artifact",
     "write_replay_artifact",
 )

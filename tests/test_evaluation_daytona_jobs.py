@@ -39,6 +39,16 @@ def packaged_index(temp_dir: str | Path):
     return write_evaluation_shard_job_package(plan)
 
 
+def expected_artifact_download_paths(job) -> tuple[str, ...]:
+    artifact_dir = Path(job.manifest_path).parent / f"{job.label}.artifacts"
+    paths: list[str] = []
+    for index in range(len(job.match_labels)):
+        base_name = f"{job.label}-match-{index:04d}"
+        paths.append(str(artifact_dir / f"{base_name}-replay.json"))
+        paths.append(str(artifact_dir / f"{base_name}-result.json"))
+    return tuple(paths)
+
+
 class DaytonaShardJobTests(unittest.TestCase):
     def test_module_imports_and_exports_are_available(self) -> None:
         import ow_eval.daytona_jobs as daytona_jobs
@@ -107,7 +117,10 @@ class DaytonaShardJobTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     spec.expected_download_paths,
-                    (job.shard_result_path,),
+                    (
+                        job.shard_result_path,
+                        *expected_artifact_download_paths(job),
+                    ),
                 )
                 self.assertTrue(spec.sandbox_name.startswith("ow-eval-shard-"))
 

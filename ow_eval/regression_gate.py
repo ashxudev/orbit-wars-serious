@@ -184,7 +184,10 @@ def run_regression_gate(
 
     try:
         candidate_batch = run_evaluation_batch(
-            EvaluationBatchConfig(matches=effective_config.matches)
+            EvaluationBatchConfig(
+                matches=effective_config.matches,
+                artifact_prefix="regression-candidate",
+            )
         )
         parity_result = run_submission_parity_check(
             SubmissionParityConfig(

@@ -9,8 +9,10 @@ matches.
 from __future__ import annotations
 
 import os
+import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from .daytona_jobs import DEFAULT_SANDBOX_NAME_PREFIX, DEFAULT_WORKING_DIR
 
@@ -30,6 +32,8 @@ DAYTONA_SNAPSHOT_ID_ENV_VAR = "DAYTONA_SNAPSHOT_ID"
 DAYTONA_IMAGE_ENV_VAR = "DAYTONA_IMAGE"
 DAYTONA_WORKING_DIR_ENV_VAR = "DAYTONA_WORKING_DIR"
 DAYTONA_SANDBOX_NAME_PREFIX_ENV_VAR = "DAYTONA_SANDBOX_NAME_PREFIX"
+DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX = "ow-serious-runtime"
+AUTO_DAYTONA_SNAPSHOT_ID_VALUES = ("auto", "current", "current-head", "latest")
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +163,9 @@ def read_daytona_real_execution_config_from_env(
         require_github_token=_env_flag(effective_env, REQUIRE_GITHUB_TOKEN_ENV_VAR),
         project_id=_env_optional(effective_env, DAYTONA_PROJECT_ID_ENV_VAR),
         workspace_id=_env_optional(effective_env, DAYTONA_WORKSPACE_ID_ENV_VAR),
-        snapshot_id=_env_optional(effective_env, DAYTONA_SNAPSHOT_ID_ENV_VAR),
+        snapshot_id=resolve_daytona_snapshot_id(
+            _env_optional(effective_env, DAYTONA_SNAPSHOT_ID_ENV_VAR),
+        ),
         image=_env_optional(effective_env, DAYTONA_IMAGE_ENV_VAR),
         default_working_dir=_env_optional(
             effective_env,
@@ -173,6 +179,22 @@ def read_daytona_real_execution_config_from_env(
             default=DEFAULT_SANDBOX_NAME_PREFIX,
         ),
     )
+
+
+def resolve_daytona_snapshot_id(
+    snapshot_id: str | None,
+    *,
+    repo_root: str | Path | None = None,
+) -> str | None:
+    """Resolve auto snapshot aliases to the default current-HEAD snapshot name."""
+
+    if snapshot_id is None:
+        return None
+    _validate_nonempty_string(snapshot_id, "snapshot_id")
+    if snapshot_id.strip().lower() not in AUTO_DAYTONA_SNAPSHOT_ID_VALUES:
+        return snapshot_id
+    git_commit = _local_git_commit(repo_root)
+    return f"{DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX}-{git_commit[:12]}"
 
 
 def validate_daytona_real_execution_readiness(
@@ -268,6 +290,24 @@ def _env_optional(
     return stripped or None
 
 
+def _local_git_commit(repo_root: str | Path | None = None) -> str:
+    effective_root = (
+        Path(repo_root)
+        if repo_root is not None
+        else Path(__file__).resolve().parents[1]
+    )
+    completed = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=effective_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    git_commit = completed.stdout.strip()
+    _validate_nonempty_string(git_commit, "git_commit")
+    return git_commit
+
+
 def _validate_env_mapping(value: object) -> None:
     if not isinstance(value, Mapping):
         raise ValueError("env must be a mapping")
@@ -297,8 +337,11 @@ def _validate_nonempty_string(value: object, name: str) -> None:
 
 
 __all__ = (
+    "AUTO_DAYTONA_SNAPSHOT_ID_VALUES",
     "DaytonaRealExecutionConfig",
     "DaytonaRealExecutionReadiness",
+    "DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX",
     "read_daytona_real_execution_config_from_env",
+    "resolve_daytona_snapshot_id",
     "validate_daytona_real_execution_readiness",
 )

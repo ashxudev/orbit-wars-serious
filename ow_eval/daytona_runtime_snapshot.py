@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .daytona_real_config import (
+    DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX,
     DaytonaRealExecutionReadiness,
     read_daytona_real_execution_config_from_env,
     validate_daytona_real_execution_readiness,
@@ -28,12 +29,13 @@ from .daytona_real_config import (
 
 
 DEFAULT_SNAPSHOT_OUTPUT_DIR = "/tmp/ow-daytona-runtime-snapshot"
-DEFAULT_SNAPSHOT_NAME_PREFIX = "ow-serious-runtime"
+DEFAULT_SNAPSHOT_NAME_PREFIX = DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX
 DEFAULT_PYTHON_VERSION = "3.12"
 DEFAULT_REMOTE_WORKING_DIR = "/workspace/orbit-wars-serious"
 DEFAULT_SNAPSHOT_CPU = 4
 DEFAULT_SNAPSHOT_MEMORY = 8
 DEFAULT_SNAPSHOT_DISK = 10
+DAYTONA_RUNTIME_COMMIT_MARKER = ".ow-runtime-git-commit"
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +200,10 @@ def prepare_daytona_runtime_snapshot_context(
     source_dir.mkdir()
 
     _extract_git_archive(repo_root, source_dir)
+    (source_dir / DAYTONA_RUNTIME_COMMIT_MARKER).write_text(
+        git_commit + "\n",
+        encoding="utf-8",
+    )
     req_lines = tuple(requirements_lines) if requirements_lines is not None else _pip_freeze(config.python_executable)
     if not req_lines:
         raise ValueError("requirements must contain at least one line")
@@ -498,6 +504,7 @@ def _validate_positive_int(value: object, name: str) -> None:
 
 
 __all__ = (
+    "DAYTONA_RUNTIME_COMMIT_MARKER",
     "DaytonaRuntimeSnapshotConfig",
     "DaytonaRuntimeSnapshotPlan",
     "DaytonaRuntimeSnapshotResult",

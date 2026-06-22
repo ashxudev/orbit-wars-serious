@@ -53,6 +53,19 @@ def written_daytona_plan(temp_dir: str | Path):
     return package, plan, plan_path
 
 
+def expected_call_steps_for_plan(plan) -> list[str]:
+    steps: list[str] = []
+    for spec in plan.specs:
+        steps.extend(
+            ["open"]
+            + ["upload"] * len(spec.expected_upload_paths)
+            + ["command"]
+            + ["download"] * len(spec.expected_download_paths)
+            + ["close"]
+        )
+    return steps
+
+
 def fake_merge_result(match_count: int = 4) -> EvaluationShardMergeResult:
     return EvaluationShardMergeResult(
         shard_results=(),
@@ -158,22 +171,12 @@ class DaytonaClientReportTests(unittest.TestCase):
             )
             self.assertEqual(
                 [call[0] for call in client.calls],
-                [
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                ],
+                expected_call_steps_for_plan(plan),
             )
-            self.assertEqual(len(report.client_event_trace), 24)
+            self.assertEqual(
+                len(report.client_event_trace),
+                2 * len(expected_call_steps_for_plan(plan)),
+            )
             self.assertIn("daytona_client_execution_report=COMPLETE", report.summary_text)
             self.assertIsNotNone(report.batch_result.merged_result)
 

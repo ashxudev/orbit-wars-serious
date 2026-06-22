@@ -86,7 +86,21 @@ class DaytonaClientReportCliTests(unittest.TestCase):
                 tuple(operation.job_id for operation in result.report.operation_plans),
                 tuple(spec.job_id for spec in plan.specs),
             )
-            self.assertEqual(len(result.report.client_event_trace), 24)
+            expected_event_count = sum(
+                2
+                * (
+                    1
+                    + len(spec.expected_upload_paths)
+                    + 1
+                    + len(spec.expected_download_paths)
+                    + 1
+                )
+                for spec in plan.specs
+            )
+            self.assertEqual(
+                len(result.report.client_event_trace),
+                expected_event_count,
+            )
             self.assertIn("daytona_client_report_cli=COMPLETE", result.summary_text)
             self.assertIn("daytona_client_execution_report=COMPLETE", result.report.summary_text)
             self.assertIsNone(result.report.batch_result.merged_result)

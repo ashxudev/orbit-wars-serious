@@ -82,8 +82,12 @@ class EvaluationShardRunnerTests(unittest.TestCase):
         batch_config = run_batch.call_args.args[0]
         self.assertIsInstance(batch_config, EvaluationBatchConfig)
         self.assertIs(batch_config.matches, shard.matches)
-        self.assertIsNone(batch_config.artifacts)
-        self.assertIsNone(batch_config.artifact_prefix)
+        self.assertIsInstance(batch_config.artifacts, EvaluationArtifactConfig)
+        self.assertEqual(
+            batch_config.artifacts.output_dir,
+            Path(shard.planned_manifest_path).parent / f"{shard.label}.artifacts",
+        )
+        self.assertEqual(batch_config.artifact_prefix, shard.label)
         self.assertIs(result.shard, shard)
         self.assertIs(result.batch_result, batch_result)
         self.assertEqual(
@@ -94,7 +98,7 @@ class EvaluationShardRunnerTests(unittest.TestCase):
             ),
         )
 
-    def test_default_run_writes_no_artifacts_and_ignores_planned_paths(self) -> None:
+    def test_default_run_configures_artifacts_without_materializing_planned_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             output_root = Path(temp_dir) / "planned-output"
             shard = planned_shard(output_root)
@@ -106,8 +110,12 @@ class EvaluationShardRunnerTests(unittest.TestCase):
                 run_evaluation_shard(shard)
 
             batch_config = run_batch.call_args.args[0]
-            self.assertIsNone(batch_config.artifacts)
-            self.assertIsNone(batch_config.artifact_prefix)
+            self.assertIsInstance(batch_config.artifacts, EvaluationArtifactConfig)
+            self.assertEqual(
+                batch_config.artifacts.output_dir,
+                Path(shard.planned_manifest_path).parent / f"{shard.label}.artifacts",
+            )
+            self.assertEqual(batch_config.artifact_prefix, shard.label)
             self.assertFalse(output_root.exists())
 
     def test_artifact_config_uses_shard_label_as_default_prefix(self) -> None:

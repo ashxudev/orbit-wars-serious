@@ -84,11 +84,15 @@ def run_daytona_shard_job_plan_with_client_report(
     require_upload_paths_exist: bool = True,
     require_unique_sandbox_names: bool = True,
     merge_results: bool = True,
+    expected_remote_git_commit: str | None = None,
 ) -> DaytonaClientExecutionReport:
     """Run one Daytona plan through a client executor and return a report."""
 
     plan_path = str(plan_or_path) if isinstance(plan_or_path, (str, Path)) else None
-    executor = DaytonaClientExecutor(client)
+    executor = DaytonaClientExecutor(
+        client,
+        expected_remote_git_commit=expected_remote_git_commit,
+    )
     batch_result = run_daytona_shard_job_plan(
         plan_or_path,
         executor,

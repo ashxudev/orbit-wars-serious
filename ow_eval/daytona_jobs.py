@@ -209,8 +209,21 @@ def _spec_for_job(
             job.manifest_path,
             *job.extra_upload_paths,
         ),
-        expected_download_paths=(job.shard_result_path,),
+        expected_download_paths=(
+            job.shard_result_path,
+            *_default_artifact_download_paths(job),
+        ),
     )
+
+
+def _default_artifact_download_paths(job) -> tuple[str, ...]:
+    artifact_dir = Path(job.manifest_path).parent / f"{job.label}.artifacts"
+    paths: list[str] = []
+    for index in range(len(job.match_labels)):
+        base_name = f"{job.label}-match-{index:04d}"
+        paths.append(str(artifact_dir / f"{base_name}-replay.json"))
+        paths.append(str(artifact_dir / f"{base_name}-result.json"))
+    return tuple(paths)
 
 
 def _validate_string_tuple(value: object, name: str) -> None:

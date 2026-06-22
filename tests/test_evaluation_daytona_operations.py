@@ -142,7 +142,10 @@ class DaytonaOperationsTests(unittest.TestCase):
             )
             self.assertEqual(
                 plan.summary_text,
-                "daytona_batch_operations=READY jobs=2 uploads=4 downloads=2",
+                (
+                    "daytona_batch_operations=READY jobs=2 uploads=4 "
+                    f"downloads={sum(len(request.expected_download_paths) for request in requests)}"
+                ),
             )
 
     def test_operation_plan_to_dict_is_json_safe_and_keeps_argv_structured(self) -> None:

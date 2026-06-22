@@ -12,6 +12,7 @@ from ow_eval import (
     AgentSourceKind,
     AgentSpec,
     BaselineName,
+    DEFAULT_EVALUATION_ARTIFACT_DIR,
     EvaluationArtifactConfig,
     EvaluationBatchConfig,
     EvaluationBatchResult,
@@ -155,8 +156,9 @@ class EvaluationExperimentRunnerTests(unittest.TestCase):
             tuple(match.label for match in result.matches),
             ("first", "second"),
         )
-        self.assertIsNone(batch_config.artifacts)
-        self.assertIsNone(batch_config.artifact_prefix)
+        self.assertIsInstance(batch_config.artifacts, EvaluationArtifactConfig)
+        self.assertEqual(batch_config.artifacts.output_dir, DEFAULT_EVALUATION_ARTIFACT_DIR)
+        self.assertEqual(batch_config.artifact_prefix, "experiment-smoke")
         self.assertEqual(result.matches, batch_config.matches)
         self.assertEqual(result.batch_result.results[1].metrics.final_rank, 2)
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -35,6 +36,7 @@ class DaytonaRealCliResult:
     plan_path: str
     allow_real_daytona: bool
     readiness: DaytonaRealExecutionReadiness
+    expected_git_commit: str | None = None
     report: DaytonaClientExecutionReport | None = None
     json_output_path: str | None = None
     exit_code: int = 2
@@ -47,6 +49,8 @@ class DaytonaRealCliResult:
             raise ValueError("allow_real_daytona must be a boolean")
         if not isinstance(self.readiness, DaytonaRealExecutionReadiness):
             raise ValueError("readiness must be a DaytonaRealExecutionReadiness")
+        if self.expected_git_commit is not None:
+            _validate_nonempty_string(self.expected_git_commit, "expected_git_commit")
         if self.report is not None and not isinstance(
             self.report,
             DaytonaClientExecutionReport,
@@ -73,6 +77,7 @@ class DaytonaRealCliResult:
             "plan_path": self.plan_path,
             "allow_real_daytona": self.allow_real_daytona,
             "readiness": self.readiness.to_dict(),
+            "expected_git_commit": self.expected_git_commit,
             "report": self.report.to_dict() if self.report is not None else None,
             "json_output_path": self.json_output_path,
             "exit_code": self.exit_code,
@@ -136,6 +141,7 @@ def run_daytona_real_shard_jobs(
                 ),
                 error_text=readiness.error_text,
             )
+        expected_git_commit = _local_git_commit()
         adapter = DaytonaSdkAdapter(
             DaytonaSdkAdapterConfig(
                 real_execution_config=config,
@@ -150,6 +156,7 @@ def run_daytona_real_shard_jobs(
             require_upload_paths_exist=require_upload_paths_exist,
             require_unique_sandbox_names=require_unique_sandbox_names,
             merge_results=False,
+            expected_remote_git_commit=expected_git_commit,
         )
         if json_output is not None:
             json_output_text = str(_write_json(report.to_dict(), json_output))
@@ -157,6 +164,7 @@ def run_daytona_real_shard_jobs(
             plan_path=plan_path_text,
             allow_real_daytona=True,
             readiness=readiness,
+            expected_git_commit=expected_git_commit,
             report=report,
             json_output_path=json_output_text,
             exit_code=report.exit_code,
@@ -265,6 +273,20 @@ def _write_json(payload: object, path: str | Path) -> Path:
         encoding="utf-8",
     )
     return output_path
+
+
+def _local_git_commit() -> str:
+    repo_root = Path(__file__).resolve().parents[1]
+    completed = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    commit = completed.stdout.strip()
+    _validate_nonempty_string(commit, "git_commit")
+    return commit
 
 
 def _path_text(value: str | Path, name: str) -> str:

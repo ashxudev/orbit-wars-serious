@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 
-from .artifacts import EvaluationArtifactConfig
+from .artifacts import EvaluationArtifactConfig, default_evaluation_artifact_config
 from .contracts import EvaluationStatus, MatchConfig, MatchResult
 from .official_runner import run_official_match
 
@@ -123,19 +123,18 @@ def _artifacts_for_match(
     config: EvaluationBatchConfig,
     index: int,
 ) -> EvaluationArtifactConfig | None:
-    if config.artifacts is None:
-        return None
+    base_artifacts = config.artifacts or default_evaluation_artifact_config()
 
     base_prefix = (
         config.artifact_prefix
         if config.artifact_prefix is not None
-        else config.artifacts.prefix
+        else base_artifacts.prefix
     )
     if base_prefix is None:
         base_prefix = "batch"
 
     return replace(
-        config.artifacts,
+        base_artifacts,
         prefix=f"{base_prefix}-match-{index:04d}",
     )
 

@@ -26,6 +26,7 @@ from .daytona_operations import (
     DaytonaUploadOperation,
     build_daytona_sandbox_operation_plan,
 )
+from .daytona_runtime_snapshot import DAYTONA_RUNTIME_COMMIT_MARKER
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,10 +178,24 @@ class DaytonaSandboxClient(Protocol):
 class DaytonaClientExecutor:
     """Adapter from execution requests to an injected Daytona-like client."""
 
-    def __init__(self, client: DaytonaSandboxClient) -> None:
+    def __init__(
+        self,
+        client: DaytonaSandboxClient,
+        *,
+        expected_remote_git_commit: str | None = None,
+        remote_commit_marker_path: str = DAYTONA_RUNTIME_COMMIT_MARKER,
+    ) -> None:
+        if expected_remote_git_commit is not None:
+            _validate_nonempty_string(
+                expected_remote_git_commit,
+                "expected_remote_git_commit",
+            )
+        _validate_nonempty_string(remote_commit_marker_path, "remote_commit_marker_path")
         self.client = client
         self.events: list[DaytonaClientExecutionEvent] = []
         self.operation_plans: list[DaytonaSandboxOperationPlan] = []
+        self.expected_remote_git_commit = expected_remote_git_commit
+        self.remote_commit_marker_path = remote_commit_marker_path
 
     @property
     def event_trace(self) -> tuple[DaytonaClientExecutionEvent, ...]:
@@ -204,6 +219,7 @@ class DaytonaClientExecutor:
 
         try:
             handle = self._open(plan)
+            self._verify_remote_git_commit(plan, handle)
             self._upload_all(plan, handle)
             command_result = self._run_command(plan, handle)
             if command_result.exit_code != 0:
@@ -221,7 +237,10 @@ class DaytonaClientExecutor:
                     exit_code=command_result.exit_code,
                 )
             else:
-                self._download_all(plan, handle)
+                completed_downloads, optional_missing_downloads = self._download_all(
+                    plan,
+                    handle,
+                )
                 result = DaytonaShardExecutionResult(
                     job_id=plan.job_id,
                     shard_id=plan.shard_id,
@@ -232,7 +251,8 @@ class DaytonaClientExecutor:
                     summary_text=(
                         "daytona_client_execution=COMPLETE "
                         f"job_id={plan.job_id} uploads={len(plan.upload_operations)} "
-                        f"downloads={len(plan.download_operations)}"
+                        f"downloads={completed_downloads}/{len(plan.download_operations)} "
+                        f"optional_missing_downloads={optional_missing_downloads}"
                     ),
                 )
         except Exception as exc:  # noqa: BLE001 - executor returns structured failure.
@@ -294,6 +314,62 @@ class DaytonaClientExecutor:
             self.client.upload_file(handle, operation)
             self._event(plan, "upload", "completed", detail)
 
+    def _verify_remote_git_commit(
+        self,
+        plan: DaytonaSandboxOperationPlan,
+        handle: DaytonaSandboxHandle,
+    ) -> None:
+        expected_commit = self.expected_remote_git_commit
+        if expected_commit is None:
+            return
+        detail = f"expected={expected_commit}"
+        self._event(plan, "snapshot_commit", "attempted", detail)
+        result = self.client.run_command(
+            handle,
+            DaytonaCommandOperation(
+                worker_argv=(
+                    ".venv/bin/python",
+                    "-c",
+                    (
+                        "from pathlib import Path; "
+                        f"print(Path({self.remote_commit_marker_path!r}).read_text().strip())"
+                    ),
+                ),
+                working_dir=plan.working_dir,
+            ),
+        )
+        if not isinstance(result, DaytonaClientCommandResult):
+            raise ValueError("client.run_command must return DaytonaClientCommandResult")
+        remote_commit = (result.stdout or "").strip()
+        if result.exit_code != 0:
+            self._event(
+                plan,
+                "snapshot_commit",
+                "error",
+                result.summary_text,
+                error_text=result.stderr or result.summary_text,
+                exit_code=result.exit_code,
+            )
+            raise RuntimeError(
+                "remote snapshot commit check failed: "
+                f"exit_code={result.exit_code}"
+            )
+        if remote_commit != expected_commit:
+            error_text = (
+                "remote snapshot commit mismatch: "
+                f"expected={expected_commit} actual={remote_commit or '<empty>'}"
+            )
+            self._event(
+                plan,
+                "snapshot_commit",
+                "error",
+                error_text,
+                error_text=error_text,
+                exit_code=2,
+            )
+            raise RuntimeError(error_text)
+        self._event(plan, "snapshot_commit", "completed", f"actual={remote_commit}")
+
     def _run_command(
         self,
         plan: DaytonaSandboxOperationPlan,
@@ -319,12 +395,30 @@ class DaytonaClientExecutor:
         self,
         plan: DaytonaSandboxOperationPlan,
         handle: DaytonaSandboxHandle,
-    ) -> None:
+    ) -> tuple[int, int]:
+        completed_downloads = 0
+        optional_missing_downloads = 0
         for operation in plan.download_operations:
             detail = f"{operation.sandbox_path}->{operation.local_path}"
             self._event(plan, "download", "attempted", detail)
-            self.client.download_file(handle, operation)
+            try:
+                self.client.download_file(handle, operation)
+            except Exception as exc:
+                if operation.local_path == plan.local_shard_result_path:
+                    raise
+                optional_missing_downloads += 1
+                self._event(
+                    plan,
+                    "download",
+                    "optional_missing",
+                    detail,
+                    error_text=f"{type(exc).__name__}: {exc}",
+                    exit_code=0,
+                )
+                continue
+            completed_downloads += 1
             self._event(plan, "download", "completed", detail)
+        return completed_downloads, optional_missing_downloads
 
     def _close(
         self,
@@ -390,10 +484,14 @@ def run_daytona_shard_job_plan_with_client(
     require_upload_paths_exist: bool = True,
     require_unique_sandbox_names: bool = True,
     merge_results: bool = True,
+    expected_remote_git_commit: str | None = None,
 ):
     """Run a Daytona shard job plan through an injected client executor."""
 
-    executor = DaytonaClientExecutor(client)
+    executor = DaytonaClientExecutor(
+        client,
+        expected_remote_git_commit=expected_remote_git_commit,
+    )
     return run_daytona_shard_job_plan(
         plan_or_path,
         executor,

@@ -8,8 +8,9 @@ parallelism, CLI orchestration, persistence, or merge behavior.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
-from .artifacts import EvaluationArtifactConfig
+from .artifacts import EvaluationArtifactConfig, default_evaluation_artifact_config
 from .batch_runner import (
     EvaluationBatchConfig,
     EvaluationBatchResult,
@@ -91,9 +92,12 @@ def run_evaluation_shard(
     if not isinstance(effective_config, EvaluationShardRunConfig):
         raise ValueError("config must be an EvaluationShardRunConfig")
 
+    artifacts = effective_config.artifacts or default_evaluation_artifact_config(
+        output_dir=_default_artifact_output_dir_for_shard(shard),
+    )
     batch_config = EvaluationBatchConfig(
         matches=shard.matches,
-        artifacts=effective_config.artifacts,
+        artifacts=artifacts,
         artifact_prefix=_artifact_prefix_for_shard(shard, effective_config),
     )
     batch_result = run_evaluation_batch(batch_config)
@@ -108,11 +112,13 @@ def _artifact_prefix_for_shard(
     shard: EvaluationShard,
     config: EvaluationShardRunConfig,
 ) -> str | None:
-    if config.artifacts is None:
-        return None
     if config.artifact_prefix is not None:
         return config.artifact_prefix
     return shard.label
+
+
+def _default_artifact_output_dir_for_shard(shard: EvaluationShard) -> Path:
+    return Path(shard.planned_manifest_path).parent / f"{shard.label}.artifacts"
 
 
 def _summary_text(

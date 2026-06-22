@@ -17,7 +17,7 @@ from typing import Any, Iterator
 
 from scripts.build_submission import write_submission
 
-from .artifacts import EvaluationArtifactConfig
+from .artifacts import EvaluationArtifactConfig, default_evaluation_artifact_config
 from .batch_runner import (
     EvaluationBatchConfig,
     EvaluationBatchResult,
@@ -146,20 +146,21 @@ def _run_submission_parity_with_path(
         submission_agent,
         suffix="submission",
     )
+    artifacts = config.artifacts or default_evaluation_artifact_config()
 
     with _bounded_runtime_agent_for_parity():
         modular_batch = run_evaluation_batch(
             EvaluationBatchConfig(
                 matches=modular_matches,
-                artifacts=config.artifacts,
-                artifact_prefix=_batch_artifact_prefix(config, "modular"),
+                artifacts=artifacts,
+                artifact_prefix=_batch_artifact_prefix(config, artifacts, "modular"),
             )
         )
         submission_batch = run_evaluation_batch(
             EvaluationBatchConfig(
                 matches=submission_matches,
-                artifacts=config.artifacts,
-                artifact_prefix=_batch_artifact_prefix(config, "submission"),
+                artifacts=artifacts,
+                artifact_prefix=_batch_artifact_prefix(config, artifacts, "submission"),
             )
         )
 
@@ -211,13 +212,12 @@ def _base_label(match: MatchConfig, index: int) -> str:
 
 def _batch_artifact_prefix(
     config: SubmissionParityConfig,
+    artifacts: EvaluationArtifactConfig,
     side: str,
 ) -> str | None:
-    if config.artifacts is None:
-        return None
     prefix = config.artifact_prefix
     if prefix is None:
-        prefix = config.artifacts.prefix
+        prefix = artifacts.prefix
     if prefix is None:
         prefix = "parity"
     return f"{prefix}-{side}"

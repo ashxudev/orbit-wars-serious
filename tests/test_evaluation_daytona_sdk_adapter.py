@@ -831,22 +831,18 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
                 tuple(result.job_id for result in report.batch_result.execution_results),
                 tuple(spec.job_id for spec in plan.specs),
             )
+            expected_calls: list[str] = []
+            for spec in plan.specs:
+                expected_calls.extend(
+                    ["open"]
+                    + ["upload"] * len(spec.expected_upload_paths)
+                    + ["command"]
+                    + ["download"] * len(spec.expected_download_paths)
+                    + ["close"]
+                )
             self.assertEqual(
                 [call[0] for call in fake.calls],
-                [
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                ],
+                expected_calls,
             )
 
     def test_config_is_frozen_slotted_validated_and_json_safe(self) -> None:

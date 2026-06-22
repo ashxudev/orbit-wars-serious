@@ -395,3 +395,126 @@ Because no real match ran, Cycle 6 cannot determine whether the fixed 2P
 deterministic leak recurs in a full-horizon Daytona match, and there is no new
 compact fixture to extract. To continue this probe, rerun only the guarded real
 Daytona command above after explicit approval for the external Daytona export.
+
+## Cycle 7 Daytona 2P Probe Result Capture And Audit
+
+Cycle 7 rechecked the existing Cycle 6 one-scenario package and plan:
+
+| Field | Value |
+|---|---|
+| Package root | `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/package/` |
+| Daytona plan | `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json` |
+| Scenario label | `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` |
+| Opponent | `claude-v31-race-awareness` |
+| Controlled seat | `1` |
+| Player count | `2` |
+| Seed | `7271` |
+| Episode steps | `500` |
+| Plan specs | `1` |
+| Job count | `1` |
+| Expected downloaded outputs | `3` |
+
+Plan validation command:
+
+```text
+.venv/bin/python scripts/validate_daytona_shard_jobs.py /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json
+```
+
+Validation result:
+
+```text
+daytona_shard_job_plan_validation=PASS plan_path=/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json specs=1 missing_upload_paths=0 duplicate_sandbox_names=0 exit_code=0
+```
+
+The single guarded real Daytona command attempted for Cycle 7 was:
+
+```text
+.venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json --allow-real-daytona --json-output /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-real-report.json
+```
+
+Final Cycle 7 status:
+
+- A manually run real Daytona command produced
+  `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-real-report.json`.
+- The client report failed with `passed=False`, `exit_code=2`, and summary
+  `daytona_client_execution_report=ERROR ... jobs=1 events=16 operation_plans=1 exit_code=2`.
+- The failure was not match execution. The remote worker completed the shard
+  and wrote
+  `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/package/historical-gauntlet-shard-000/historical-gauntlet-shard-000.shard-result.json`.
+- The exact client failure was a missing optional artifact download:
+  `DaytonaNotFoundError: Failed to download file: file not found:
+  /tmp/ow-historical-leak-cycle6-2p-daytona-probe/package/historical-gauntlet-shard-000/historical-gauntlet-shard-000.artifacts/historical-gauntlet-shard-000-match-0000-replay.json`.
+- Root cause: the local Daytona plan expected per-match replay/result artifacts,
+  but the remote worker snapshot completed the match without writing those
+  optional artifacts. The client treated the absent replay artifact as fatal
+  even though the required shard-result JSON existed.
+- Fix applied locally: `DaytonaClientExecutor` now keeps the shard result
+  download mandatory while treating non-shard-result artifact downloads as
+  `optional_missing`. This preserves infrastructure failure detection for a
+  missing shard result but prevents optional replay/result artifact skew from
+  masking a completed shard.
+- Snapshot compatibility guard added: new Daytona runtime snapshots write a
+  `.ow-runtime-git-commit` marker, and real shard execution checks that marker
+  against local `git rev-parse HEAD` before uploads or match execution. A stale
+  `DAYTONA_SNAPSHOT_ID` now fails closed instead of silently running older
+  worker code.
+- Snapshot id auto-resolution added: `DAYTONA_SNAPSHOT_ID=auto` now resolves to
+  the default current-HEAD snapshot name `ow-serious-runtime-<commit12>`. After
+  committing runner/package behavior changes, the required step is recreating
+  the default-named snapshot for the current commit; no `.env` edit is needed
+  unless using a custom snapshot name.
+- A retry from this Codex thread was attempted after the fix, but the approval
+  reviewer rejected the real Daytona command before process execution as an
+  external cloud export using local credentials. No additional Daytona job was
+  launched from this thread.
+- No Kaggle command or live submission was run.
+
+Shard-result match summary from the completed Daytona job:
+
+| Field | Value |
+|---|---|
+| Match status | `completed` |
+| Scenario label | `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` |
+| Episode steps | `500` |
+| Final rank | `2` |
+| Final score | `-1.0` |
+| Turns survived | `85` |
+| Final planets | `0` |
+| Final production | `0` |
+| Invalid actions | `0` |
+| Timeouts | `0` |
+| No-action count | `40` |
+| Primary no-action reason | `no_candidates_generated` |
+| No-action reason histogram | `no_candidates_generated:39` |
+| Last candidate count | `0` |
+| Last evaluation count | `0` |
+| Replay path in match result | `null` |
+| Artifact path in match result | `null` |
+
+Interpretation:
+
+- The Cycle 1/2 compact early-turn deterministic fixes are still covered by
+  `tests/fixtures/historical_gauntlet_leaks/`, but this full-horizon 2P probe
+  shows a later-game candidate-starvation collapse against
+  `claude-v31-race-awareness`.
+- No compact fixture can be extracted from this run because the remote worker
+  did not produce replay/result artifacts. A follow-up probe should first
+  recreate the default runtime snapshot from the current committed `HEAD`, then
+  rerun the one-scenario Daytona command so the remote worker has the
+  artifact-writing code and matching snapshot marker. With
+  `DAYTONA_SNAPSHOT_ID=auto`, no `.env` edit is required after the snapshot is
+  recreated.
+
+User-run retry command, if external Daytona export is explicitly approved in a
+terminal with the local Daytona environment configured and the current `HEAD`
+snapshot prepared:
+
+```text
+cd /Users/user/dev/hackathons/orbit-wars-serious
+.venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json --allow-real-daytona --json-output /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-real-report.json
+```
+
+After that user-run command completes, inspect the same report and shard-result
+paths above. If the report succeeds but `replay_path` and `artifact_path` remain
+`null`, treat the match as valid probe evidence but not as fixture-extraction
+evidence.

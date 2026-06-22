@@ -71,15 +71,43 @@ def execution_requests(temp_dir: str | Path):
     )
 
 
+def expected_call_steps_for_requests(
+    requests: tuple[DaytonaShardExecutionRequest, ...],
+) -> list[str]:
+    steps: list[str] = []
+    for request in requests:
+        steps.extend(
+            ["open"]
+            + ["upload"] * len(request.expected_upload_paths)
+            + ["command"]
+            + ["download"] * len(request.expected_download_paths)
+            + ["close"]
+        )
+    return steps
+
+
+def expected_event_trace_for_request(
+    request: DaytonaShardExecutionRequest,
+) -> list[tuple[str, str]]:
+    trace: list[tuple[str, str]] = []
+    for step in expected_call_steps_for_requests((request,)):
+        trace.extend(((step, "attempted"), (step, "completed")))
+    return trace
+
+
 class RecordingClient:
     def __init__(
         self,
         *,
         fail_step: str | None = None,
         command_exit_code: int = 0,
+        fail_download_paths: tuple[str, ...] = (),
+        command_stdout: str | None = None,
     ) -> None:
         self.fail_step = fail_step
         self.command_exit_code = command_exit_code
+        self.fail_download_paths = fail_download_paths
+        self.command_stdout = command_stdout
         self.calls: list[tuple[object, ...]] = []
 
     def open_sandbox(
@@ -108,7 +136,11 @@ class RecordingClient:
             raise RuntimeError("command raised")
         return DaytonaClientCommandResult(
             exit_code=self.command_exit_code,
-            stdout="ok" if self.command_exit_code == 0 else None,
+            stdout=(
+                self.command_stdout
+                if self.command_stdout is not None
+                else ("ok" if self.command_exit_code == 0 else None)
+            ),
             stderr="command failed" if self.command_exit_code != 0 else None,
             summary_text=(
                 f"client_command exit_code={self.command_exit_code} "
@@ -118,7 +150,7 @@ class RecordingClient:
 
     def download_file(self, handle, operation):  # noqa: ANN001 - fake protocol.
         self.calls.append(("download", operation.sandbox_path, operation.local_path))
-        if self.fail_step == "download":
+        if self.fail_step == "download" or operation.local_path in self.fail_download_paths:
             raise RuntimeError("download failed")
 
     def close_sandbox(self, handle):  # noqa: ANN001 - fake protocol.
@@ -168,27 +200,14 @@ class DaytonaClientExecutorTests(unittest.TestCase):
             self.assertEqual(result.shard_result_path, request.local_shard_result_path)
             self.assertEqual(
                 [call[0] for call in client.calls],
-                ["open", "upload", "upload", "command", "download", "close"],
+                expected_call_steps_for_requests((request,)),
             )
             self.assertEqual(client.calls[3][1], request.worker_argv)
             self.assertEqual(len(executor.operation_plans), 1)
             self.assertEqual(executor.operation_plans[0].job_id, request.job_id)
             self.assertEqual(
                 [(event.step, event.status) for event in executor.event_trace],
-                [
-                    ("open", "attempted"),
-                    ("open", "completed"),
-                    ("upload", "attempted"),
-                    ("upload", "completed"),
-                    ("upload", "attempted"),
-                    ("upload", "completed"),
-                    ("command", "attempted"),
-                    ("command", "completed"),
-                    ("download", "attempted"),
-                    ("download", "completed"),
-                    ("close", "attempted"),
-                    ("close", "completed"),
-                ],
+                expected_event_trace_for_request(request),
             )
 
     def test_command_failure_skips_download_closes_and_returns_nonzero(self) -> None:
@@ -205,6 +224,49 @@ class DaytonaClientExecutorTests(unittest.TestCase):
             self.assertNotIn("download", [call[0] for call in client.calls])
             self.assertEqual(client.calls[-1][0], "close")
             self.assertIn(("command", "error"), [
+                (event.step, event.status)
+                for event in executor.event_trace
+            ])
+
+    def test_snapshot_commit_check_runs_before_uploads_when_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = execution_requests(temp_dir)[0]
+            client = RecordingClient(command_stdout="commit-123\n")
+            executor = DaytonaClientExecutor(
+                client,
+                expected_remote_git_commit="commit-123",
+            )
+
+            result = executor.execute(request)
+
+            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(
+                [call[0] for call in client.calls[:3]],
+                ["open", "command", "upload"],
+            )
+            self.assertIn(("snapshot_commit", "completed"), [
+                (event.step, event.status)
+                for event in executor.event_trace
+            ])
+
+    def test_snapshot_commit_mismatch_fails_before_uploads(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = execution_requests(temp_dir)[0]
+            client = RecordingClient(command_stdout="old-commit\n")
+            executor = DaytonaClientExecutor(
+                client,
+                expected_remote_git_commit="new-commit",
+            )
+
+            result = executor.execute(request)
+
+            self.assertEqual(result.exit_code, 2)
+            self.assertIn("remote snapshot commit mismatch", result.error_text)
+            self.assertEqual(
+                [call[0] for call in client.calls],
+                ["open", "command", "close"],
+            )
+            self.assertIn(("snapshot_commit", "error"), [
                 (event.step, event.status)
                 for event in executor.event_trace
             ])
@@ -234,6 +296,41 @@ class DaytonaClientExecutorTests(unittest.TestCase):
             self.assertEqual(result.exit_code, 2)
             self.assertIn("RuntimeError: download failed", result.error_text)
             self.assertEqual(client.calls[-1][0], "close")
+
+    def test_optional_artifact_download_failures_do_not_fail_completed_shard(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = execution_requests(temp_dir)[0]
+            optional_paths = tuple(
+                path
+                for path in request.expected_download_paths
+                if path != request.local_shard_result_path
+            )
+            client = RecordingClient(fail_download_paths=optional_paths)
+            executor = DaytonaClientExecutor(client)
+
+            result = executor.execute(request)
+
+            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(result.shard_result_path, request.local_shard_result_path)
+            self.assertIn(
+                f"optional_missing_downloads={len(optional_paths)}",
+                result.summary_text,
+            )
+            self.assertEqual(client.calls[-1][0], "close")
+            optional_missing_events = tuple(
+                event
+                for event in executor.event_trace
+                if event.status == "optional_missing"
+            )
+            self.assertEqual(len(optional_missing_events), len(optional_paths))
+            self.assertTrue(
+                all(
+                    "RuntimeError: download failed" in (event.error_text or "")
+                    for event in optional_missing_events
+                )
+            )
 
     def test_close_failure_returns_nonzero_after_otherwise_successful_steps(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -267,20 +364,23 @@ class DaytonaClientExecutorTests(unittest.TestCase):
             )
             self.assertEqual(
                 [call[0] for call in client.calls],
-                [
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                ],
+                expected_call_steps_for_requests(
+                    tuple(
+                        DaytonaShardExecutionRequest(
+                            job_id=spec.job_id,
+                            shard_id=spec.shard_id,
+                            label=spec.label,
+                            sandbox_name=spec.sandbox_name,
+                            worker_argv=spec.worker_argv,
+                            working_dir=spec.working_dir,
+                            expected_upload_paths=spec.expected_upload_paths,
+                            expected_download_paths=spec.expected_download_paths,
+                            local_shard_result_path=spec.local_shard_result_path,
+                            spec=spec,
+                        )
+                        for spec in plan.specs
+                    )
+                ),
             )
 
     def test_preflight_failure_prevents_client_calls(self) -> None:

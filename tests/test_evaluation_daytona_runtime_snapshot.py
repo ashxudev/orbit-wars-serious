@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 
 from ow_eval import (
+    DAYTONA_RUNTIME_COMMIT_MARKER,
+    DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX,
     DaytonaRuntimeSnapshotConfig,
     DaytonaRuntimeSnapshotPlan,
     DaytonaRuntimeSnapshotResult,
@@ -76,6 +78,12 @@ class DaytonaRuntimeSnapshotTests(unittest.TestCase):
             self.assertEqual(plan.snapshot_name, "snapshot-test")
             self.assertTrue((source_dir / "tracked.txt").is_file())
             self.assertTrue((source_dir / "agents" / "orbit_wars_agent.py").is_file())
+            self.assertEqual(
+                (source_dir / DAYTONA_RUNTIME_COMMIT_MARKER).read_text(
+                    encoding="utf-8"
+                ),
+                plan.git_commit + "\n",
+            )
             self.assertFalse((source_dir / ".env").exists())
             self.assertFalse((source_dir / ".venv").exists())
             self.assertFalse((source_dir / "untracked.txt").exists())
@@ -83,9 +91,33 @@ class DaytonaRuntimeSnapshotTests(unittest.TestCase):
                 Path(plan.requirements_path).read_text(encoding="utf-8"),
                 "kaggle-environments==1.0.0\ndaytona==0.189.0\n",
             )
-            self.assertGreaterEqual(plan.file_count, 2)
+            self.assertGreaterEqual(plan.file_count, 3)
             self.assertEqual(plan.requirement_count, 2)
             json.dumps(plan.to_dict(), sort_keys=True)
+
+    def test_default_snapshot_name_matches_current_head_auto_format(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
+            output_dir = Path(temp_dir) / "out"
+            repo_root.mkdir()
+            self._init_git_repo(repo_root)
+            (repo_root / "tracked.py").write_text("x = 1\n", encoding="utf-8")
+            self._git(repo_root, "add", "tracked.py")
+            self._git(repo_root, "commit", "-m", "tracked file")
+
+            plan = prepare_daytona_runtime_snapshot_context(
+                DaytonaRuntimeSnapshotConfig(
+                    repo_root=str(repo_root),
+                    output_dir=str(output_dir),
+                    python_executable=sys.executable,
+                ),
+                requirements_lines=("daytona==0.189.0",),
+            )
+
+        self.assertEqual(
+            plan.snapshot_name,
+            f"{DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX}-{plan.git_commit[:12]}",
+        )
 
     def test_dry_run_prepares_context_without_requiring_real_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

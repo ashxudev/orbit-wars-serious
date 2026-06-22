@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -54,7 +55,8 @@ def written_daytona_plan(temp_dir: str | Path):
 
 
 class FakeSdkClient:
-    def __init__(self) -> None:
+    def __init__(self, *, snapshot_commit: str | None = None) -> None:
+        self.snapshot_commit = snapshot_commit
         self.calls: list[tuple[object, ...]] = []
 
     def open_sandbox(
@@ -75,6 +77,13 @@ class FakeSdkClient:
 
     def run_command(self, handle, operation):  # noqa: ANN001 - fake protocol.
         self.calls.append(("command", operation.worker_argv, operation.working_dir))
+        if ".ow-runtime-git-commit" in " ".join(operation.worker_argv):
+            stdout = self.snapshot_commit or local_git_commit()
+            return DaytonaClientCommandResult(
+                exit_code=0,
+                stdout=stdout + "\n",
+                summary_text="fake snapshot commit command exit_code=0",
+            )
         return DaytonaClientCommandResult(
             exit_code=0,
             stdout="ok",
@@ -94,6 +103,30 @@ def ready_env() -> dict[str, str]:
         "DAYTONA_API_KEY_ENV_VAR": "TOKEN",
         "TOKEN": "secret",
     }
+
+
+def local_git_commit() -> str:
+    completed = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def expected_call_steps_for_real_plan(plan) -> list[str]:
+    steps: list[str] = []
+    for spec in plan.specs:
+        steps.extend(
+            ["open", "command"]
+            + ["upload"] * len(spec.expected_upload_paths)
+            + ["command"]
+            + ["download"] * len(spec.expected_download_paths)
+            + ["close"]
+        )
+    return steps
 
 
 class DaytonaRealCliTests(unittest.TestCase):
@@ -182,6 +215,7 @@ class DaytonaRealCliTests(unittest.TestCase):
             self.assertEqual(result.exit_code, 0)
             self.assertTrue(result.passed)
             self.assertIsNotNone(result.report)
+            self.assertEqual(result.expected_git_commit, local_git_commit())
             self.assertEqual(importer_calls, ["daytona"])
             self.assertEqual(len(factory_calls), 1)
             self.assertEqual(
@@ -190,21 +224,30 @@ class DaytonaRealCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 [call[0] for call in fake.calls],
-                [
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                    "open",
-                    "upload",
-                    "upload",
-                    "command",
-                    "download",
-                    "close",
-                ],
+                expected_call_steps_for_real_plan(plan),
             )
+
+    def test_real_execution_fails_before_upload_when_snapshot_commit_mismatches(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _package, _plan, plan_path = written_daytona_plan(temp_dir)
+            fake = FakeSdkClient(snapshot_commit="stale-snapshot")
+
+            result = run_daytona_real_shard_jobs(
+                plan_path,
+                allow_real_daytona=True,
+                env=ready_env(),
+                sdk_importer=lambda name: object(),
+                sdk_client_factory=lambda module, config: fake,
+            )
+
+            self.assertEqual(result.exit_code, 2)
+            self.assertFalse(result.passed)
+            self.assertIn("remote snapshot commit mismatch", result.error_text)
+            self.assertEqual(
+                [call[0] for call in fake.calls],
+                ["open", "command", "close"],
+            )
+            self.assertNotIn("upload", [call[0] for call in fake.calls])
 
     def test_json_output_is_deterministic_report_json(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

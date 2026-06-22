@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,9 +13,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ow_eval import (
+    AUTO_DAYTONA_SNAPSHOT_ID_VALUES,
     DaytonaRealExecutionConfig,
     DaytonaRealExecutionReadiness,
+    DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX,
     read_daytona_real_execution_config_from_env,
+    resolve_daytona_snapshot_id,
     validate_daytona_real_execution_readiness,
 )
 
@@ -157,6 +161,40 @@ class DaytonaRealExecutionConfigTests(unittest.TestCase):
         )
 
         self.assertEqual(readiness.exit_code, 0)
+
+    def test_auto_snapshot_id_resolves_to_current_head_snapshot_name(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        completed = subprocess.run(
+            ("git", "rev-parse", "HEAD"),
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        git_commit = completed.stdout.strip()
+        expected_snapshot_id = (
+            f"{DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX}-{git_commit[:12]}"
+        )
+
+        self.assertEqual(
+            resolve_daytona_snapshot_id("auto", repo_root=repo_root),
+            expected_snapshot_id,
+        )
+        self.assertEqual(
+            resolve_daytona_snapshot_id("LATEST", repo_root=repo_root),
+            expected_snapshot_id,
+        )
+        self.assertEqual(
+            resolve_daytona_snapshot_id("snapshot-explicit", repo_root=repo_root),
+            "snapshot-explicit",
+        )
+        self.assertIn("auto", AUTO_DAYTONA_SNAPSHOT_ID_VALUES)
+
+        config = read_daytona_real_execution_config_from_env(
+            {"DAYTONA_SNAPSHOT_ID": "current-head"}
+        )
+
+        self.assertEqual(config.snapshot_id, expected_snapshot_id)
 
     def test_empty_optional_env_values_are_safe(self) -> None:
         config = read_daytona_real_execution_config_from_env(

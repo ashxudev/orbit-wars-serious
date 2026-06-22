@@ -83,9 +83,12 @@ from .daytona_client_report_cli import (
     run_daytona_client_report,
 )
 from .daytona_real_config import (
+    AUTO_DAYTONA_SNAPSHOT_ID_VALUES,
     DaytonaRealExecutionConfig,
     DaytonaRealExecutionReadiness,
+    DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX,
     read_daytona_real_execution_config_from_env,
+    resolve_daytona_snapshot_id,
     validate_daytona_real_execution_readiness,
 )
 from .daytona_real_cli import (
@@ -100,6 +103,7 @@ from .daytona_real_smoke import (
     run_daytona_real_smoke,
 )
 from .daytona_runtime_snapshot import (
+    DAYTONA_RUNTIME_COMMIT_MARKER,
     DaytonaRuntimeSnapshotConfig,
     DaytonaRuntimeSnapshotPlan,
     DaytonaRuntimeSnapshotResult,
@@ -171,7 +175,9 @@ from .experiment_suite import (
 )
 from .agent_loading import KaggleAgent, load_agent_callable
 from .artifacts import (
+    DEFAULT_EVALUATION_ARTIFACT_DIR,
     EvaluationArtifactConfig,
+    default_evaluation_artifact_config,
     write_match_result_artifact,
     write_replay_artifact,
 )
@@ -338,6 +344,8 @@ __all__ = (
     "DaytonaClientExecutionReport",
     "DaytonaClientReportCliResult",
     "DaytonaRecordingClient",
+    "AUTO_DAYTONA_SNAPSHOT_ID_VALUES",
+    "DAYTONA_RUNTIME_COMMIT_MARKER",
     "DaytonaRealCliResult",
     "DaytonaRealExecutionConfig",
     "DaytonaRealExecutionReadiness",
@@ -360,6 +368,8 @@ __all__ = (
     "HistoricalLeakRegressionCaseResult",
     "HistoricalLeakRegressionMetrics",
     "HistoricalLeakRegressionReport",
+    "DEFAULT_DAYTONA_RUNTIME_SNAPSHOT_NAME_PREFIX",
+    "DEFAULT_EVALUATION_ARTIFACT_DIR",
     "EvaluationArtifactConfig",
     "EvaluationBatchConfig",
     "EvaluationBatchResult",
@@ -436,6 +446,7 @@ __all__ = (
     "build_unittest_command",
     "default_historical_champion_manifest_paths",
     "default_historical_leak_fixture_dir",
+    "default_evaluation_artifact_config",
     "default_manifest_paths",
     "default_worker_count",
     "default_v0_replay_fixture_dir",
@@ -464,6 +475,7 @@ __all__ = (
     "read_daytona_real_execution_config_from_env",
     "read_experiment_report",
     "read_scoreboard_records",
+    "resolve_daytona_snapshot_id",
     "run_daytona_shard_job_plan",
     "run_daytona_shard_jobs",
     "run_daytona_shard_jobs_main",

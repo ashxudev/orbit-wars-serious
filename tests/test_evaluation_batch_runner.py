@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from ow_eval import (
     BaselineName,
+    DEFAULT_EVALUATION_ARTIFACT_DIR,
     EvaluationArtifactConfig,
     EvaluationBatchConfig,
     EvaluationBatchResult,
@@ -170,7 +171,20 @@ class EvaluationBatchRunnerTests(unittest.TestCase):
 
         self.assertEqual(batch_result.results, returned_results)
         self.assertEqual([call[0] for call in calls], list(matches))
-        self.assertEqual([call[1] for call in calls], [None, None, None])
+        artifacts_seen = [call[1] for call in calls]
+        self.assertTrue(
+            all(isinstance(artifact, EvaluationArtifactConfig) for artifact in artifacts_seen)
+        )
+        self.assertEqual(
+            tuple(artifact.prefix for artifact in artifacts_seen),
+            ("batch-match-0000", "batch-match-0001", "batch-match-0002"),
+        )
+        self.assertTrue(
+            all(
+                artifact.output_dir == DEFAULT_EVALUATION_ARTIFACT_DIR
+                for artifact in artifacts_seen
+            )
+        )
         self.assertEqual(batch_result.summary.total_matches, 3)
         self.assertEqual(batch_result.summary.completed_count, 2)
         self.assertEqual(batch_result.summary.error_count, 1)

@@ -124,9 +124,11 @@ checks. The default smoke fixtures are bounded through per-scenario
 Generated submissions, logs, match outputs, reports, scoreboards, replays, and
 temporary artifacts should not be committed unless they are explicitly intended
 source artifacts. Prefer `/tmp` or another ignored local output directory for
-generated files. The harness writes reports or match artifacts only when an
-explicit output path, output directory, report path, report directory, or
-artifact config is supplied.
+generated files. Local official match execution captures replay and match-result
+artifacts by default under `/tmp/ow-eval-artifacts` unless a caller supplies a
+more specific artifact config. Higher-level shard and experiment runners use
+descriptive prefixes so artifacts can be traced back to the source manifest or
+shard.
 
 Do not commit generated submission files from `scripts/build_submission.py`,
 JSON reports from `write_experiment_report(...)`, scoreboard JSONL output,

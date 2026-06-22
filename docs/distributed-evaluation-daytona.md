@@ -200,7 +200,21 @@ When no prepared snapshot/image exists, create one through
 committed tracked files via `git archive HEAD`, so `.env`, `.venv`, untracked
 analysis files, generated reports, logs, and scratch artifacts are excluded from
 the snapshot source context. Commit intended setup changes before creating a
-snapshot if those changes must exist inside the remote runtime.
+snapshot if those changes must exist inside the remote runtime. The snapshot
+context writes `.ow-runtime-git-commit` at the repository root with the exact
+local `HEAD` used to build the snapshot.
+
+Real shard execution now fails closed unless the sandbox snapshot is compatible
+with the local launcher commit. After opening the sandbox and before uploading
+job files, `scripts/run_daytona_real_shard_jobs.py` reads
+`.ow-runtime-git-commit` inside `DAYTONA_WORKING_DIR` and compares it to local
+`git rev-parse HEAD`. A missing marker, stale marker, or mismatched commit
+blocks execution before uploads or match commands. This means real gauntlet
+runs should use a freshly prepared snapshot for the current committed `HEAD`.
+Set `DAYTONA_SNAPSHOT_ID=auto` to resolve the default snapshot name from local
+`HEAD` as `ow-serious-runtime-<commit12>`; with that setting, committing new
+runner/package code requires recreating the snapshot, not editing `.env`.
+Use an explicit snapshot id only for custom snapshot naming.
 
 Copy `.env.example` to `.env` and fill local values. `.env` must stay
 untracked.
@@ -215,7 +229,9 @@ Recommended prebuilt snapshot/image variables:
 - `DAYTONA_TARGET`: optional Daytona runner target/region, for example `us`.
 - `DAYTONA_API_URL`: optional Daytona API URL override. Leave unset for the SDK
   default.
-- `DAYTONA_SNAPSHOT_ID`: optional prepared snapshot identifier.
+- `DAYTONA_SNAPSHOT_ID`: optional prepared snapshot identifier. Use `auto`,
+  `current`, `current-head`, or `latest` to resolve the default current-HEAD
+  snapshot name `ow-serious-runtime-<commit12>`.
 - `DAYTONA_IMAGE`: optional prepared image identifier.
 - `DAYTONA_WORKING_DIR`: optional worker working directory override. Defaults
   to `/workspace/orbit-wars-serious`.
@@ -240,9 +256,13 @@ Both gates are required:
 OW_EVAL_ALLOW_REAL_DAYTONA=1 DAYTONA_API_KEY=... .venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-eval-shards/daytona-shard-jobs.json --allow-real-daytona
 ```
 
-For actual shard execution, set `DAYTONA_SNAPSHOT_ID` to the reusable runtime
-snapshot created by `scripts/prepare_daytona_runtime_snapshot.py`. Keep
-`DAYTONA_IMAGE` unset unless intentionally testing a raw image path.
+For actual shard execution, keep `DAYTONA_SNAPSHOT_ID=auto` when using snapshots
+created by `scripts/prepare_daytona_runtime_snapshot.py` with the default naming
+scheme. The runner resolves that value to the current local commit's default
+snapshot name, then verifies the remote `.ow-runtime-git-commit` marker before
+uploads. Keep `DAYTONA_IMAGE` unset unless intentionally testing a raw image
+path; raw images must also contain `.ow-runtime-git-commit` with the current
+commit or real shard execution will fail before uploads.
 
 If `OW_EVAL_ALLOW_REAL_DAYTONA` or the required Daytona token env var is
 missing, the CLI returns a structured failure before importing `daytona` or
@@ -297,6 +317,11 @@ temporary artifacts should not be committed unless explicitly intended as source
 fixtures. Prefer `/tmp/ow-eval-shards` or another ignored local directory for
 generated output.
 
+Shard workers capture match replay and result artifacts by default. Daytona job
+plans include those deterministic artifact paths in the expected downloads, so
+real shard runs return both the shard result JSON and per-match replay/result
+artifacts when the worker command succeeds.
+
 Use explicit output arguments such as `--output-dir`, `--output-path`,
 `--json-output`, or report paths only when you intentionally want files written.
 Do not commit routine generated Daytona plans, shard result JSON files, client
@@ -333,6 +358,11 @@ reports, logs, scoreboards, or temporary package directories.
   `diagnosis=snapshot_command_failed` means the endpoint worked and the command
   ran inside the sandbox but the snapshot command failed, usually because the
   working directory or dependencies are wrong.
+- Snapshot commit mismatch: prepare a new runtime snapshot from the current
+  committed `HEAD` and rerun validation. If using `DAYTONA_SNAPSHOT_ID=auto`,
+  no `.env` edit is needed; if using a custom explicit snapshot id, update that
+  id intentionally. Do not bypass the check; it prevents local Daytona plans
+  from expecting behavior that the remote worker code does not have.
 - No-op-heavy regression gate failures: run the local regression gate and
   analysis pack workflow from `docs/evaluation-harness.md`, then inspect triage
   and planner diagnostics before attempting distributed or real Daytona work.

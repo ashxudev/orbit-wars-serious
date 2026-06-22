@@ -16,6 +16,7 @@ from ow_eval import (
     AgentSourceKind,
     AgentSpec,
     BaselineName,
+    DEFAULT_EVALUATION_ARTIFACT_DIR,
     EvaluationStatus,
     MatchConfig,
     MatchResult,
@@ -118,8 +119,10 @@ class EvaluationOfficialRunnerTests(unittest.TestCase):
         self.assertIs(result.config, config)
         self.assertEqual(result.status, EvaluationStatus.COMPLETED)
         self.assertIsNone(result.error_text)
-        self.assertIsNone(result.replay_path)
-        self.assertIsNone(result.artifact_path)
+        self.assertIsNotNone(result.replay_path)
+        self.assertIsNotNone(result.artifact_path)
+        self.assertEqual(Path(result.replay_path or "").parent, DEFAULT_EVALUATION_ARTIFACT_DIR)
+        self.assertEqual(Path(result.artifact_path or "").parent, DEFAULT_EVALUATION_ARTIFACT_DIR)
 
     def test_real_builtin_baseline_official_match_completes(self) -> None:
         config = candidate_config(

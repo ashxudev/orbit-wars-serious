@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .analysis_pack import PlannerAnalysisPack, build_planner_analysis_pack
-from .artifacts import EvaluationArtifactConfig
+from .artifacts import EvaluationArtifactConfig, default_evaluation_artifact_config
 from .batch_runner import (
     EvaluationBatchConfig,
     EvaluationBatchResult,
@@ -107,11 +107,17 @@ def run_experiment_manifest(
         raise ValueError("manifest must be an ExperimentManifest")
     effective_config = ExperimentRunConfig() if config is None else config
     matches = manifest_to_match_configs(manifest)
+    artifacts = effective_config.artifacts or default_evaluation_artifact_config()
+    artifact_prefix = (
+        effective_config.artifact_prefix
+        if effective_config.artifact_prefix is not None
+        else manifest.name
+    )
     batch_result = run_evaluation_batch(
         EvaluationBatchConfig(
             matches=matches,
-            artifacts=effective_config.artifacts,
-            artifact_prefix=effective_config.artifact_prefix,
+            artifacts=artifacts,
+            artifact_prefix=artifact_prefix,
         )
     )
     scoreboard_record = build_scoreboard_record(

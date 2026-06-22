@@ -170,6 +170,38 @@ class EvaluationShardJobRunnerTests(unittest.TestCase):
             self.assertEqual(run_shard.call_args.args[0].to_dict(), expected_shard.to_dict())
             write_result.assert_called_once_with(shard_run_result, job.shard_result_path)
 
+    def test_real_job_execution_writes_default_match_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _, _, job = packaged_job(temp_dir)
+
+            result = run_evaluation_shard_job(job.job_path)
+
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(result.passed)
+            self.assertEqual(result.shard_result_path, job.shard_result_path)
+            self.assertTrue(Path(job.shard_result_path).is_file())
+
+            artifact_dir = Path(job.manifest_path).parent / f"{job.label}.artifacts"
+            self.assertTrue(artifact_dir.is_dir())
+            replay_paths = sorted(artifact_dir.glob("*-replay.json"))
+            result_paths = sorted(artifact_dir.glob("*-result.json"))
+            self.assertEqual(len(replay_paths), len(job.match_labels))
+            self.assertEqual(len(result_paths), len(job.match_labels))
+            self.assertTrue(all(path.is_file() for path in replay_paths))
+            self.assertTrue(all(path.is_file() for path in result_paths))
+
+            shard_payload = json.loads(
+                Path(job.shard_result_path).read_text(encoding="utf-8")
+            )
+            match_results = shard_payload["batch_result"]["results"]
+            self.assertEqual(len(match_results), len(job.match_labels))
+            self.assertTrue(
+                all(match["replay_path"] is not None for match in match_results)
+            )
+            self.assertTrue(
+                all(match["artifact_path"] is not None for match in match_results)
+            )
+
     def test_job_errors_return_structured_result(self) -> None:
         missing_path = "/tmp/ow-missing-shard-job.json"
 

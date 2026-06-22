@@ -18,6 +18,7 @@ from .agent_loading import KaggleAgent, load_agent_callable
 from .artifacts import (
     EvaluationArtifactConfig,
     artifact_paths_for_config,
+    default_evaluation_artifact_config,
     write_match_result_artifact,
     write_replay_artifact,
 )
@@ -40,6 +41,8 @@ def run_official_match(
 ) -> MatchResult:
     """Run exactly one local official Orbit Wars match for ``config``."""
 
+    artifact_config = artifacts or default_evaluation_artifact_config()
+
     try:
         candidate_diagnostics: list[tuple[tuple[str, str], ...]] = []
         agents = _agents_for_config(config, candidate_diagnostics)
@@ -47,7 +50,7 @@ def run_official_match(
         result = _match_result(config, EvaluationStatus.IMPORT_ERROR, exc)
         return _finalize_match_result(
             result=result,
-            artifacts=artifacts,
+            artifacts=artifact_config,
             env=None,
             replay_allowed=False,
             candidate_diagnostics=(),
@@ -69,7 +72,7 @@ def run_official_match(
         result = _match_result(config, EvaluationStatus.AGENT_ERROR, exc)
         return _finalize_match_result(
             result=result,
-            artifacts=artifacts,
+            artifacts=artifact_config,
             env=env,
             replay_allowed=True,
             candidate_diagnostics=tuple(candidate_diagnostics),
@@ -78,7 +81,7 @@ def run_official_match(
         result = _match_result(config, EvaluationStatus.ENV_ERROR, exc)
         return _finalize_match_result(
             result=result,
-            artifacts=artifacts,
+            artifacts=artifact_config,
             env=env,
             replay_allowed=True,
             candidate_diagnostics=tuple(candidate_diagnostics),
@@ -86,7 +89,7 @@ def run_official_match(
 
     return _finalize_match_result(
         result=MatchResult(config=config, status=EvaluationStatus.COMPLETED),
-        artifacts=artifacts,
+        artifacts=artifact_config,
         env=env,
         replay_allowed=True,
         candidate_diagnostics=tuple(candidate_diagnostics),
