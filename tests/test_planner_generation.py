@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import copy
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+from agents.runtime_state import observation_to_game_state
 from ow_planner import (
     CandidateGenerationConfig,
     CandidateOutcome,
@@ -208,6 +211,99 @@ class PlannerGenerationTests(unittest.TestCase):
 
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0].target_planet_id, 3)
+
+    def test_generate_candidates_recovers_low_owned_two_player_pressure_candidate(
+        self,
+    ) -> None:
+        source = planet_at(1, 0, 0.0, 0.0, 5)
+        tough_neutral = planet_at(2, -1, 1.0, 0.0, 6, production=1, radius=0.5)
+        planets = (source, tough_neutral)
+        state = GameState(
+            tick=0,
+            player_id=0,
+            planets=planets,
+            initial_planets=planets,
+            next_fleet_id=100,
+        )
+
+        candidates = generate_candidates(
+            state,
+            CandidateGenerationConfig(max_candidates=1, max_validation_attempts=1),
+        )
+
+        self.assertEqual(len(candidates), 1)
+        candidate = candidates[0]
+        self.assertEqual(candidate.mission_type, MissionType.CAPTURE_NEUTRAL)
+        self.assertEqual(candidate.target_planet_id, 2)
+        self.assertEqual(candidate.outcome, CandidateOutcome.VALIDATED)
+        self.assertEqual(candidate.note, "early two-player pressure recovery")
+        self.assertEqual(candidate.launches[0].ships, 4)
+
+    def test_generate_candidates_keeps_pressure_recovery_bounded(self) -> None:
+        source = planet_at(1, 0, 0.0, 0.0, 5)
+        first_neutral = planet_at(2, -1, 1.0, 0.0, 6, production=1, radius=0.5)
+        second_neutral = planet_at(3, -1, 2.0, 0.0, 6, production=1, radius=0.5)
+        planets = (source, first_neutral, second_neutral)
+        state = GameState(
+            tick=0,
+            player_id=0,
+            planets=planets,
+            initial_planets=planets,
+            next_fleet_id=100,
+        )
+
+        self.assertEqual(
+            generate_candidates(
+                state,
+                CandidateGenerationConfig(max_candidates=1, max_validation_attempts=0),
+            ),
+            (),
+        )
+        self.assertEqual(
+            len(
+                generate_candidates(
+                    state,
+                    CandidateGenerationConfig(
+                        max_candidates=1,
+                        max_validation_attempts=1,
+                    ),
+                )
+            ),
+            1,
+        )
+
+    def test_historical_two_player_collapse_fixtures_recover_candidates(self) -> None:
+        fixture_dir = (
+            Path(__file__).resolve().parent
+            / "fixtures"
+            / "historical_gauntlet_leaks"
+        )
+        for fixture_name in (
+            "two_p_collapse_claude_v31_t002_p1.json",
+            "two_p_collapse_claude_v9_t001_p1.json",
+        ):
+            with self.subTest(fixture_name=fixture_name):
+                payload = json.loads(
+                    (fixture_dir / fixture_name).read_text(encoding="utf-8")
+                )
+                state = observation_to_game_state(payload["observation"])
+
+                candidates = generate_candidates(
+                    state,
+                    CandidateGenerationConfig(
+                        max_candidates=8,
+                        max_validation_attempts=8,
+                    ),
+                )
+
+                self.assertGreater(len(candidates), 0)
+                self.assertLessEqual(len(candidates), 8)
+                self.assertTrue(
+                    any(
+                        candidate.note == "early two-player pressure recovery"
+                        for candidate in candidates
+                    )
+                )
 
     def test_candidate_limit_zero_skips_validation_work(self) -> None:
         from ow_planner.outcomes import validate_estimated_pair_outcomes
