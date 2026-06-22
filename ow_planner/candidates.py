@@ -127,7 +127,16 @@ def generate_candidates(
     if candidates:
         return tuple(candidates)
 
-    return _early_two_player_pressure_candidates(
+    recovery_candidates = _early_two_player_pressure_candidates(
+        state,
+        estimated_pairs,
+        effective_config,
+        validation_attempts,
+    )
+    if recovery_candidates:
+        return recovery_candidates
+
+    return _reduced_owner_pressure_candidates(
         state,
         estimated_pairs,
         effective_config,
@@ -215,6 +224,88 @@ def _is_low_owned_two_player_pressure_state(state: GameState) -> bool:
         planet for planet in state.planets if planet.owner == state.player_id
     )
     return len(active_owners) <= 2 and len(owned_planets) <= 1
+
+
+def _reduced_owner_pressure_candidates(
+    state: GameState,
+    estimated_pairs: tuple[Any, ...],
+    config: CandidateGenerationConfig,
+    validation_attempts: int,
+) -> tuple[MissionCandidate, ...]:
+    from .estimation import (
+        ShipEstimate,
+        ShipEstimateStatus,
+        EstimatedPair,
+        DEFAULT_CAPTURE_BUFFER_SHIPS,
+    )
+    from .outcomes import CandidateValidationStatus, validate_estimated_pair_outcomes
+    from ow_sim.forecast import angle_to_point
+
+    if not _is_reduced_owner_pressure_state(state):
+        return ()
+
+    candidates: list[MissionCandidate] = []
+    for estimated_pair in estimated_pairs:
+        if (
+            config.max_validation_attempts is not None
+            and validation_attempts >= config.max_validation_attempts
+        ):
+            break
+        if config.max_candidates is not None and len(candidates) >= config.max_candidates:
+            break
+        if not _is_pressure_recovery_pair(estimated_pair):
+            continue
+
+        pair = estimated_pair.pair
+        ships = pair.source_affordable_ships - 1
+        launch = LaunchCandidate(
+            source_planet_id=pair.source_planet_id,
+            angle=angle_to_point(pair.source_position, pair.target_position),
+            ships=ships,
+        )
+        recovery_pair = EstimatedPair(
+            pair=pair,
+            estimate=ShipEstimate(
+                target_category=pair.target_category,
+                required_ships=ships,
+                source_available_ships=pair.source_affordable_ships,
+                target_projected_ships=pair.target_ships,
+                production_added=0,
+                buffer_ships=DEFAULT_CAPTURE_BUFFER_SHIPS,
+                status=ShipEstimateStatus.AFFORDABLE,
+            ),
+            launch=launch,
+        )
+        validation_attempts += 1
+        reports = validate_estimated_pair_outcomes(state, (recovery_pair,))
+        for report in reports:
+            if report.status is CandidateValidationStatus.VALIDATED:
+                candidates.append(
+                    _mission_candidate_from_report(
+                        report,
+                        note="reduced-owner pressure recovery",
+                    )
+                )
+                if (
+                    config.max_candidates is not None
+                    and len(candidates) >= config.max_candidates
+                ):
+                    return tuple(candidates)
+    return tuple(candidates)
+
+
+def _is_reduced_owner_pressure_state(state: GameState) -> bool:
+    if state.step is None or state.step < 50:
+        return False
+    active_owners = {
+        planet.owner
+        for planet in state.planets
+        if planet.owner is not None and planet.owner >= 0
+    }
+    owned_planets = tuple(
+        planet for planet in state.planets if planet.owner == state.player_id
+    )
+    return len(active_owners) <= 2 and len(owned_planets) == 1
 
 
 def _is_pressure_recovery_pair(estimated_pair: Any) -> bool:

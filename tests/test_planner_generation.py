@@ -333,6 +333,33 @@ class PlannerGenerationTests(unittest.TestCase):
                     )
                 )
 
+    def test_historical_reduced_owner_pressure_fixture_recovers_candidates(self) -> None:
+        fixture_dir = (
+            Path(__file__).resolve().parent
+            / "fixtures"
+            / "historical_gauntlet_leaks"
+        )
+        payload = json.loads(
+            (
+                fixture_dir / "four_p_ow2_reference_strategy_pressure_t189_p0.json"
+            ).read_text(encoding="utf-8")
+        )
+        state = observation_to_game_state(payload["observation"])
+
+        candidates = generate_candidates(
+            state,
+            CandidateGenerationConfig(max_candidates=8, max_validation_attempts=8),
+        )
+
+        self.assertGreater(len(candidates), 0)
+        self.assertLessEqual(len(candidates), 8)
+        self.assertTrue(
+            any(
+                candidate.note == "reduced-owner pressure recovery"
+                for candidate in candidates
+            )
+        )
+
     def test_candidate_limit_zero_skips_validation_work(self) -> None:
         from ow_planner.outcomes import validate_estimated_pair_outcomes
 

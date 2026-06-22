@@ -199,6 +199,44 @@ class RuntimeTurnTests(unittest.TestCase):
         self.assertEqual(metadata["runtime_diagnostic_candidate_count"], "0")
         self.assertEqual(metadata["runtime_diagnostic_action_count"], "0")
 
+    def test_no_candidates_without_owned_planets_reports_precise_reason(self) -> None:
+        enemy = Planet(
+            planet_id=2,
+            owner=1,
+            x=0.0,
+            y=0.0,
+            radius=0.5,
+            ships=10,
+            production=1,
+            raw=(2, 1, 0.0, 0.0, 0.5, 10, 1),
+        )
+        state = GameState(
+            tick=0,
+            player_id=0,
+            planets=(enemy,),
+            initial_planets=(enemy,),
+            next_fleet_id=100,
+        )
+        planner_result = planner_result_fixture(state)
+
+        with (
+            patch("agents.runtime_turn.observation_to_game_state", return_value=state),
+            patch(
+                "agents.runtime_turn.run_planner_pipeline",
+                return_value=planner_result,
+            ),
+            patch("agents.runtime_turn.planner_result_to_actions", return_value=[]),
+        ):
+            actions = safe_actions_for_observation({"step": 0})
+
+        metadata = dict(last_runtime_diagnostic_metadata())
+        self.assertEqual(actions, [])
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "no_owned_planets",
+        )
+        self.assertEqual(metadata["runtime_diagnostic_candidate_count"], "0")
+
     def test_default_runtime_path_emits_action_for_reachable_target_fixture(self) -> None:
         observation = load_fixture("kaggle_seed7_2p_step0.json")
         config = runtime_turn_config_for_observation(observation, {})

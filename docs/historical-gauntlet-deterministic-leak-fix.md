@@ -218,3 +218,51 @@ Remaining fix queue:
 | Priority | Target | Current post-Cycle-3 status |
 |---:|---|---|
 | `1` | 4P budget-heavy strategy windows | Mixed-style and OW2 reference source windows still need budget-vs-selection separation without weakening budget guards |
+
+## Cycle 4 Four-Player Budget-Pressure Split
+
+Cycle 4 resolves the two remaining compact 4P historical gauntlet targets by
+separating an intentional no-source no-action from an avoidable reduced-owner
+pressure failure:
+
+```text
+/Users/user/dev/hackathons/orbit-wars-serious/tests/fixtures/historical_gauntlet_leaks/four_p_mixed_style_budget_pressure_t220_p2.json
+/Users/user/dev/hackathons/orbit-wars-serious/tests/fixtures/historical_gauntlet_leaks/four_p_ow2_reference_strategy_pressure_t189_p0.json
+```
+
+Implementation summary:
+
+- Runtime diagnostics now report `no_owned_planets` when a parsed state has no
+  legal owned source planet and no planner candidates. This keeps eliminated
+  compact observations out of the unresolved `no_candidates_generated` bucket.
+- Candidate generation now has a bounded reduced-owner pressure-recovery path
+  that runs only after ordinary generation produces no candidates in late
+  one-owned, reduced-active-owner states.
+- The recovery candidate is still validated through the existing outcome
+  boundary and uses existing evaluation, response, commitment, two-player
+  selection, and action conversion.
+- The change does not weaken budget guards, add a runtime fallback, lower
+  thresholds, change broad scoring weights, or increase runtime candidate caps.
+
+Before/after target fixture results:
+
+| Fixture | Pre-Cycle-4 compact diagnostic | Cycle 4 default result | Actual runtime result | Classification |
+|---|---|---|---|---|
+| `four_p_mixed_style_budget_pressure_t220_p2.json` | `no_candidates_generated`, `0` candidates, `0` actions | `no_owned_planets`, `0` candidates, `0` actions | `no_owned_planets`, `0` candidates, `0` actions | `source-less / eliminated compact observation` |
+| `four_p_ow2_reference_strategy_pressure_t189_p0.json` | `no_candidates_generated`, `0` candidates, `0` actions | `[[4, -2.558903106652152, 52]]`; `27` candidates; selected `reserve_preserving` | `[[4, -2.558903106652152, 52]]`; `8` runtime-capped candidates; selected `reserve_preserving` | `action_emitted` |
+
+Preservation checks:
+
+- The three fixed 2P historical fixtures still emit legal `reserve_preserving`
+  runtime actions.
+- `four_p_top_score_plateau_t080_p3.json` still emits its Cycle 3
+  `reserve_preserving` plateau/rank recovery action.
+- No compact historical gauntlet fixture now remains in the generic unresolved
+  `no_candidates_generated` or candidate-backed `strategy_selection_no_action`
+  state.
+
+Remaining fix queue:
+
+| Priority | Target | Current post-Cycle-4 status |
+|---:|---|---|
+| `1` | Full-gauntlet competitive weakness | The compact deterministic historical leak fixtures are now classified or action-emitting; broader losses should move to the next deterministic/autoresearch planning segment |

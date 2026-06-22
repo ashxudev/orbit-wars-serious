@@ -294,6 +294,8 @@ def _no_action_reason(result: RuntimeTurnResult) -> str:
     if planner_result is None:
         return "no_planner_result"
     if not planner_result.candidates:
+        if _has_no_owned_planets(result.state):
+            return "no_owned_planets"
         return "no_candidates_generated"
     if not planner_result.evaluations or not planner_result.bundles:
         return "candidates_generated_but_missing_evaluation_or_bundles"
@@ -328,6 +330,12 @@ def _commitment_status_count(result: RuntimePlannerResult, status: str) -> int:
         for option in candidate_options.options
         if option.status.value == status
     )
+
+
+def _has_no_owned_planets(state: GameState | None) -> bool:
+    if state is None or state.player_id is None:
+        return False
+    return not any(planet.owner == state.player_id for planet in state.planets)
 
 
 __all__ = (

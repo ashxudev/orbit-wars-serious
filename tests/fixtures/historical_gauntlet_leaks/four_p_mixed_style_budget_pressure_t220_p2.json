@@ -10,7 +10,7 @@
     "candidate_count": 0,
     "diagnostic_status": "no_action",
     "evaluation_count": 0,
-    "no_action_reason": "no_candidates_generated",
+    "no_action_reason": "no_owned_planets",
     "owned_planet_count": 0,
     "owned_production": 0,
     "player_id": 2,

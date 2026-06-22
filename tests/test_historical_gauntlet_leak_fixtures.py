@@ -238,6 +238,41 @@ class HistoricalGauntletLeakFixtureTests(unittest.TestCase):
             "reserve_preserving",
         )
 
+    def test_target_four_player_budget_pressure_split_runtime_results(
+        self,
+    ) -> None:
+        recovered = load_case(
+            FIXTURE_DIR / "four_p_ow2_reference_strategy_pressure_t189_p0.json"
+        )
+        recovered_actions = agent(recovered["observation"], {})
+        recovered_metadata = dict(last_runtime_diagnostic_metadata())
+
+        self.assertGreater(len(recovered_actions), 0)
+        self.assertEqual(
+            recovered_metadata["runtime_diagnostic_no_action_reason"],
+            "actions_emitted",
+        )
+        self.assertEqual(
+            recovered_metadata.get("runtime_diagnostic_selected_commitment_type"),
+            "reserve_preserving",
+        )
+
+        source_less = load_case(
+            FIXTURE_DIR / "four_p_mixed_style_budget_pressure_t220_p2.json"
+        )
+        source_less_actions = agent(source_less["observation"], {})
+        source_less_metadata = dict(last_runtime_diagnostic_metadata())
+
+        self.assertEqual(source_less_actions, [])
+        self.assertEqual(
+            source_less_metadata["runtime_diagnostic_no_action_reason"],
+            "no_owned_planets",
+        )
+        self.assertEqual(
+            int(source_less_metadata["runtime_diagnostic_candidate_count"]),
+            0,
+        )
+
     def test_four_player_fixtures_cover_plateau_budget_and_strategy_pressure(
         self,
     ) -> None:
@@ -275,8 +310,10 @@ class HistoricalGauntletLeakFixtureTests(unittest.TestCase):
         )
         self.assertEqual(
             budget["expected_current_runtime"]["no_action_reason"],
-            "no_candidates_generated",
+            "no_owned_planets",
         )
+        self.assertEqual(budget["expected_current_runtime"]["candidate_count"], 0)
+        self.assertEqual(budget["expected_current_runtime"]["action_count"], 0)
 
         strategy = cases_by_class["four_player_strategy_selection_pressure"]
         self.assertRegex(
@@ -285,7 +322,12 @@ class HistoricalGauntletLeakFixtureTests(unittest.TestCase):
         )
         self.assertEqual(
             strategy["expected_current_runtime"]["no_action_reason"],
-            "no_candidates_generated",
+            "actions_emitted",
+        )
+        self.assertEqual(strategy["expected_current_runtime"]["action_count"], 1)
+        self.assertEqual(
+            strategy["expected_current_runtime"]["selected_commitment_type"],
+            "reserve_preserving",
         )
 
     def test_source_metadata_labels_are_stable_and_full_horizon(self) -> None:
