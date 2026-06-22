@@ -162,6 +162,7 @@ def select_four_player_strategy(
                 facts,
                 commitment_option,
                 effective_config.four_player_plateau_report,
+                effective_config.four_player_rank_report,
             ):
                 plateau_recovery_eligible.append((facts, index, commitment_option))
             continue
@@ -170,6 +171,7 @@ def select_four_player_strategy(
                 facts,
                 commitment_option,
                 effective_config.four_player_plateau_report,
+                effective_config.four_player_rank_report,
             ):
                 plateau_recovery_eligible.append((facts, index, commitment_option))
             else:
@@ -181,6 +183,7 @@ def select_four_player_strategy(
         recovery_pool, recovery_note = _plateau_recovery_pool(
             plateau_recovery_eligible,
             effective_config.four_player_plateau_report,
+            effective_config.four_player_rank_report,
         )
         if recovery_pool:
             selected_facts, _index, selected_commitment = max(
@@ -257,8 +260,9 @@ def _preferred_commitment_option(
 def _plateau_recovery_pool(
     eligible: list[tuple[FourPlayerMissionFacts, int, CommitmentOption]],
     plateau_report: FourPlayerPlateauReport | None,
+    rank_report: FourPlayerRankReport | None,
 ) -> tuple[list[tuple[FourPlayerMissionFacts, int, CommitmentOption]], str | None]:
-    if not _is_plateau_recovery_context(plateau_report) or not eligible:
+    if not _is_four_player_recovery_context(plateau_report, rank_report) or not eligible:
         return [], None
     productive = [
         item for item in eligible if _is_productive_plateau_recovery_candidate(item[0])
@@ -272,7 +276,15 @@ def _plateau_recovery_pool(
         and item[2].option_type is CommitmentOptionType.RESERVE_PRESERVING
     ]
     if retention:
-        return retention, "four-player plateau recovery: reserve_preserving retention"
+        if _is_plateau_recovery_context(plateau_report):
+            return (
+                retention,
+                "four-player plateau recovery: reserve_preserving retention",
+            )
+        return (
+            retention,
+            "four-player plateau/rank recovery: reserve_preserving retention",
+        )
     return [], None
 
 
@@ -280,8 +292,9 @@ def _is_plateau_recovery_candidate(
     facts: FourPlayerMissionFacts,
     commitment_option: CommitmentOption,
     plateau_report: FourPlayerPlateauReport | None,
+    rank_report: FourPlayerRankReport | None,
 ) -> bool:
-    if not _is_plateau_recovery_context(plateau_report):
+    if not _is_four_player_recovery_context(plateau_report, rank_report):
         return False
     if commitment_option.option_type is CommitmentOptionType.NO_ATTACK:
         return False
@@ -301,6 +314,23 @@ def _is_plateau_recovery_context(
         plateau_report is not None
         and plateau_report.is_four_player_context
         and plateau_report.underexpanded
+    )
+
+
+def _is_four_player_recovery_context(
+    plateau_report: FourPlayerPlateauReport | None,
+    rank_report: FourPlayerRankReport | None,
+) -> bool:
+    if _is_plateau_recovery_context(plateau_report):
+        return True
+    return (
+        rank_report is not None
+        and rank_report.is_four_player_context
+        and (
+            rank_report.leader_pressure
+            or rank_report.underexpanded_trailing
+            or rank_report.swing_opportunity
+        )
     )
 
 

@@ -98,7 +98,10 @@ def enumerate_source_target_pairs_from_features(
         sorted(
             pairs,
             key=lambda pair: (
-                _target_category_rank(pair.target_category),
+                _target_category_rank(
+                    pair.target_category,
+                    prioritize_owned_targets=_prioritize_owned_targets(features),
+                ),
                 pair.distance,
                 pair.target_planet_id,
                 pair.source_planet_id,
@@ -178,11 +181,26 @@ def _target_category(owner: int) -> TargetCategory:
     return TargetCategory.ENEMY
 
 
-def _target_category_rank(category: TargetCategory) -> int:
-    if category is TargetCategory.NEUTRAL:
+def _prioritize_owned_targets(features: BoardFeatures) -> bool:
+    active_player_count = sum(1 for totals in features.owner_totals if totals.owner >= 0)
+    return (
+        active_player_count >= 4
+        and len(features.own_planets) > 1
+        and features.own_production_total >= 12
+    )
+
+
+def _target_category_rank(
+    category: TargetCategory,
+    *,
+    prioritize_owned_targets: bool = False,
+) -> int:
+    if prioritize_owned_targets and category is TargetCategory.OWN:
         return 0
+    if category is TargetCategory.NEUTRAL:
+        return 1 if prioritize_owned_targets else 0
     if category is TargetCategory.OWN:
-        return 1
+        return 0 if prioritize_owned_targets else 1
     return 2
 
 

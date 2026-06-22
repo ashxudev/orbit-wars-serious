@@ -130,6 +130,34 @@ class PlannerGenerationTests(unittest.TestCase):
             (1, 1),
         )
 
+    def test_four_player_continuation_prioritizes_owned_retention_under_tight_cap(
+        self,
+    ) -> None:
+        planets = (
+            planet_at(1, 0, 0.0, 0.0, 20, production=6),
+            planet_at(2, 0, 1.0, 0.0, 10, production=6),
+            planet_at(3, -1, 0.0, 1.0, 0, production=1, radius=0.5),
+            planet_at(4, 1, 10.0, 0.0, 5, production=1),
+            planet_at(5, 2, 12.0, 0.0, 5, production=1),
+            planet_at(6, 3, 14.0, 0.0, 5, production=1),
+        )
+        state = GameState(
+            tick=0,
+            player_id=0,
+            planets=planets,
+            initial_planets=planets,
+            next_fleet_id=100,
+        )
+
+        candidates = generate_candidates(
+            state,
+            CandidateGenerationConfig(max_candidates=1, max_validation_attempts=1),
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].mission_type, MissionType.REINFORCE)
+        self.assertEqual(candidates[0].outcome, CandidateOutcome.VALIDATED)
+
     def test_launch_payloads_are_same_factual_launches_validated_by_outcome_boundary(self) -> None:
         candidates = generate_candidates(generation_state(include_enemy=False))
 

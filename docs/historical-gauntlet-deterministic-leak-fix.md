@@ -176,3 +176,45 @@ Remaining fix queue:
 |---:|---|---|
 | `1` | 4P plateau candidate-backed no-action | `four_p_top_score_plateau_t080_p3.json` still has candidates but returns `strategy_selection_no_action` |
 | `2` | 4P budget-heavy strategy windows | Mixed-style and OW2 reference source windows still need budget-vs-selection separation without weakening budget guards |
+
+## Cycle 3 Four-Player Plateau Selector Recovery
+
+Cycle 3 fixes the candidate-backed 4P plateau compact fixture:
+
+```text
+/Users/user/dev/hackathons/orbit-wars-serious/tests/fixtures/historical_gauntlet_leaks/four_p_top_score_plateau_t080_p3.json
+```
+
+Implementation summary:
+
+- Four-player selection now treats active 4P rank/leader/swing pressure as a
+  valid recovery context when normal 4P selection finds no eligible action.
+- In that recovery context, a validated `reserve_preserving` owned-retention
+  candidate can be selected instead of returning `strategy_selection_no_action`.
+- Candidate ordering now prioritizes owned-retention pairs ahead of neutral
+  targets only in active 4P continuation states with existing production, so
+  the bounded runtime validation budget can reach conservative retention
+  candidates without increasing `max_candidates` or validation breadth.
+- The change does not lower global thresholds, weaken budget guards, add a
+  runtime-only fallback, change simulator mechanics, or alter action conversion.
+
+Before/after target fixture results:
+
+| Fixture | Pre-Cycle-3 compact diagnostic | Cycle 3 default action | Actual runtime action |
+|---|---|---|---|
+| `four_p_top_score_plateau_t080_p3.json` | `strategy_selection_no_action`, `36` candidates, `0` actions | `[[19, -2.7307013421618356, 1]]`; `36` candidates; selected `reserve_preserving`; selection note: plateau/rank recovery retention | `[[19, -2.7307013421618356, 1]]`; `7` runtime-capped candidates; selected `reserve_preserving` |
+
+Preservation checks:
+
+- The three fixed 2P historical fixtures still emit legal `reserve_preserving`
+  runtime actions.
+- `four_p_mixed_style_budget_pressure_t220_p2.json` and
+  `four_p_ow2_reference_strategy_pressure_t189_p0.json` remain characterized
+  for the next budget-heavy strategy-window cycle; this cycle does not weaken
+  budget guards or force those windows.
+
+Remaining fix queue:
+
+| Priority | Target | Current post-Cycle-3 status |
+|---:|---|---|
+| `1` | 4P budget-heavy strategy windows | Mixed-style and OW2 reference source windows still need budget-vs-selection separation without weakening budget guards |

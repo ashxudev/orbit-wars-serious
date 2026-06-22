@@ -215,6 +215,29 @@ class HistoricalGauntletLeakFixtureTests(unittest.TestCase):
                     "reserve_preserving",
                 )
 
+    def test_target_four_player_plateau_fixture_emits_runtime_action(
+        self,
+    ) -> None:
+        payload = load_case(FIXTURE_DIR / "four_p_top_score_plateau_t080_p3.json")
+
+        actions = agent(payload["observation"], {})
+        metadata = dict(last_runtime_diagnostic_metadata())
+
+        self.assertGreater(len(actions), 0)
+        self.assertEqual(metadata["runtime_diagnostic_status"], "actions")
+        self.assertEqual(
+            metadata["runtime_diagnostic_no_action_reason"],
+            "actions_emitted",
+        )
+        self.assertGreater(
+            int(metadata["runtime_diagnostic_candidate_count"]),
+            0,
+        )
+        self.assertEqual(
+            metadata.get("runtime_diagnostic_selected_commitment_type"),
+            "reserve_preserving",
+        )
+
     def test_four_player_fixtures_cover_plateau_budget_and_strategy_pressure(
         self,
     ) -> None:
@@ -236,7 +259,12 @@ class HistoricalGauntletLeakFixtureTests(unittest.TestCase):
         plateau = cases_by_class["four_player_plateau_no_action_pressure"]
         self.assertEqual(
             plateau["expected_current_runtime"]["no_action_reason"],
-            "strategy_selection_no_action",
+            "actions_emitted",
+        )
+        self.assertEqual(plateau["expected_current_runtime"]["action_count"], 1)
+        self.assertEqual(
+            plateau["expected_current_runtime"]["selected_commitment_type"],
+            "reserve_preserving",
         )
         self.assertGreater(plateau["expected_current_runtime"]["candidate_count"], 0)
 

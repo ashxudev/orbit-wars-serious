@@ -940,6 +940,43 @@ class PlannerFourPlayerSelectionTests(unittest.TestCase):
 
         self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
 
+    def test_rank_pressure_recovery_selects_owned_retention_when_no_normal_candidate(
+        self,
+    ) -> None:
+        reinforcement = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.REINFORCE,
+            value_facts=mission_value_facts(
+                target_owner_baseline=0,
+                target_owner_mission=0,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+            ),
+            total_score=-2.0,
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_four_player_strategy(
+            (reinforcement,),
+            board_facts(),
+            config=FourPlayerSelectionConfig(
+                four_player_plateau_report=plateau_report(underexpanded=False),
+                four_player_rank_report=rank_report(),
+            ),
+        )
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, reinforcement)
+        self.assertEqual(
+            result.selected_commitment_option.option_type,
+            CommitmentOptionType.RESERVE_PRESERVING,
+        )
+        self.assertIn(
+            "four-player plateau/rank recovery: reserve_preserving retention",
+            result.notes,
+        )
+
     def test_no_action_when_no_validated_non_no_attack_commitment_exists(self) -> None:
         no_attack_only = bundle_for(
             target_planet_id=2,
