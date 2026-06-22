@@ -327,3 +327,71 @@ Cycle 5 does not change planner, runtime, simulator, candidate generation,
 scoring, action conversion, budget guards, Daytona tooling, Kaggle behavior, or
 submission behavior. It only adds deterministic measurement infrastructure for
 later segment handoff.
+
+## Cycle 6 Daytona 2P Full-Horizon Probe
+
+Cycle 6 prepared exactly one full-500 two-player Daytona probe for the
+historical deterministic 2P leak class, using the strongest selected
+early-collapse source case:
+
+| Field | Value |
+|---|---|
+| Scenario label | `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` |
+| Opponent | `claude-v31-race-awareness` |
+| Controlled seat | `1` |
+| Player count | `2` |
+| Seed | `7271` |
+| Episode steps | `500` |
+| Package root | `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/package/` |
+| Daytona plan | `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json` |
+| Planned real report | `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-real-report.json` |
+
+Local pre-Daytona checks:
+
+```text
+.venv/bin/python -m unittest tests.test_historical_leak_regression tests.test_historical_gauntlet_leak_fixtures
+.venv/bin/python scripts/evaluation_gate.py
+```
+
+Both checks passed. The one-scenario Daytona package was materialized under
+`/tmp` from the committed 2P historical gauntlet manifest and includes exactly
+one package-local historical `python_file` upload for the opponent.
+
+Package and dry-run commands:
+
+```text
+.venv/bin/python scripts/prepare_daytona_shard_jobs.py /tmp/ow-historical-leak-cycle6-2p-daytona-probe/package/shard-jobs.index.json --output-path /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json --working-dir /workspace/orbit-wars-serious --sandbox-name-prefix ow-historical-leak-cycle6-2p
+.venv/bin/python scripts/validate_daytona_shard_jobs.py /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json
+.venv/bin/python scripts/run_daytona_shard_jobs.py /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json --dry-run --json-output /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-dry-run-result.json
+```
+
+Validation and dry-run results:
+
+```text
+daytona_shard_job_plan_validation=PASS plan_path=/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json specs=1 missing_upload_paths=0 duplicate_sandbox_names=0 exit_code=0
+daytona_shard_jobs_cli=COMPLETE plan_path=/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json dry_run=True jobs=1 exit_code=0
+daytona_shard_execution=COMPLETE plan_path=/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json jobs=1 merged=False exit_code=0
+```
+
+The single guarded real Daytona command prepared for the probe was:
+
+```text
+.venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-shard-jobs.json --allow-real-daytona --json-output /tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-real-report.json
+```
+
+Final Cycle 6 status:
+
+- The real command was requested once, but it was rejected before process
+  execution by the approval reviewer as an external cloud data export using
+  local Daytona credentials and workspace artifacts.
+- No real Daytona sandbox/job was launched.
+- No Daytona result/replay/diagnostic artifacts were produced for the probe;
+  `/tmp/ow-historical-leak-cycle6-2p-daytona-probe/daytona-real-report.json`
+  does not exist.
+- No Kaggle command or live submission was run.
+- No extra shard, 4P probe, or full historical gauntlet run was launched.
+
+Because no real match ran, Cycle 6 cannot determine whether the fixed 2P
+deterministic leak recurs in a full-horizon Daytona match, and there is no new
+compact fixture to extract. To continue this probe, rerun only the guarded real
+Daytona command above after explicit approval for the external Daytona export.
