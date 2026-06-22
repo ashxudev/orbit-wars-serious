@@ -314,6 +314,46 @@ Focused regression checks:
 git diff --check
 ```
 
+## Cycle 7 Daytona Setup Consolidation
+
+Cycle 7 replaces the prior blocked real-Daytona state with a working guarded
+single-shard execution path. It consolidates the setup/fix work needed before a
+future full distributed historical champion gauntlet:
+
+- `.env.example` documents the local Daytona guard and required non-committed
+  config.
+- `.gitignore` excludes local `.env` secrets.
+- The Daytona readiness config can load `.env` values without overriding shell
+  values.
+- Runtime snapshot preparation is available through
+  `scripts/prepare_daytona_runtime_snapshot.py`.
+- Real setup smoke diagnostics are available through
+  `scripts/run_daytona_real_smoke.py`.
+- Historical `python_file` opponents are copied into the generated package and
+  uploaded as package-local files instead of relying on host-local absolute
+  paths inside Daytona.
+- Long real Daytona worker commands use process sessions; the earlier long
+  synchronous command path failed with a Daytona proxy disconnect.
+
+Real setup evidence from `/tmp` artifacts:
+
+- Daytona auth/readiness worked with the local guarded config.
+- The configured runtime snapshot was usable.
+- The guarded real smoke diagnostic passed.
+- The first real single-shard probe for `historical-gauntlet-shard-000`
+  completed through Daytona.
+- The shard result reported `5` completed full-500 matches, `0` execution
+  errors, and mean final rank `2.0`.
+
+The result is infrastructure success, not competitive success. The five losses
+against historical champions remain expected gauntlet signal. No remaining
+gauntlet shards were run in this cycle, and no Kaggle command or live submission
+was used.
+
+Generated package files, Daytona plans, smoke reports, client reports, shard
+results, match reports, scoreboards, logs, replays, and temporary files are
+`/tmp` artifacts and must not be committed.
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.

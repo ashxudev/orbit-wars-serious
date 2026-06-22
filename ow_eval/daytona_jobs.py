@@ -204,7 +204,11 @@ def _spec_for_job(
         working_dir=config.working_dir,
         runner_script=config.runner_script,
         sandbox_name=sandbox_name,
-        expected_upload_paths=(job.job_path, job.manifest_path),
+        expected_upload_paths=(
+            job.job_path,
+            job.manifest_path,
+            *job.extra_upload_paths,
+        ),
         expected_download_paths=(job.shard_result_path,),
     )
 

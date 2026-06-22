@@ -46,6 +46,7 @@ def parity_match_config(seed: int, label: str | None = None) -> MatchConfig:
             ),
         ),
         label=label,
+        metadata=(("episode_steps", "5"),),
     )
 
 

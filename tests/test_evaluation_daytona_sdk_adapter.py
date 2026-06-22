@@ -149,6 +149,129 @@ class FakeSdkModule:
         return self.client
 
 
+class FakeOfficialParams:
+    def __init__(self, **kwargs) -> None:  # noqa: ANN003 - fake SDK params.
+        self.kwargs = kwargs
+
+
+class FakeOfficialCommandResponse:
+    exit_code = 0
+    result = "official ok"
+    stderr = None
+    additional_properties = {}
+
+
+class FakeOfficialSessionExecuteResponse:
+    cmd_id = "cmd-1"
+    stdout = ""
+    stderr = ""
+    output = ""
+    exit_code = None
+    additional_properties = {}
+
+
+class FakeOfficialSessionCommand:
+    exit_code = 0
+    additional_properties = {}
+
+
+class FakeOfficialSessionLogs:
+    stdout = "official session ok"
+    stderr = ""
+    output = "official session ok"
+
+
+class FakeOfficialProcess:
+    def __init__(self) -> None:
+        self.commands: list[tuple[str, str | None]] = []
+        self.sessions: list[tuple[object, ...]] = []
+
+    def exec(self, command, cwd=None, env=None, timeout=None):  # noqa: ANN001
+        self.commands.append((command, cwd))
+        return FakeOfficialCommandResponse()
+
+    def create_session(self, session_id):  # noqa: ANN001
+        self.sessions.append(("create", session_id))
+
+    def execute_session_command(self, session_id, req, timeout=None):  # noqa: ANN001
+        self.sessions.append(
+            (
+                "execute",
+                session_id,
+                req.command,
+                req.run_async,
+                timeout,
+            )
+        )
+        return FakeOfficialSessionExecuteResponse()
+
+    def get_session_command(self, session_id, command_id):  # noqa: ANN001
+        self.sessions.append(("poll", session_id, command_id))
+        return FakeOfficialSessionCommand()
+
+    def get_session_command_logs(self, session_id, command_id):  # noqa: ANN001
+        self.sessions.append(("logs", session_id, command_id))
+        return FakeOfficialSessionLogs()
+
+    def delete_session(self, session_id):  # noqa: ANN001
+        self.sessions.append(("delete", session_id))
+
+
+class FakeOfficialFileSystem:
+    def __init__(self) -> None:
+        self.uploads: list[tuple[str, str]] = []
+        self.downloads: list[tuple[str, str]] = []
+
+    def upload_file(self, src, dst):  # noqa: ANN001
+        self.uploads.append((src, dst))
+
+    def download_file(self, remote_path, local_path):  # noqa: ANN001
+        self.downloads.append((remote_path, local_path))
+
+
+class FakeOfficialSandbox:
+    def __init__(self, *, name: str | None) -> None:
+        self.id = f"id-{name or 'default'}"
+        self.name = name
+        self.fs = FakeOfficialFileSystem()
+        self.process = FakeOfficialProcess()
+        self.deleted = False
+
+    def delete(self) -> None:
+        self.deleted = True
+
+
+class FakeOfficialDaytonaClient:
+    def __init__(self, config) -> None:  # noqa: ANN001
+        self.config = config
+        self.created_params: list[object] = []
+        self.sandboxes: list[FakeOfficialSandbox] = []
+
+    def create(self, params):  # noqa: ANN001
+        self.created_params.append(params)
+        sandbox = FakeOfficialSandbox(name=params.kwargs.get("name"))
+        self.sandboxes.append(sandbox)
+        return sandbox
+
+
+class FakeOfficialDaytonaModule:
+    def __init__(self) -> None:
+        self.clients: list[FakeOfficialDaytonaClient] = []
+        self.CreateSandboxFromSnapshotParams = FakeOfficialParams
+        self.CreateSandboxFromImageParams = FakeOfficialParams
+        from daytona.common.process import SessionExecuteRequest
+
+        self.SessionExecuteRequest = SessionExecuteRequest
+
+    def DaytonaConfig(self, **kwargs):  # noqa: N802, ANN003
+        return kwargs
+
+    def Daytona(self, config):  # noqa: N802, ANN001
+        client = FakeOfficialDaytonaClient(config)
+        self.clients.append(client)
+        return client
+
+
 def ready_adapter_config(
     fake_client: object | None = None,
     *,
@@ -442,6 +565,129 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
         self.assertEqual(second.handle_id, "low-second")
         self.assertEqual(importer_calls, ["fake_daytona_sdk"])
         self.assertEqual(len(fake_module.created_configs), 1)
+
+    def test_default_facade_wraps_official_daytona_sdk_snapshot_client(self) -> None:
+        fake_module = FakeOfficialDaytonaModule()
+        config = DaytonaRealExecutionConfig(
+            allow_real_daytona=True,
+            api_key_env_var="TOKEN",
+            api_url="https://example.daytona.test/api",
+            target="us",
+            snapshot_id="snapshot-123",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            download_path = str(Path(temp_dir) / "nested" / "result.json")
+            with patch.dict("os.environ", {"TOKEN": "secret"}, clear=True):
+                client = build_daytona_sdk_protocol_client(fake_module, config)
+                handle = client.open_sandbox(
+                    sandbox_name="sandbox-name",
+                    working_dir="/workspace/orbit-wars-serious",
+                )
+                client.upload_file(
+                    handle,
+                    DaytonaUploadOperation(
+                        local_path="/tmp/local/input.json",
+                        sandbox_path="/tmp/remote/input.json",
+                    ),
+                )
+                command = client.run_command(
+                    handle,
+                    DaytonaCommandOperation(
+                        worker_argv=(".venv/bin/python", "worker.py", "job.json"),
+                        working_dir="/workspace/orbit-wars-serious",
+                    ),
+                )
+                client.download_file(
+                    handle,
+                    DaytonaDownloadOperation(
+                        sandbox_path="/tmp/remote/result.json",
+                        local_path=download_path,
+                    ),
+                )
+                client.close_sandbox(handle)
+
+        official = fake_module.clients[0]
+        sandbox = official.sandboxes[0]
+        self.assertEqual(
+            official.config,
+            {
+                "api_key": "secret",
+                "api_url": "https://example.daytona.test/api",
+                "target": "us",
+            },
+        )
+        self.assertEqual(
+            official.created_params[0].kwargs,
+            {"name": "sandbox-name", "snapshot": "snapshot-123"},
+        )
+        self.assertEqual(command.exit_code, 0)
+        self.assertIn(("mkdir -p /tmp/remote", None), sandbox.process.commands)
+        self.assertEqual(
+            sandbox.process.sessions,
+            [
+                ("create", "ow-eval-id-sandbox-name"),
+                (
+                    "execute",
+                    "ow-eval-id-sandbox-name",
+                    "cd /workspace/orbit-wars-serious && .venv/bin/python worker.py job.json",
+                    True,
+                    15,
+                ),
+                ("poll", "ow-eval-id-sandbox-name", "cmd-1"),
+                ("logs", "ow-eval-id-sandbox-name", "cmd-1"),
+                ("delete", "ow-eval-id-sandbox-name"),
+            ],
+        )
+        self.assertIn(
+            "daytona_sdk_official_session_command",
+            command.summary_text,
+        )
+        self.assertEqual(
+            sandbox.fs.uploads,
+            [("/tmp/local/input.json", "/tmp/remote/input.json")],
+        )
+        self.assertEqual(
+            sandbox.fs.downloads,
+            [("/tmp/remote/result.json", download_path)],
+        )
+        self.assertTrue(sandbox.deleted)
+
+    def test_default_facade_wraps_official_daytona_sdk_image_client(self) -> None:
+        fake_module = FakeOfficialDaytonaModule()
+        config = DaytonaRealExecutionConfig(
+            allow_real_daytona=True,
+            api_key_env_var="TOKEN",
+            image="python:3.12",
+        )
+
+        with patch.dict("os.environ", {"TOKEN": "secret"}, clear=True):
+            client = build_daytona_sdk_protocol_client(fake_module, config)
+            handle = client.open_sandbox(
+                sandbox_name="image-sandbox",
+                working_dir="/workspace",
+            )
+
+        official = fake_module.clients[0]
+        self.assertEqual(
+            official.created_params[0].kwargs,
+            {"name": "image-sandbox", "image": "python:3.12"},
+        )
+        self.assertEqual(handle.sandbox_name, "image-sandbox")
+
+    def test_official_daytona_sdk_requires_snapshot_or_image(self) -> None:
+        fake_module = FakeOfficialDaytonaModule()
+        config = DaytonaRealExecutionConfig(
+            allow_real_daytona=True,
+            api_key_env_var="TOKEN",
+        )
+
+        with patch.dict("os.environ", {"TOKEN": "secret"}, clear=True):
+            client = build_daytona_sdk_protocol_client(fake_module, config)
+            with self.assertRaisesRegex(
+                DaytonaSdkUnavailableError,
+                "requires DAYTONA_SNAPSHOT_ID or DAYTONA_IMAGE",
+            ):
+                client.open_sandbox(sandbox_name="sandbox", working_dir="/workspace")
 
     def test_default_facade_supports_client_and_session_constructor_names(self) -> None:
         class ClientModule:

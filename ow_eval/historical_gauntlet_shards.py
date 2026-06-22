@@ -8,14 +8,17 @@ run matches, create Daytona jobs, write reports, or touch Kaggle.
 from __future__ import annotations
 
 import json
+import shutil
 import shlex
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
 from .contracts import MatchConfig
+from .contracts import AgentSourceKind
 from .experiment_manifest import ExperimentManifest
 from .experiment_manifest import manifest_to_match_configs
+from .shard_jobs import EvaluationShardJob
 from .shard_jobs import EvaluationShardJobPackageResult
 from .shard_jobs import write_evaluation_shard_job_package
 from .sharding import EvaluationShard
@@ -250,10 +253,11 @@ def write_historical_champion_probe_shard_package(
         output_root=output_root,
         command_python=command_python,
     )
-    return write_evaluation_shard_job_package(
+    package = write_evaluation_shard_job_package(
         evaluation_plan,
         materialize_manifests=materialize_manifests,
     )
+    return _materialize_historical_python_files(package)
 
 
 def _read_manifest_scenarios(
@@ -341,6 +345,117 @@ def _read_manifest(path: Path) -> ExperimentManifest:
         raise ValueError(f"manifest not found: {path}")
     payload = json.loads(path.read_text(encoding="utf-8"))
     return ExperimentManifest.from_dict(payload)
+
+
+def _materialize_historical_python_files(
+    package: EvaluationShardJobPackageResult,
+) -> EvaluationShardJobPackageResult:
+    rewritten_jobs = []
+    for job in package.jobs:
+        extra_upload_paths = _rewrite_job_manifest_python_files(job)
+        rewritten_job = replace(
+            job,
+            extra_upload_paths=tuple(
+                dict.fromkeys((*job.extra_upload_paths, *extra_upload_paths))
+            ),
+        )
+        _write_json(rewritten_job.to_dict(), rewritten_job.job_path)
+        rewritten_jobs.append(rewritten_job)
+    rewritten_package = replace(package, jobs=tuple(rewritten_jobs))
+    _write_json(rewritten_package.to_dict(), rewritten_package.index_path)
+    return rewritten_package
+
+
+def _rewrite_job_manifest_python_files(job: EvaluationShardJob) -> tuple[str, ...]:
+    manifest_path = Path(job.manifest_path)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    agent_dir = manifest_path.parent / "agent_files"
+    source_to_dest: dict[str, str] = {}
+    for agent in _iter_manifest_agent_payloads(payload):
+        if agent.get("source_kind") != AgentSourceKind.PYTHON_FILE.value:
+            continue
+        source_path = _python_file_path(agent, job.label)
+        dest_path = source_to_dest.get(str(source_path))
+        if dest_path is None:
+            dest_path = str(_copy_historical_agent_file(source_path, agent, agent_dir))
+            source_to_dest[str(source_path)] = dest_path
+        agent["file_path"] = dest_path
+    if source_to_dest:
+        _write_json(payload, manifest_path)
+    return tuple(source_to_dest.values())
+
+
+def _iter_manifest_agent_payloads(payload: object):
+    if not isinstance(payload, dict):
+        raise ValueError("manifest payload must be an object")
+    candidate = payload.get("candidate_agent")
+    if isinstance(candidate, dict):
+        yield candidate
+    scenarios = payload.get("scenarios")
+    if not isinstance(scenarios, list):
+        raise ValueError("manifest scenarios must be a list")
+    for scenario_index, scenario in enumerate(scenarios):
+        if not isinstance(scenario, dict):
+            raise ValueError(f"scenario[{scenario_index}] must be an object")
+        opponents = scenario.get("opponent_agents")
+        if not isinstance(opponents, list):
+            raise ValueError(f"scenario[{scenario_index}].opponent_agents must be a list")
+        for opponent_index, opponent in enumerate(opponents):
+            if not isinstance(opponent, dict):
+                raise ValueError(
+                    f"scenario[{scenario_index}].opponent_agents[{opponent_index}] "
+                    "must be an object"
+                )
+            agent = opponent.get("agent")
+            if not isinstance(agent, dict):
+                raise ValueError(
+                    f"scenario[{scenario_index}].opponent_agents[{opponent_index}].agent "
+                    "must be an object"
+                )
+            yield agent
+
+
+def _python_file_path(agent: dict[str, object], label: str) -> Path:
+    value = agent.get("file_path")
+    if not isinstance(value, str) or not value:
+        name = agent.get("name")
+        raise ValueError(f"python_file agent {name!r} in {label} requires file_path")
+    path = Path(value)
+    if not path.is_file():
+        raise ValueError(f"python_file agent path not found for {label}: {path}")
+    return path
+
+
+def _copy_historical_agent_file(
+    source_path: Path,
+    agent: dict[str, object],
+    agent_dir: Path,
+) -> Path:
+    agent_name = agent.get("name")
+    safe_name = _safe_filename(agent_name if isinstance(agent_name, str) else "agent")
+    dest_path = agent_dir / f"{safe_name}__{source_path.name}"
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    if not dest_path.exists():
+        shutil.copy2(source_path, dest_path)
+    return dest_path
+
+
+def _safe_filename(value: str) -> str:
+    cleaned = "".join(
+        char if char.isalnum() or char in {"-", "_", "."} else "_"
+        for char in value
+    ).strip("._")
+    return cleaned or "agent"
+
+
+def _write_json(payload: object, path: str | Path) -> Path:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(payload, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return output_path
 
 
 def _validate_scenario_labels_are_unique(

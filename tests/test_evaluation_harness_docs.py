@@ -13,14 +13,18 @@ RUNBOOK = REPO_ROOT / "docs" / "evaluation-harness.md"
 DOCUMENTED_SCRIPTS = (
     "scripts/build_submission.py",
     "scripts/evaluation_gate.py",
+    "scripts/profile_tests.py",
     "scripts/run_evaluation_experiment.py",
     "scripts/run_evaluation_suite.py",
+    "scripts/run_tests_parallel.py",
     "scripts/submission_preflight.py",
 )
 HELP_SCRIPTS = (
     "scripts/build_submission.py",
+    "scripts/profile_tests.py",
     "scripts/run_evaluation_experiment.py",
     "scripts/run_evaluation_suite.py",
+    "scripts/run_tests_parallel.py",
     "scripts/submission_preflight.py",
 )
 MANIFEST_FIXTURES = (
@@ -30,6 +34,8 @@ MANIFEST_FIXTURES = (
 )
 KEY_COMMANDS = (
     ".venv/bin/python -m unittest discover -s tests",
+    ".venv/bin/python scripts/run_tests_parallel.py --workers 6",
+    ".venv/bin/python scripts/profile_tests.py --top 20",
     ".venv/bin/python scripts/build_submission.py --output /tmp/orbit_wars_submission.py",
     ".venv/bin/python scripts/evaluation_gate.py",
     ".venv/bin/python scripts/run_evaluation_experiment.py experiments/manifests/quick-2p-smoke.json",

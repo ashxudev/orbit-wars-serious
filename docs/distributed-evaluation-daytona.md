@@ -93,6 +93,33 @@ They are local evaluation manifests, not live Kaggle submission records.
 .venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-eval-shards/daytona-shard-jobs.json --allow-real-daytona
 ```
 
+9. Before a full real shard run, use the guarded smoke diagnostic to isolate
+   Daytona setup and process-execution failures without uploading a shard
+   package or running matches. The default smoke command runs a tiny Python
+   import from `DAYTONA_WORKING_DIR`.
+
+```bash
+.venv/bin/python scripts/run_daytona_real_smoke.py --allow-real-daytona --json-output /tmp/ow-daytona-smoke/result.json
+```
+
+10. If no prebuilt Daytona snapshot or image exists yet, prepare a clean runtime
+   snapshot context from committed tracked source. The default command is a
+   local dry-run: it uses `git archive HEAD`, writes the materialized source and
+   dependency lock context under `/tmp`, and does not create a Daytona resource.
+
+```bash
+.venv/bin/python scripts/prepare_daytona_runtime_snapshot.py --output-dir /tmp/ow-daytona-runtime-snapshot
+```
+
+11. Create the real runtime snapshot only after the dry-run context looks
+    correct and real Daytona readiness is intentionally enabled. This command is
+    the setup step that creates one reusable Daytona snapshot; it still does not
+    run gauntlet matches or submit to Kaggle.
+
+```bash
+.venv/bin/python scripts/prepare_daytona_runtime_snapshot.py --allow-real-daytona --json-output /tmp/ow-daytona-runtime-snapshot/result.json
+```
+
 ## Scripts And Responsibilities
 
 - `scripts/run_evaluation_shards.py`: local sequential multi-shard workflow
@@ -112,7 +139,16 @@ They are local evaluation manifests, not live Kaggle submission records.
 - `scripts/run_daytona_client_report.py`: dry-run client-report workflow with
   fake client event traces and operation plans.
 - `scripts/run_daytona_real_shard_jobs.py`: guarded real-Daytona execution
-  boundary requiring both env readiness and `--allow-real-daytona`.
+  boundary requiring both env readiness and `--allow-real-daytona`. The
+  official SDK path creates sandboxes from `DAYTONA_SNAPSHOT_ID`, or from
+  `DAYTONA_IMAGE` when no snapshot is configured.
+- `scripts/run_daytona_real_smoke.py`: guarded real-Daytona smoke diagnostic
+  that opens one sandbox, runs one tiny command, closes the sandbox, and
+  classifies the failure layer before a full shard attempt.
+- `scripts/prepare_daytona_runtime_snapshot.py`: guarded runtime snapshot
+  setup. The default mode materializes committed tracked source under `/tmp`;
+  `--allow-real-daytona` creates the reusable Daytona snapshot after readiness
+  passes.
 - `scripts/distributed_evaluation_preflight.py`: one-command local acceptance
   gate over shard packaging, Daytona plan generation, preflight validation,
   fake dry-runs, and guarded real-Daytona fail-closed behavior.
@@ -150,19 +186,53 @@ They are local evaluation manifests, not live Kaggle submission records.
 ## Real Execution Configuration
 
 Real Daytona execution is blocked by default. The guarded CLI reads config from
-environment variables:
+environment variables. When `env` is not passed explicitly, the config reader
+also loads a local `.env` file through `python-dotenv` with `override=False`.
+That lets shell-provided values win over `.env` values.
+
+The recommended setup for repeated full-horizon historical gauntlets is a
+prebuilt Daytona snapshot or image that already has this repository checked out
+at `DAYTONA_WORKING_DIR` with `.venv` dependencies installed. That keeps shard
+startup fast and avoids passing a GitHub token into every sandbox.
+
+When no prepared snapshot/image exists, create one through
+`scripts/prepare_daytona_runtime_snapshot.py`. It deliberately packages only
+committed tracked files via `git archive HEAD`, so `.env`, `.venv`, untracked
+analysis files, generated reports, logs, and scratch artifacts are excluded from
+the snapshot source context. Commit intended setup changes before creating a
+snapshot if those changes must exist inside the remote runtime.
+
+Copy `.env.example` to `.env` and fill local values. `.env` must stay
+untracked.
+
+Recommended prebuilt snapshot/image variables:
 
 - `OW_EVAL_ALLOW_REAL_DAYTONA`: must be truthy, for example `1` or `true`.
 - `DAYTONA_API_KEY_ENV_VAR`: optional name of the token env var. Defaults to
   `DAYTONA_API_KEY`.
 - `DAYTONA_API_KEY`: default required token env var unless
   `DAYTONA_API_KEY_ENV_VAR` names a different variable.
+- `DAYTONA_TARGET`: optional Daytona runner target/region, for example `us`.
+- `DAYTONA_API_URL`: optional Daytona API URL override. Leave unset for the SDK
+  default.
+- `DAYTONA_SNAPSHOT_ID`: optional prepared snapshot identifier.
+- `DAYTONA_IMAGE`: optional prepared image identifier.
+- `DAYTONA_WORKING_DIR`: optional worker working directory override. Defaults
+  to `/workspace/orbit-wars-serious`.
+- `DAYTONA_SANDBOX_NAME_PREFIX`: optional sandbox name prefix override.
+
+Optional clone-bootstrap variables:
+
+- `OW_EVAL_REQUIRE_GITHUB_TOKEN`: set to `1` only for a clone-bootstrap path
+  where the remote sandbox must clone a private GitHub repository.
+- `GITHUB_TOKEN_ENV_VAR`: optional name of the GitHub token env var. Defaults
+  to `GITHUB_TOKEN`.
+- `GITHUB_TOKEN`: required only when `OW_EVAL_REQUIRE_GITHUB_TOKEN=1`.
+
+Legacy/placeholder variables still parsed for compatibility:
+
 - `DAYTONA_PROJECT_ID`: optional future project identifier.
 - `DAYTONA_WORKSPACE_ID`: optional future workspace identifier.
-- `DAYTONA_SNAPSHOT_ID`: optional future snapshot identifier.
-- `DAYTONA_IMAGE`: optional future image identifier.
-- `DAYTONA_WORKING_DIR`: optional worker working directory override.
-- `DAYTONA_SANDBOX_NAME_PREFIX`: optional sandbox name prefix override.
 
 Both gates are required:
 
@@ -170,10 +240,54 @@ Both gates are required:
 OW_EVAL_ALLOW_REAL_DAYTONA=1 DAYTONA_API_KEY=... .venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-eval-shards/daytona-shard-jobs.json --allow-real-daytona
 ```
 
-If `OW_EVAL_ALLOW_REAL_DAYTONA` or the required token env var is missing, the
-CLI returns a structured failure before importing `daytona` or touching any SDK
-client. If `--allow-real-daytona` is missing, readiness alone is not enough and
-the CLI still fails closed.
+For actual shard execution, set `DAYTONA_SNAPSHOT_ID` to the reusable runtime
+snapshot created by `scripts/prepare_daytona_runtime_snapshot.py`. Keep
+`DAYTONA_IMAGE` unset unless intentionally testing a raw image path.
+
+If `OW_EVAL_ALLOW_REAL_DAYTONA` or the required Daytona token env var is
+missing, the CLI returns a structured failure before importing `daytona` or
+touching any SDK client. If `OW_EVAL_REQUIRE_GITHUB_TOKEN=1`, the configured
+GitHub token env var is also required. If `--allow-real-daytona` is missing,
+readiness alone is not enough and the CLI still fails closed.
+
+Install the Daytona Python SDK into the local launcher environment before a real
+attempt:
+
+```bash
+.venv/bin/python -m pip install daytona
+```
+
+The current guarded adapter still uses the repo's typed client boundary. Before
+a real multi-shard run, verify the adapter path matches the installed Daytona
+SDK version and the chosen remote bootstrap mode.
+
+## Cycle 7 Daytona Setup Consolidation Status
+
+Cycle 7 consolidated the real Daytona setup path from the previous blocked
+state into a working guarded execution workflow. The implementation now supports
+local `.env` loading, runtime snapshot preparation, a guarded real smoke
+diagnostic, package-local uploads for historical `python_file` opponents, and
+session-based Daytona command execution for long-running shard jobs.
+
+Current non-secret setup evidence:
+
+- Daytona auth works through the local `.env`/environment readiness path.
+- A runtime snapshot exists and is configured through `DAYTONA_SNAPSHOT_ID`.
+- `scripts/run_daytona_real_smoke.py --allow-real-daytona` passed against the
+  configured snapshot.
+- A synchronous full-shard command attempt hit a Daytona proxy disconnect, so
+  long worker commands must use Daytona process sessions instead of relying on
+  one long `process.exec` call.
+- Session-based command execution completed
+  `historical-gauntlet-shard-000` through real Daytona.
+- The completed single-shard probe produced infrastructure-success evidence:
+  `5` completed matches, `0` execution errors, and mean final rank `2.0`.
+
+Generated smoke reports, client reports, shard results, match reports,
+scoreboards, logs, replays, and package directories from that work remain `/tmp`
+artifacts and must not be committed. The real single-shard result is setup
+evidence only; it is not a full historical champion gauntlet and does not
+authorize running the remaining shards without a separate cycle.
 
 ## Artifact Policy
 
@@ -207,11 +321,18 @@ reports, logs, scoreboards, or temporary package directories.
 - Duplicate sandbox names: regenerate the Daytona plan with a unique sandbox
   prefix, or use `--allow-duplicate-sandbox-names` only for local validation
   cases where duplicate names are intentional.
-- Missing env/token: set `OW_EVAL_ALLOW_REAL_DAYTONA=1` and the required token
-  env var, usually `DAYTONA_API_KEY`, before using the guarded real CLI.
+- Missing env/token: set `OW_EVAL_ALLOW_REAL_DAYTONA=1`, `DAYTONA_API_KEY`,
+  and `DAYTONA_TARGET` before using the guarded real CLI. If using
+  clone-bootstrap, also set `OW_EVAL_REQUIRE_GITHUB_TOKEN=1` and `GITHUB_TOKEN`.
 - Blocked readiness: inspect the readiness error. Common causes are missing
   `OW_EVAL_ALLOW_REAL_DAYTONA`, missing token env vars, or forgetting
   `--allow-real-daytona`.
+- Daytona SDK/proxy failures: run `scripts/run_daytona_real_smoke.py` first.
+  `diagnosis=command_transport_failed` means sandbox creation succeeded but the
+  Daytona process-execution endpoint failed before the smoke command returned.
+  `diagnosis=snapshot_command_failed` means the endpoint worked and the command
+  ran inside the sandbox but the snapshot command failed, usually because the
+  working directory or dependencies are wrong.
 - No-op-heavy regression gate failures: run the local regression gate and
   analysis pack workflow from `docs/evaluation-harness.md`, then inspect triage
   and planner diagnostics before attempting distributed or real Daytona work.

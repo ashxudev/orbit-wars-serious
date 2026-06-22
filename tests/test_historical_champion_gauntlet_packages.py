@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from ow_eval import ExperimentManifest
+from ow_eval import build_daytona_shard_job_plan
 from ow_eval.historical_gauntlet_shards import (
     build_historical_champion_evaluation_shard_plan,
     build_historical_champion_shard_plan,
@@ -95,6 +96,12 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
             self.assertTrue(str(Path(job.manifest_path)).startswith(str(output_root)))
             self.assertTrue(str(Path(job.job_path)).startswith(str(output_root)))
             self.assertTrue(str(Path(result.index_path)).startswith(str(output_root)))
+            self.assertTrue(job.extra_upload_paths)
+            for upload_path in job.extra_upload_paths:
+                with self.subTest(upload_path=upload_path):
+                    self.assertTrue(Path(upload_path).is_file())
+                    self.assertTrue(str(Path(upload_path)).startswith(str(output_root)))
+                    self.assertIn("agent_files", Path(upload_path).parts)
 
             manifest_payload = json.loads(Path(job.manifest_path).read_text(encoding="utf-8"))
             manifest = ExperimentManifest.from_dict(manifest_payload)
@@ -103,9 +110,26 @@ class HistoricalChampionGauntletPackageTests(unittest.TestCase):
                 {dict(scenario.metadata).get("episode_steps") for scenario in manifest.scenarios},
                 {"500"},
             )
+            file_paths = [
+                opponent["agent"]["file_path"]
+                for scenario in manifest_payload["scenarios"]
+                for opponent in scenario["opponent_agents"]
+                if opponent["agent"]["source_kind"] == "python_file"
+            ]
+            self.assertTrue(file_paths)
+            self.assertEqual(set(file_paths), set(job.extra_upload_paths))
+            for file_path in file_paths:
+                with self.subTest(file_path=file_path):
+                    self.assertTrue(str(Path(file_path)).startswith(str(output_root)))
 
             job_payload = json.loads(Path(job.job_path).read_text(encoding="utf-8"))
             self.assertEqual(job_payload["shard_id"], "historical-gauntlet-shard-000")
+            self.assertEqual(job_payload["extra_upload_paths"], list(job.extra_upload_paths))
+            daytona_plan = build_daytona_shard_job_plan(result.index_path)
+            self.assertEqual(
+                set(daytona_plan.specs[0].expected_upload_paths),
+                {job.job_path, job.manifest_path, *job.extra_upload_paths},
+            )
             serialized_package = json.dumps(result.to_dict(), sort_keys=True)
             for term in ("replay_path", "scoreboard_record", "daytona_job_id", "credentials"):
                 self.assertNotIn(term, serialized_package)

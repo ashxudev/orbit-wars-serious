@@ -278,6 +278,10 @@ def _job_from_dict(data: Mapping[str, object], index: int) -> EvaluationShardJob
             f"jobs[{index}].match_labels",
         ),
         seeds=_int_tuple_from_data(data.get("seeds"), f"jobs[{index}].seeds"),
+        extra_upload_paths=_string_tuple_from_data(
+            data.get("extra_upload_paths", ()),
+            f"jobs[{index}].extra_upload_paths",
+        ),
     )
 
 

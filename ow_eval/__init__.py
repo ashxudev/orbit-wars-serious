@@ -93,6 +93,20 @@ from .daytona_real_cli import (
     main as run_daytona_real_shard_jobs_main,
     run_daytona_real_shard_jobs,
 )
+from .daytona_real_smoke import (
+    DaytonaRealSmokeEvent,
+    DaytonaRealSmokeResult,
+    main as run_daytona_real_smoke_main,
+    run_daytona_real_smoke,
+)
+from .daytona_runtime_snapshot import (
+    DaytonaRuntimeSnapshotConfig,
+    DaytonaRuntimeSnapshotPlan,
+    DaytonaRuntimeSnapshotResult,
+    main as prepare_daytona_runtime_snapshot_main,
+    prepare_daytona_runtime_snapshot,
+    prepare_daytona_runtime_snapshot_context,
+)
 from .daytona_sdk_adapter import (
     DaytonaSdkAdapter,
     DaytonaSdkAdapterConfig,
@@ -156,6 +170,16 @@ from .batch_runner import (
 )
 from .metrics import extract_match_metrics
 from .official_runner import run_official_match
+from .local_tests import (
+    LocalTestModule,
+    LocalTestResult,
+    LocalTestRunSummary,
+    build_unittest_command,
+    default_worker_count,
+    discover_test_modules,
+    run_test_module,
+    run_test_modules,
+)
 from .parity import (
     SubmissionParityComparison,
     SubmissionParityConfig,
@@ -297,6 +321,11 @@ __all__ = (
     "DaytonaRealCliResult",
     "DaytonaRealExecutionConfig",
     "DaytonaRealExecutionReadiness",
+    "DaytonaRealSmokeEvent",
+    "DaytonaRealSmokeResult",
+    "DaytonaRuntimeSnapshotConfig",
+    "DaytonaRuntimeSnapshotPlan",
+    "DaytonaRuntimeSnapshotResult",
     "DaytonaSdkAdapter",
     "DaytonaSdkAdapterConfig",
     "DaytonaSdkProtocolClient",
@@ -330,6 +359,9 @@ __all__ = (
     "ExperimentScenario",
     "ExperimentSuiteResult",
     "KaggleAgent",
+    "LocalTestModule",
+    "LocalTestResult",
+    "LocalTestRunSummary",
     "FailureCategory",
     "FailureTriageItem",
     "FailureTriageReport",
@@ -372,9 +404,12 @@ __all__ = (
     "build_daytona_batch_operation_plan",
     "build_daytona_sandbox_operation_plan",
     "build_daytona_sdk_protocol_client",
+    "build_unittest_command",
     "default_manifest_paths",
+    "default_worker_count",
     "default_v0_replay_fixture_dir",
     "default_v1_replay_fixture_dir",
+    "discover_test_modules",
     "evaluate_promotion_gate",
     "evaluation_shard_from_job",
     "extract_match_metrics",
@@ -386,6 +421,9 @@ __all__ = (
     "prepare_evaluation_shard_package",
     "prepare_daytona_shard_job_plan",
     "prepare_daytona_shard_jobs_main",
+    "prepare_daytona_runtime_snapshot",
+    "prepare_daytona_runtime_snapshot_context",
+    "prepare_daytona_runtime_snapshot_main",
     "prepare_evaluation_shards_main",
     "read_evaluation_shard_run_result",
     "read_evaluation_shard_job",
@@ -403,6 +441,8 @@ __all__ = (
     "run_daytona_client_report_main",
     "run_daytona_real_shard_jobs",
     "run_daytona_real_shard_jobs_main",
+    "run_daytona_real_smoke",
+    "run_daytona_real_smoke_main",
     "run_distributed_evaluation_preflight",
     "run_distributed_evaluation_preflight_main",
     "run_evaluation_batch",
@@ -423,6 +463,8 @@ __all__ = (
     "run_submission_parity_check",
     "run_submission_preflight",
     "run_submission_preflight_main",
+    "run_test_module",
+    "run_test_modules",
     "run_v0_replay_regression",
     "run_v1_replay_regression",
     "shard_to_experiment_manifest",

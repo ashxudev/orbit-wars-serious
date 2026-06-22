@@ -16,8 +16,14 @@ from .daytona_jobs import DEFAULT_SANDBOX_NAME_PREFIX, DEFAULT_WORKING_DIR
 
 
 DEFAULT_DAYTONA_API_KEY_ENV_VAR = "DAYTONA_API_KEY"
+DEFAULT_GITHUB_TOKEN_ENV_VAR = "GITHUB_TOKEN"
 ALLOW_REAL_DAYTONA_ENV_VAR = "OW_EVAL_ALLOW_REAL_DAYTONA"
 DAYTONA_API_KEY_ENV_VAR_NAME_ENV_VAR = "DAYTONA_API_KEY_ENV_VAR"
+DAYTONA_API_URL_ENV_VAR = "DAYTONA_API_URL"
+DAYTONA_TARGET_ENV_VAR = "DAYTONA_TARGET"
+GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR = "GITHUB_TOKEN_ENV_VAR"
+REQUIRE_GITHUB_TOKEN_ENV_VAR = "OW_EVAL_REQUIRE_GITHUB_TOKEN"
+DAYTONA_DOTENV_PATH_ENV_VAR = "OW_EVAL_DOTENV_PATH"
 DAYTONA_PROJECT_ID_ENV_VAR = "DAYTONA_PROJECT_ID"
 DAYTONA_WORKSPACE_ID_ENV_VAR = "DAYTONA_WORKSPACE_ID"
 DAYTONA_SNAPSHOT_ID_ENV_VAR = "DAYTONA_SNAPSHOT_ID"
@@ -32,6 +38,10 @@ class DaytonaRealExecutionConfig:
 
     allow_real_daytona: bool = False
     api_key_env_var: str | None = DEFAULT_DAYTONA_API_KEY_ENV_VAR
+    api_url: str | None = None
+    target: str | None = None
+    github_token_env_var: str | None = DEFAULT_GITHUB_TOKEN_ENV_VAR
+    require_github_token: bool = False
     project_id: str | None = None
     workspace_id: str | None = None
     snapshot_id: str | None = None
@@ -43,6 +53,14 @@ class DaytonaRealExecutionConfig:
         if not isinstance(self.allow_real_daytona, bool):
             raise ValueError("allow_real_daytona must be a boolean")
         _validate_optional_nonempty_string(self.api_key_env_var, "api_key_env_var")
+        _validate_optional_nonempty_string(self.api_url, "api_url")
+        _validate_optional_nonempty_string(self.target, "target")
+        _validate_optional_nonempty_string(
+            self.github_token_env_var,
+            "github_token_env_var",
+        )
+        if not isinstance(self.require_github_token, bool):
+            raise ValueError("require_github_token must be a boolean")
         _validate_optional_nonempty_string(self.project_id, "project_id")
         _validate_optional_nonempty_string(self.workspace_id, "workspace_id")
         _validate_optional_nonempty_string(self.snapshot_id, "snapshot_id")
@@ -59,6 +77,10 @@ class DaytonaRealExecutionConfig:
         return {
             "allow_real_daytona": self.allow_real_daytona,
             "api_key_env_var": self.api_key_env_var,
+            "api_url": self.api_url,
+            "target": self.target,
+            "github_token_env_var": self.github_token_env_var,
+            "require_github_token": self.require_github_token,
             "project_id": self.project_id,
             "workspace_id": self.workspace_id,
             "snapshot_id": self.snapshot_id,
@@ -115,6 +137,7 @@ def read_daytona_real_execution_config_from_env(
 ) -> DaytonaRealExecutionConfig:
     """Build a real-execution config from environment-like string mappings."""
 
+    _load_dotenv_if_using_process_env(env)
     effective_env = os.environ if env is None else env
     _validate_env_mapping(effective_env)
     api_key_env_var = _env_optional(
@@ -122,9 +145,18 @@ def read_daytona_real_execution_config_from_env(
         DAYTONA_API_KEY_ENV_VAR_NAME_ENV_VAR,
         default=DEFAULT_DAYTONA_API_KEY_ENV_VAR,
     )
+    github_token_env_var = _env_optional(
+        effective_env,
+        GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR,
+        default=DEFAULT_GITHUB_TOKEN_ENV_VAR,
+    )
     return DaytonaRealExecutionConfig(
         allow_real_daytona=_env_flag(effective_env, ALLOW_REAL_DAYTONA_ENV_VAR),
         api_key_env_var=api_key_env_var,
+        api_url=_env_optional(effective_env, DAYTONA_API_URL_ENV_VAR),
+        target=_env_optional(effective_env, DAYTONA_TARGET_ENV_VAR),
+        github_token_env_var=github_token_env_var,
+        require_github_token=_env_flag(effective_env, REQUIRE_GITHUB_TOKEN_ENV_VAR),
         project_id=_env_optional(effective_env, DAYTONA_PROJECT_ID_ENV_VAR),
         workspace_id=_env_optional(effective_env, DAYTONA_WORKSPACE_ID_ENV_VAR),
         snapshot_id=_env_optional(effective_env, DAYTONA_SNAPSHOT_ID_ENV_VAR),
@@ -149,9 +181,14 @@ def validate_daytona_real_execution_readiness(
 ) -> DaytonaRealExecutionReadiness:
     """Return structured real-Daytona readiness without performing real work."""
 
-    effective_config = config if config is not None else DaytonaRealExecutionConfig()
+    effective_config = (
+        config
+        if config is not None
+        else read_daytona_real_execution_config_from_env(env)
+    )
     if not isinstance(effective_config, DaytonaRealExecutionConfig):
         raise ValueError("config must be a DaytonaRealExecutionConfig")
+    _load_dotenv_if_using_process_env(env)
     effective_env = os.environ if env is None else env
     _validate_env_mapping(effective_env)
 
@@ -162,9 +199,13 @@ def validate_daytona_real_execution_readiness(
     if effective_config.api_key_env_var is None:
         errors.append("api_key_env_var is required")
     else:
-        token = effective_env.get(effective_config.api_key_env_var)
-        if token is None or not token.strip():
+        if _env_value_missing(effective_env, effective_config.api_key_env_var):
             missing_env_vars.append(effective_config.api_key_env_var)
+    if effective_config.require_github_token and effective_config.github_token_env_var is None:
+        errors.append("github_token_env_var is required")
+    elif effective_config.require_github_token and effective_config.github_token_env_var is not None:
+        if _env_value_missing(effective_env, effective_config.github_token_env_var):
+            missing_env_vars.append(effective_config.github_token_env_var)
 
     if missing_env_vars:
         errors.append("missing env vars: " + ", ".join(missing_env_vars))
@@ -179,11 +220,32 @@ def validate_daytona_real_execution_readiness(
             "daytona_real_execution_readiness="
             f"{'READY' if ready else 'BLOCKED'} "
             f"allow_real_daytona={effective_config.allow_real_daytona} "
+            f"target_configured={effective_config.target is not None} "
+            f"github_token_required={effective_config.require_github_token} "
             f"missing_env_vars={len(missing_env_vars)} "
             f"exit_code={0 if ready else 2}"
         ),
         error_text="; ".join(errors) if errors else None,
     )
+
+
+def _load_dotenv_if_using_process_env(env: Mapping[str, str] | None) -> None:
+    if env is not None:
+        return
+    try:
+        from dotenv import load_dotenv
+    except Exception:  # noqa: BLE001 - dotenv is optional setup sugar.
+        return
+    dotenv_path = os.environ.get(DAYTONA_DOTENV_PATH_ENV_VAR)
+    if dotenv_path is not None and dotenv_path.strip():
+        load_dotenv(dotenv_path.strip(), override=False)
+    else:
+        load_dotenv(override=False)
+
+
+def _env_value_missing(env: Mapping[str, str], name: str) -> bool:
+    value = env.get(name)
+    return value is None or not value.strip()
 
 
 def _env_flag(env: Mapping[str, str], name: str) -> bool:

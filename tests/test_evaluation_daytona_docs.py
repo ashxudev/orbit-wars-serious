@@ -10,6 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNBOOK = REPO_ROOT / "docs" / "distributed-evaluation-daytona.md"
+DOTENV_EXAMPLE = REPO_ROOT / ".env.example"
 DOCUMENTED_SCRIPTS = (
     "scripts/distributed_evaluation_preflight.py",
     "scripts/run_evaluation_shards.py",
@@ -21,6 +22,7 @@ DOCUMENTED_SCRIPTS = (
     "scripts/run_daytona_shard_jobs.py",
     "scripts/run_daytona_client_report.py",
     "scripts/run_daytona_real_shard_jobs.py",
+    "scripts/prepare_daytona_runtime_snapshot.py",
 )
 HELP_SCRIPTS = (
     "scripts/distributed_evaluation_preflight.py",
@@ -30,6 +32,7 @@ HELP_SCRIPTS = (
     "scripts/run_daytona_shard_jobs.py",
     "scripts/run_daytona_client_report.py",
     "scripts/run_daytona_real_shard_jobs.py",
+    "scripts/prepare_daytona_runtime_snapshot.py",
 )
 MANIFEST_FIXTURES = (
     "experiments/manifests/quick-2p-smoke.json",
@@ -46,12 +49,15 @@ KEY_COMMANDS = (
     ".venv/bin/python scripts/run_daytona_shard_jobs.py /tmp/ow-eval-shards/daytona-shard-jobs.json --dry-run --no-upload-path-existence-check",
     ".venv/bin/python scripts/run_daytona_client_report.py /tmp/ow-eval-shards/daytona-shard-jobs.json --dry-run --no-upload-path-existence-check",
     ".venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-eval-shards/daytona-shard-jobs.json --allow-real-daytona",
+    ".venv/bin/python scripts/prepare_daytona_runtime_snapshot.py --output-dir /tmp/ow-daytona-runtime-snapshot",
+    ".venv/bin/python scripts/prepare_daytona_runtime_snapshot.py --allow-real-daytona --json-output /tmp/ow-daytona-runtime-snapshot/result.json",
 )
 
 
 class EvaluationDaytonaDocsTests(unittest.TestCase):
     def test_runbook_exists(self) -> None:
         self.assertTrue(RUNBOOK.is_file())
+        self.assertTrue(DOTENV_EXAMPLE.is_file())
 
     def test_documented_script_paths_exist_and_are_mentioned(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")
@@ -98,6 +104,15 @@ class EvaluationDaytonaDocsTests(unittest.TestCase):
         self.assertIn("fake daytona dry-runs", text)
         self.assertIn("guarded real-daytona", text)
         self.assertIn("ow_eval_allow_real_daytona", text)
+        self.assertIn("daytona_api_key", text)
+        self.assertIn("daytona_target", text)
+        self.assertIn("daytona_snapshot_id", text)
+        self.assertIn("github_token", text)
+        self.assertIn("prebuilt", text)
+        self.assertIn("runtime snapshot", text)
+        self.assertIn("git archive head", text)
+        self.assertIn("clone-bootstrap", text)
+        self.assertIn(".env.example", text)
         self.assertIn("--allow-real-daytona", text)
         self.assertIn("both env readiness and `--allow-real-daytona`", text)
         self.assertIn("no live kaggle submissions", text)
@@ -109,6 +124,17 @@ class EvaluationDaytonaDocsTests(unittest.TestCase):
         self.assertIn("missing env/token", text)
         self.assertIn("blocked readiness", text)
         self.assertIn("no-op-heavy regression gate failures", text)
+
+    def test_dotenv_example_documents_daytona_without_secret_values(self) -> None:
+        text = DOTENV_EXAMPLE.read_text(encoding="utf-8")
+
+        self.assertIn("OW_EVAL_ALLOW_REAL_DAYTONA=0", text)
+        self.assertIn("DAYTONA_API_KEY=", text)
+        self.assertIn("DAYTONA_TARGET=us", text)
+        self.assertIn("DAYTONA_SNAPSHOT_ID=", text)
+        self.assertIn("OW_EVAL_REQUIRE_GITHUB_TOKEN=0", text)
+        self.assertIn("GITHUB_TOKEN=", text)
+        self.assertNotIn("secret", text.lower())
 
 
 if __name__ == "__main__":

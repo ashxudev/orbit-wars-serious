@@ -10,8 +10,13 @@ with deterministic errors.
 from __future__ import annotations
 
 import importlib
+import os
+import re
+import shlex
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from pathlib import Path, PurePosixPath
 
 from .daytona_client_executor import (
     DaytonaClientCommandResult,
@@ -141,6 +146,181 @@ class DaytonaSdkProtocolClient:
                 f"Unknown Daytona sandbox handle: {handle.handle_id}"
             )
         return low_level_handle
+
+
+@dataclass(frozen=True, slots=True)
+class _OfficialDaytonaSandboxHandle:
+    handle_id: str
+    sandbox_name: str | None
+    working_dir: str
+    sandbox: object
+
+
+class _OfficialDaytonaLowLevelClient:
+    """Low-level facade over the official Daytona SDK sync client."""
+
+    _SESSION_COMMAND_TIMEOUT_SECONDS = 60 * 60 * 2
+    _SESSION_POLL_INTERVAL_SECONDS = 5.0
+
+    def __init__(self, sdk_module: object, config: DaytonaRealExecutionConfig) -> None:
+        self.sdk_module = sdk_module
+        self.config = config
+        self.daytona = self._build_daytona_client()
+
+    def open_sandbox(
+        self,
+        *,
+        sandbox_name: str | None,
+        working_dir: str,
+    ) -> _OfficialDaytonaSandboxHandle:
+        params = self._create_params(sandbox_name)
+        sandbox = self.daytona.create(params)
+        return _OfficialDaytonaSandboxHandle(
+            handle_id=_sandbox_handle_id(sandbox, sandbox_name),
+            sandbox_name=_sandbox_name(sandbox, sandbox_name),
+            working_dir=working_dir,
+            sandbox=sandbox,
+        )
+
+    def upload_file(
+        self,
+        handle: _OfficialDaytonaSandboxHandle,
+        local_path: str,
+        sandbox_path: str,
+    ) -> None:
+        _ensure_official_handle(handle)
+        parent = str(PurePosixPath(sandbox_path).parent)
+        if parent and parent != ".":
+            handle.sandbox.process.exec(f"mkdir -p {shlex.quote(parent)}")
+        handle.sandbox.fs.upload_file(local_path, sandbox_path)
+
+    def run_command(
+        self,
+        handle: _OfficialDaytonaSandboxHandle,
+        worker_argv: tuple[str, ...],
+        working_dir: str,
+    ) -> DaytonaClientCommandResult:
+        _ensure_official_handle(handle)
+        if _supports_session_commands(handle.sandbox.process):
+            return self._run_command_in_session(handle, worker_argv, working_dir)
+        response = handle.sandbox.process.exec(
+            shlex.join(worker_argv),
+            cwd=working_dir,
+        )
+        exit_code = _response_exit_code(response)
+        return DaytonaClientCommandResult(
+            exit_code=exit_code,
+            stdout=_response_stdout(response),
+            stderr=_response_stderr(response),
+            summary_text=f"daytona_sdk_official_command exit_code={exit_code}",
+        )
+
+    def _run_command_in_session(
+        self,
+        handle: _OfficialDaytonaSandboxHandle,
+        worker_argv: tuple[str, ...],
+        working_dir: str,
+    ) -> DaytonaClientCommandResult:
+        process = handle.sandbox.process
+        session_id = _session_id(handle.handle_id)
+        command_line = f"cd {shlex.quote(working_dir)} && {shlex.join(worker_argv)}"
+        process.create_session(session_id)
+        try:
+            request = self._session_execute_request(command_line)
+            response = process.execute_session_command(
+                session_id,
+                request,
+                timeout=15,
+            )
+            command_id = _session_command_id(response)
+            deadline = time.monotonic() + self._SESSION_COMMAND_TIMEOUT_SECONDS
+            command = None
+            while True:
+                command = process.get_session_command(session_id, command_id)
+                exit_code = _session_command_exit_code(command)
+                if exit_code is not None:
+                    break
+                if time.monotonic() >= deadline:
+                    exit_code = 124
+                    break
+                time.sleep(self._SESSION_POLL_INTERVAL_SECONDS)
+            logs = process.get_session_command_logs(session_id, command_id)
+            stdout = _session_logs_stdout(logs)
+            stderr = _session_logs_stderr(logs)
+            if exit_code == 124 and not stderr:
+                stderr = (
+                    "Daytona session command timed out after "
+                    f"{self._SESSION_COMMAND_TIMEOUT_SECONDS} seconds"
+                )
+            return DaytonaClientCommandResult(
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                summary_text=(
+                    "daytona_sdk_official_session_command "
+                    f"session_id={session_id} command_id={command_id} "
+                    f"exit_code={exit_code}"
+                ),
+            )
+        finally:
+            process.delete_session(session_id)
+
+    def _session_execute_request(self, command_line: str) -> object:
+        constructor = _sdk_attr(self.sdk_module, "SessionExecuteRequest")
+        return constructor(command=command_line, run_async=True)
+
+    def download_file(
+        self,
+        handle: _OfficialDaytonaSandboxHandle,
+        sandbox_path: str,
+        local_path: str,
+    ) -> None:
+        _ensure_official_handle(handle)
+        Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+        handle.sandbox.fs.download_file(sandbox_path, local_path)
+
+    def close_sandbox(self, handle: _OfficialDaytonaSandboxHandle) -> None:
+        _ensure_official_handle(handle)
+        delete = getattr(handle.sandbox, "delete", None)
+        if callable(delete):
+            delete()
+            return
+        stop = getattr(handle.sandbox, "stop", None)
+        if callable(stop):
+            stop()
+            return
+        raise DaytonaSdkUnavailableError(
+            "Official Daytona sandbox does not provide delete or stop"
+        )
+
+    def _build_daytona_client(self) -> object:
+        daytona_constructor = _sdk_attr(self.sdk_module, "Daytona")
+        config_constructor = _sdk_attr(self.sdk_module, "DaytonaConfig")
+        api_key = _required_env_value(self.config.api_key_env_var)
+        return daytona_constructor(
+            config_constructor(
+                api_key=api_key,
+                api_url=self.config.api_url,
+                target=self.config.target,
+            )
+        )
+
+    def _create_params(self, sandbox_name: str | None) -> object:
+        if self.config.snapshot_id is not None:
+            constructor = _sdk_attr(self.sdk_module, "CreateSandboxFromSnapshotParams")
+            return constructor(
+                name=sandbox_name,
+                snapshot=self.config.snapshot_id,
+            )
+        if self.config.image is not None:
+            constructor = _sdk_attr(self.sdk_module, "CreateSandboxFromImageParams")
+            return constructor(
+                name=sandbox_name,
+                image=self.config.image,
+            )
+        raise DaytonaSdkUnavailableError(
+            "Official Daytona SDK execution requires DAYTONA_SNAPSHOT_ID or DAYTONA_IMAGE"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,10 +528,14 @@ def build_daytona_sdk_protocol_client(
     sdk_module: object,
     config: DaytonaRealExecutionConfig,
 ) -> DaytonaSdkProtocolClient:
-    """Build the default protocol facade from a fake Daytona-like SDK module."""
+    """Build the default protocol facade from a Daytona-like SDK module."""
 
     if not isinstance(config, DaytonaRealExecutionConfig):
         raise ValueError("config must be a DaytonaRealExecutionConfig")
+    if _looks_like_official_daytona_sdk(sdk_module):
+        return DaytonaSdkProtocolClient(
+            _OfficialDaytonaLowLevelClient(sdk_module, config)
+        )
     constructor = _sdk_client_constructor(sdk_module)
     try:
         low_level_client = constructor(config)
@@ -370,6 +554,164 @@ def _sdk_client_constructor(sdk_module: object):
     raise DaytonaSdkUnavailableError(
         "Daytona SDK module must provide create_client, Client, or Session"
     )
+
+
+def _looks_like_official_daytona_sdk(sdk_module: object) -> bool:
+    return callable(getattr(sdk_module, "Daytona", None)) and callable(
+        getattr(sdk_module, "DaytonaConfig", None)
+    )
+
+
+def _sdk_attr(sdk_module: object, name: str):
+    value = getattr(sdk_module, name, None)
+    if not callable(value):
+        raise DaytonaSdkUnavailableError(
+            f"Official Daytona SDK module missing callable {name}"
+        )
+    return value
+
+
+def _required_env_value(name: str | None) -> str:
+    if name is None:
+        raise DaytonaSdkUnavailableError("api_key_env_var is required")
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        raise DaytonaSdkUnavailableError(f"missing required env var: {name}")
+    return value
+
+
+def _ensure_official_handle(value: object) -> None:
+    if not isinstance(value, _OfficialDaytonaSandboxHandle):
+        raise DaytonaSdkUnavailableError(
+            "Official Daytona low-level client received an unknown sandbox handle"
+        )
+
+
+def _sandbox_handle_id(sandbox: object, fallback_name: str | None) -> str:
+    for name in ("handle_id", "id", "sandbox_id", "name"):
+        value = getattr(sandbox, name, None)
+        if isinstance(value, str) and value:
+            return value
+    if fallback_name:
+        return fallback_name
+    return f"daytona-sandbox-{id(sandbox)}"
+
+
+def _sandbox_name(sandbox: object, fallback_name: str | None) -> str | None:
+    for name in ("sandbox_name", "name"):
+        value = getattr(sandbox, name, None)
+        if isinstance(value, str) and value:
+            return value
+    return fallback_name
+
+
+def _response_exit_code(response: object) -> int:
+    value = getattr(response, "exit_code", None)
+    if value is None and isinstance(response, Mapping):
+        value = response.get("exit_code")
+    if value is None:
+        value = _additional_response_field(response, "code")
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 2
+    return value
+
+
+def _response_stdout(response: object) -> str | None:
+    for name in ("stdout", "result"):
+        value = getattr(response, name, None)
+        if isinstance(value, str):
+            return value
+    artifacts = getattr(response, "artifacts", None)
+    value = getattr(artifacts, "stdout", None)
+    if isinstance(value, str):
+        return value
+    value = _additional_response_field(response, "stdout")
+    return value if isinstance(value, str) else None
+
+
+def _response_stderr(response: object) -> str | None:
+    value = getattr(response, "stderr", None)
+    if isinstance(value, str):
+        return value
+    value = _additional_response_field(response, "stderr")
+    return value if isinstance(value, str) else None
+
+
+def _additional_response_field(response: object, name: str) -> object:
+    additional = getattr(response, "additional_properties", None)
+    if isinstance(additional, Mapping):
+        return additional.get(name)
+    return None
+
+
+def _supports_session_commands(process: object) -> bool:
+    return all(
+        callable(getattr(process, name, None))
+        for name in (
+            "create_session",
+            "execute_session_command",
+            "get_session_command",
+            "get_session_command_logs",
+            "delete_session",
+        )
+    )
+
+
+def _session_id(handle_id: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "-", handle_id).strip("-")
+    return f"ow-eval-{safe or 'sandbox'}"
+
+
+def _session_command_id(response: object) -> str:
+    value = getattr(response, "cmd_id", None)
+    if value is None and isinstance(response, Mapping):
+        value = response.get("cmd_id")
+    if value is None:
+        value = _additional_response_field(response, "cmd_id")
+    if not isinstance(value, str) or not value:
+        raise DaytonaSdkUnavailableError(
+            "Official Daytona session command response must provide cmd_id"
+        )
+    return value
+
+
+def _session_command_exit_code(command: object) -> int | None:
+    value = getattr(command, "exit_code", None)
+    if value is None and isinstance(command, Mapping):
+        value = command.get("exit_code")
+    if value is None:
+        value = _additional_response_field(command, "exit_code")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise DaytonaSdkUnavailableError(
+            "Official Daytona session command exit_code must be an integer"
+        )
+    return value
+
+
+def _session_logs_stdout(logs: object) -> str | None:
+    for name in ("stdout", "output"):
+        value = getattr(logs, name, None)
+        if isinstance(value, str):
+            return value
+    if isinstance(logs, Mapping):
+        for name in ("stdout", "output"):
+            value = logs.get(name)
+            if isinstance(value, str):
+                return value
+    return None
+
+
+def _session_logs_stderr(logs: object) -> str | None:
+    value = getattr(logs, "stderr", None)
+    if isinstance(value, str):
+        return value
+    if isinstance(logs, Mapping):
+        value = logs.get("stderr")
+        if isinstance(value, str):
+            return value
+    return None
 
 
 def _sandbox_handle_from_low_level(

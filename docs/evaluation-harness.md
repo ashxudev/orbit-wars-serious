@@ -20,6 +20,22 @@ Run the checks from `/Users/user/dev/hackathons/orbit-wars-serious`.
 .venv/bin/python -m unittest discover -s tests
 ```
 
+For the normal developer loop, prefer focused module tests first, then use the
+parallel module runner for a faster full local check. The parallel runner starts
+one subprocess per test module, preserves deterministic reporting, and prints
+the slowest modules so persistent hotspots are visible.
+
+```bash
+.venv/bin/python scripts/run_tests_parallel.py --workers 6
+```
+
+When full discovery feels slow, profile module timings before changing test
+coverage or moving ordinary tests to Daytona.
+
+```bash
+.venv/bin/python scripts/profile_tests.py --top 20
+```
+
 2. Build a deterministic single-file submission into a temporary or explicit
    local output path.
 
@@ -83,6 +99,10 @@ edited scenario metadata instead of relying on the default preflight suite.
 - `ow_eval/experiment_cli.py` and `scripts/run_evaluation_experiment.py`: one-manifest local experiment workflow.
 - `ow_eval/experiment_suite.py` and `scripts/run_evaluation_suite.py`: ordered multi-manifest local experiment workflow.
 - `ow_eval/submission_preflight.py` and `scripts/submission_preflight.py`: local pre-submission checklist over build, parity, gate, and suite checks.
+- `ow_eval/local_tests.py`, `scripts/run_tests_parallel.py`, and
+  `scripts/profile_tests.py`: local unittest module discovery, per-module
+  timing, and parallel subprocess execution for faster developer confidence
+  checks.
 - `scripts/build_submission.py`: deterministic single-file submission builder.
 
 ## Manifest Fixtures

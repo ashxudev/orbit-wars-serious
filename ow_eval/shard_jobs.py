@@ -30,6 +30,7 @@ class EvaluationShardJob:
     source_manifest_refs: tuple[str, ...]
     match_labels: tuple[str, ...]
     seeds: tuple[int, ...]
+    extra_upload_paths: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _validate_nonempty_string(self.job_id, "job_id")
@@ -43,6 +44,7 @@ class EvaluationShardJob:
         _validate_string_tuple(self.source_manifest_refs, "source_manifest_refs")
         _validate_string_tuple(self.match_labels, "match_labels")
         _validate_int_tuple(self.seeds, "seeds")
+        _validate_string_tuple(self.extra_upload_paths, "extra_upload_paths")
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
@@ -59,6 +61,7 @@ class EvaluationShardJob:
             "source_manifest_refs": list(self.source_manifest_refs),
             "match_labels": list(self.match_labels),
             "seeds": list(self.seeds),
+            "extra_upload_paths": list(self.extra_upload_paths),
         }
 
 
