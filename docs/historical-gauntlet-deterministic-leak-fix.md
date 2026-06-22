@@ -131,3 +131,48 @@ Remaining fix queue:
 | `1` | 2P control-pressure response weakness | Candidate recovery is visible for the OW2 control-pressure fixture, but default selection still rejects below the minimum score |
 | `2` | 4P plateau candidate-backed no-action | `four_p_top_score_plateau_t080_p3.json` still has candidates but returns `strategy_selection_no_action` |
 | `3` | 4P budget-heavy strategy windows | Mixed-style and OW2 reference source windows still need budget-vs-selection separation without weakening budget guards |
+
+## Cycle 2 Two-Player Control-Pressure Selection
+
+Cycle 2 fixes the remaining 2P historical control-pressure compact fixture:
+
+```text
+/Users/user/dev/hackathons/orbit-wars-serious/tests/fixtures/historical_gauntlet_leaks/two_p_control_pressure_ow2_main_t002_p0.json
+```
+
+Implementation summary:
+
+- Two-player selection now has a narrow below-floor allowance for early
+  pressure-recovery candidates produced by the Cycle 1 candidate-generation
+  path.
+- The allowance requires an existing validated `reserve_preserving` commitment
+  and active response-pressure facts, so ordinary below-threshold captures still
+  return `below minimum total score`.
+- The change does not lower the global score floor, add a runtime fallback,
+  widen candidate generation, change scoring weights, or bypass normal
+  evaluation/commitment/action conversion.
+
+Before/after target fixture results:
+
+| Fixture | Post-Cycle-1 default diagnostic | Cycle 2 default action | Actual runtime action |
+|---|---|---|---|
+| `two_p_control_pressure_ow2_main_t002_p0.json` | `strategy_selection_no_action`, `27` candidates, `0` actions; selection note: below minimum total score | `[[16, -2.855917510740959, 1]]`; `27` candidates; selected `reserve_preserving`; selection note: pressure retention preference | `[[16, -1.5868432791875053, 1]]`; `8` runtime-capped candidates; selected `reserve_preserving` |
+
+Cycle 2 also makes the two Cycle 1 Claude collapse fixtures action-emitting
+under the default safe path because their recovered candidates carry the same
+early pressure-recovery marker and response-pressure facts. This preserves their
+actual runtime behavior from Cycle 1 while improving their compact
+characterization from candidate-backed no-action to legal reserve-preserving
+actions:
+
+| Fixture | Cycle 2 default action | Actual runtime action |
+|---|---|---|
+| `two_p_collapse_claude_v31_t002_p1.json` | `[[23, 1.5552066198576744, 5]]`; `31` candidates; selected `reserve_preserving` | `[[23, 2.3330067382197486, 5]]`; `8` runtime-capped candidates; selected `reserve_preserving` |
+| `two_p_collapse_claude_v9_t001_p1.json` | `[[7, 0.7442724238714199, 4]]`; `31` candidates; selected `reserve_preserving` | `[[7, 2.8808254788103143, 4]]`; `8` runtime-capped candidates; selected `reserve_preserving` |
+
+Remaining fix queue:
+
+| Priority | Target | Current post-Cycle-2 status |
+|---:|---|---|
+| `1` | 4P plateau candidate-backed no-action | `four_p_top_score_plateau_t080_p3.json` still has candidates but returns `strategy_selection_no_action` |
+| `2` | 4P budget-heavy strategy windows | Mixed-style and OW2 reference source windows still need budget-vs-selection separation without weakening budget guards |

@@ -39,6 +39,14 @@ TWO_PLAYER_EARLY_COLLAPSE_TARGETS = {
     "two_p_collapse_claude_v9_t001_p1.json",
 }
 
+TWO_PLAYER_CONTROL_PRESSURE_TARGETS = {
+    "two_p_control_pressure_ow2_main_t002_p0.json",
+}
+
+TWO_PLAYER_RECOVERED_SELECTION_TARGETS = (
+    TWO_PLAYER_EARLY_COLLAPSE_TARGETS | TWO_PLAYER_CONTROL_PRESSURE_TARGETS
+)
+
 
 def fixture_paths() -> tuple[Path, ...]:
     return tuple(sorted(FIXTURE_DIR.glob("*.json")))
@@ -166,21 +174,23 @@ class HistoricalGauntletLeakFixtureTests(unittest.TestCase):
             with self.subTest(case=payload["case_id"]):
                 expected = payload["expected_current_runtime"]
                 self.assertEqual(payload["player_count"], 2)
-                self.assertEqual(expected["action_count"], 0)
                 self.assertGreater(expected["candidate_count"], 0)
+                self.assertEqual(expected["action_count"], 1)
+                self.assertEqual(expected["diagnostic_status"], "actions")
+                self.assertEqual(expected["no_action_reason"], "actions_emitted")
                 self.assertEqual(
-                    expected["no_action_reason"],
-                    "strategy_selection_no_action",
+                    expected["selected_commitment_type"],
+                    "reserve_preserving",
                 )
                 self.assertRegex(
                     payload["source_match_summary"]["runtime_no_action_reasons"],
                     r"no_candidates_generated:\d+",
                 )
 
-    def test_target_two_player_early_collapse_fixtures_emit_runtime_actions(
+    def test_target_two_player_fixtures_emit_runtime_actions(
         self,
     ) -> None:
-        for fixture_name in TWO_PLAYER_EARLY_COLLAPSE_TARGETS:
+        for fixture_name in TWO_PLAYER_RECOVERED_SELECTION_TARGETS:
             with self.subTest(fixture_name=fixture_name):
                 payload = load_case(FIXTURE_DIR / fixture_name)
 

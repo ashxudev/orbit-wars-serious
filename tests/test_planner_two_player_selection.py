@@ -63,6 +63,7 @@ def mission_candidate(
     source_planet_id: int,
     ships: int = 5,
     mission_type: MissionType = MissionType.ATTACK_ENEMY,
+    note: str | None = None,
 ) -> MissionCandidate:
     launch = LaunchCandidate(
         source_planet_id=source_planet_id,
@@ -76,6 +77,7 @@ def mission_candidate(
         source_planet_ids=(source_planet_id,),
         launches=(launch,),
         outcome=CandidateOutcome.VALIDATED,
+        note=note,
     )
 
 
@@ -286,11 +288,13 @@ def bundle_for(
     ),
     option_status: CommitmentOptionStatus = CommitmentOptionStatus.VALIDATED,
     mission_type: MissionType = MissionType.ATTACK_ENEMY,
+    candidate_note: str | None = None,
 ) -> PlannerDecisionBundle:
     candidate = mission_candidate(
         target_planet_id,
         source_planet_id,
         mission_type=mission_type,
+        note=candidate_note,
     )
     evaluation = mission_evaluation(
         candidate,
@@ -680,6 +684,67 @@ class PlannerTwoPlayerSelectionTests(unittest.TestCase):
                 "pressure retention preference: reserve_preserving",
             ),
         )
+
+    def test_early_control_pressure_allows_recovery_candidate_below_floor(
+        self,
+    ) -> None:
+        recovery = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=-1,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+                ships_spent=1,
+            ),
+            total_score=-12.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+            candidate_note="early two-player pressure recovery",
+        )
+
+        result = select_two_player_direct_advantage((recovery,))
+
+        self.assertEqual(result.status, StrategySelectionStatus.SELECTED)
+        self.assertIs(result.selected_bundle, recovery)
+        self.assertEqual(
+            result.selected_commitment_option.option_type,
+            CommitmentOptionType.RESERVE_PRESERVING,
+        )
+        self.assertEqual(
+            result.notes,
+            (
+                "two-player direct advantage selected",
+                "selected commitment option: reserve_preserving",
+                "pressure retention preference: reserve_preserving",
+            ),
+        )
+
+    def test_early_control_pressure_does_not_globally_lower_score_floor(
+        self,
+    ) -> None:
+        ordinary_below_floor = bundle_for(
+            target_planet_id=2,
+            source_planet_id=1,
+            mission_type=MissionType.CAPTURE_NEUTRAL,
+            mission_value_facts=value_facts(
+                target_owner_baseline=-1,
+                target_owner_mission=-1,
+                target_production_before=3,
+                production_delta_vs_baseline=0,
+                ships_spent=1,
+            ),
+            total_score=-12.0,
+            response_labels=("target_race_risk",),
+            option_types=(CommitmentOptionType.RESERVE_PRESERVING,),
+        )
+
+        result = select_two_player_direct_advantage((ordinary_below_floor,))
+
+        self.assertEqual(result.status, StrategySelectionStatus.NO_ACTION)
+        self.assertIn("below minimum total score", result.notes)
 
     def test_pressure_selection_prefers_owned_retention_over_higher_score_attack(
         self,

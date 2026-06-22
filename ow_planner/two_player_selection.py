@@ -48,6 +48,8 @@ CAPTURE_HOLD_RISK_RESPONSE_LABELS = (
     "target_race_risk",
 )
 
+EARLY_TWO_PLAYER_PRESSURE_RECOVERY_NOTE = "early two-player pressure recovery"
+
 
 @dataclass(frozen=True, slots=True)
 class TwoPlayerSelectionConfig:
@@ -155,6 +157,9 @@ def select_two_player_direct_advantage(
                 facts,
                 commitment_option,
                 owned_threat_report,
+            ) and not _allow_below_minimum_under_early_control_pressure(
+                facts,
+                commitment_option,
             ):
                 ineligible_reasons.add("below minimum total score")
                 continue
@@ -371,6 +376,18 @@ def _allow_below_minimum_under_owned_pressure(
     if _is_owned_retention_candidate(facts.bundle):
         return True
     return commitment_option.option_type is CommitmentOptionType.RESERVE_PRESERVING
+
+
+def _allow_below_minimum_under_early_control_pressure(
+    facts: TwoPlayerAdvantageFacts,
+    commitment_option: CommitmentOption,
+) -> bool:
+    if facts.bundle.candidate.note != EARLY_TWO_PLAYER_PRESSURE_RECOVERY_NOTE:
+        return False
+    if commitment_option.option_type is not CommitmentOptionType.RESERVE_PRESERVING:
+        return False
+    pressure_facts = two_player_pressure_facts(facts, commitment_option)
+    return pressure_facts.response_pressure_active
 
 
 def _own_transfer_spam_reduction_pool(
