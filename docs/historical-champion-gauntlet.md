@@ -400,6 +400,83 @@ results, match reports, scoreboards, logs, and replays from this workflow remain
 `/tmp` artifacts and must not be committed. Real Daytona full-gauntlet execution
 is a later cycle and still requires the guarded real CLI boundary.
 
+## Cycle 9 Guarded Real Daytona Full-Gauntlet Run
+
+Cycle 9 prepared the full six-shard historical champion gauntlet for real
+Daytona execution and ran the guarded real smoke diagnostic, but the full real
+gauntlet command did not execute. The local execution environment rejected the
+external transfer because the command would upload repo-derived manifests, job
+specs, and packaged historical agent source files to Daytona. No workaround was
+attempted.
+
+Checked commit:
+
+```text
+6fd0d2e Add full historical gauntlet package prep
+```
+
+Generated files were written only under:
+
+```text
+/tmp/ow-historical-gauntlet-cycle9-full-real/
+```
+
+Package materialization:
+
+```text
+historical_champion_gauntlet_package=WRITTEN output_root=/tmp/ow-historical-gauntlet-cycle9-full-real shards=6 scenarios=30 index_path=/tmp/ow-historical-gauntlet-cycle9-full-real/shard-jobs.index.json exit_code=0
+```
+
+Package inspection:
+
+- Jobs: `6`.
+- Scenarios: `30`.
+- Unique scenario labels: `30`.
+- Episode steps: `500`.
+
+Daytona plan generation:
+
+```text
+daytona_shard_job_plan=WRITTEN index_path=/tmp/ow-historical-gauntlet-cycle9-full-real/shard-jobs.index.json output_path=/tmp/ow-historical-gauntlet-cycle9-full-real/daytona-shard-jobs.json jobs=6 exit_code=0
+```
+
+Daytona preflight:
+
+```text
+daytona_shard_job_plan_validation=PASS plan_path=/tmp/ow-historical-gauntlet-cycle9-full-real/daytona-shard-jobs.json specs=6 missing_upload_paths=0 duplicate_sandbox_names=0 exit_code=0
+```
+
+Local Daytona dry-run executor:
+
+```text
+daytona_shard_jobs_cli=COMPLETE plan_path=/tmp/ow-historical-gauntlet-cycle9-full-real/daytona-shard-jobs.json dry_run=True jobs=6 exit_code=0
+daytona_shard_execution=COMPLETE plan_path=/tmp/ow-historical-gauntlet-cycle9-full-real/daytona-shard-jobs.json jobs=6 merged=False exit_code=0
+```
+
+Guarded real Daytona smoke:
+
+```text
+daytona_real_smoke=COMPLETE diagnosis=smoke_passed events=6 exit_code=0
+daytona_real_execution_readiness=READY allow_real_daytona=True target_configured=True github_token_required=False missing_env_vars=0 exit_code=0
+daytona_smoke=OK
+```
+
+Full real Daytona execution status:
+
+- The intended guarded command was
+  `scripts/run_daytona_real_shard_jobs.py /tmp/ow-historical-gauntlet-cycle9-full-real/daytona-shard-jobs.json --allow-real-daytona --json-output /tmp/ow-historical-gauntlet-cycle9-full-real/daytona-real-report.json`.
+- The local execution environment rejected the command before OS execution due
+  to external upload/transfer risk.
+- No six-shard real Daytona gauntlet was launched.
+- No shard results were downloaded.
+- No full-gauntlet match results are available from Cycle 9.
+
+Cycle 9 is therefore blocked by execution-environment transfer policy, not by
+package generation, Daytona plan validation, dry-run validation, or Daytona
+readiness/smoke. No Kaggle command or live submission was run. Raw package
+files, Daytona plans, smoke reports, dry-run reports, logs, scoreboards, replays,
+and any future client reports remain `/tmp` artifacts and must not be committed.
+
 Future cycles should build full 500-step local/Daytona gauntlet manifests from
 this registry, keeping generated match reports, logs, scoreboards, replays, and
 temporary artifacts out of source control.
