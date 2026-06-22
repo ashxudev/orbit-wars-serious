@@ -618,7 +618,7 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
         )
         self.assertEqual(
             official.created_params[0].kwargs,
-            {"name": "sandbox-name", "snapshot": "snapshot-123"},
+            {"env_vars": None, "name": "sandbox-name", "snapshot": "snapshot-123"},
         )
         self.assertEqual(command.exit_code, 0)
         self.assertIn(("mkdir -p /tmp/remote", None), sandbox.process.commands)
@@ -670,9 +670,38 @@ class DaytonaSdkAdapterTests(unittest.TestCase):
         official = fake_module.clients[0]
         self.assertEqual(
             official.created_params[0].kwargs,
-            {"name": "image-sandbox", "image": "python:3.12"},
+            {"env_vars": None, "name": "image-sandbox", "image": "python:3.12"},
         )
         self.assertEqual(handle.sandbox_name, "image-sandbox")
+
+    def test_default_facade_injects_github_token_env_into_official_sandbox(self) -> None:
+        fake_module = FakeOfficialDaytonaModule()
+        config = DaytonaRealExecutionConfig(
+            allow_real_daytona=True,
+            api_key_env_var="TOKEN",
+            github_token_env_var="DAYTONA_GITHUB_TOKEN",
+            snapshot_id="snapshot-123",
+        )
+
+        with patch.dict(
+            "os.environ",
+            {"TOKEN": "secret", "DAYTONA_GITHUB_TOKEN": "github-secret"},
+            clear=True,
+        ):
+            client = build_daytona_sdk_protocol_client(fake_module, config)
+            client.open_sandbox(
+                sandbox_name="sandbox-name",
+                working_dir="/workspace/orbit-wars-serious",
+            )
+
+        self.assertEqual(
+            fake_module.clients[0].created_params[0].kwargs,
+            {
+                "env_vars": {"DAYTONA_GITHUB_TOKEN": "github-secret"},
+                "name": "sandbox-name",
+                "snapshot": "snapshot-123",
+            },
+        )
 
     def test_official_daytona_sdk_requires_snapshot_or_image(self) -> None:
         fake_module = FakeOfficialDaytonaModule()

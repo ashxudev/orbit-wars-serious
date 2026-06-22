@@ -40,17 +40,20 @@ class DaytonaCommandOperation:
 
     worker_argv: tuple[str, ...]
     working_dir: str
+    env_var_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _validate_string_tuple(self.worker_argv, "worker_argv")
         if not self.worker_argv:
             raise ValueError("worker_argv must contain at least one argument")
         _validate_nonempty_string(self.working_dir, "working_dir")
+        _validate_string_tuple(self.env_var_names, "env_var_names")
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
 
         return {
+            "env_var_names": list(self.env_var_names),
             "worker_argv": list(self.worker_argv),
             "working_dir": self.working_dir,
         }
@@ -191,6 +194,7 @@ def build_daytona_sandbox_operation_plan(
         command_operation=DaytonaCommandOperation(
             worker_argv=request.worker_argv,
             working_dir=request.working_dir,
+            env_var_names=request.env_var_names,
         ),
         download_operations=download_operations,
         local_shard_result_path=request.local_shard_result_path,

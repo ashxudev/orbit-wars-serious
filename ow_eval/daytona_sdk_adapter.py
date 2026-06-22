@@ -109,11 +109,19 @@ class DaytonaSdkProtocolClient:
         """Forward one command operation and normalize its result."""
 
         low_level_handle = self._low_level_handle(handle)
-        result = self.sdk_client.run_command(
-            low_level_handle,
-            operation.worker_argv,
-            operation.working_dir,
-        )
+        try:
+            result = self.sdk_client.run_command(
+                low_level_handle,
+                operation.worker_argv,
+                operation.working_dir,
+                env_var_names=operation.env_var_names,
+            )
+        except TypeError:
+            result = self.sdk_client.run_command(
+                low_level_handle,
+                operation.worker_argv,
+                operation.working_dir,
+            )
         return _command_result_from_low_level(result)
 
     def download_file(
@@ -199,13 +207,17 @@ class _OfficialDaytonaLowLevelClient:
         handle: _OfficialDaytonaSandboxHandle,
         worker_argv: tuple[str, ...],
         working_dir: str,
+        *,
+        env_var_names: tuple[str, ...] = (),
     ) -> DaytonaClientCommandResult:
         _ensure_official_handle(handle)
+        env = _env_for_names(env_var_names)
         if _supports_session_commands(handle.sandbox.process):
-            return self._run_command_in_session(handle, worker_argv, working_dir)
+            return self._run_command_in_session(handle, worker_argv, working_dir, env)
         response = handle.sandbox.process.exec(
             shlex.join(worker_argv),
             cwd=working_dir,
+            env=env or None,
         )
         exit_code = _response_exit_code(response)
         return DaytonaClientCommandResult(
@@ -220,13 +232,14 @@ class _OfficialDaytonaLowLevelClient:
         handle: _OfficialDaytonaSandboxHandle,
         worker_argv: tuple[str, ...],
         working_dir: str,
+        env: dict[str, str],
     ) -> DaytonaClientCommandResult:
         process = handle.sandbox.process
         session_id = _session_id(handle.handle_id)
         command_line = f"cd {shlex.quote(working_dir)} && {shlex.join(worker_argv)}"
         process.create_session(session_id)
         try:
-            request = self._session_execute_request(command_line)
+            request = self._session_execute_request(command_line, env)
             response = process.execute_session_command(
                 session_id,
                 request,
@@ -265,9 +278,16 @@ class _OfficialDaytonaLowLevelClient:
         finally:
             process.delete_session(session_id)
 
-    def _session_execute_request(self, command_line: str) -> object:
+    def _session_execute_request(self, command_line: str, env: dict[str, str]) -> object:
         constructor = _sdk_attr(self.sdk_module, "SessionExecuteRequest")
-        return constructor(command=command_line, run_async=True)
+        if not env:
+            return constructor(command=command_line, run_async=True)
+        try:
+            return constructor(command=command_line, run_async=True, env=env)
+        except TypeError as exc:
+            raise DaytonaSdkUnavailableError(
+                "Official Daytona session commands do not support env injection"
+            ) from exc
 
     def download_file(
         self,
@@ -306,15 +326,22 @@ class _OfficialDaytonaLowLevelClient:
         )
 
     def _create_params(self, sandbox_name: str | None) -> object:
+        env_vars = _env_for_names(
+            (self.config.github_token_env_var,)
+            if self.config.source_mode == "github" and self.config.github_token_env_var
+            else ()
+        )
         if self.config.snapshot_id is not None:
             constructor = _sdk_attr(self.sdk_module, "CreateSandboxFromSnapshotParams")
             return constructor(
+                env_vars=env_vars or None,
                 name=sandbox_name,
                 snapshot=self.config.snapshot_id,
             )
         if self.config.image is not None:
             constructor = _sdk_attr(self.sdk_module, "CreateSandboxFromImageParams")
             return constructor(
+                env_vars=env_vars or None,
                 name=sandbox_name,
                 image=self.config.image,
             )
@@ -578,6 +605,16 @@ def _required_env_value(name: str | None) -> str:
     if value is None or not value.strip():
         raise DaytonaSdkUnavailableError(f"missing required env var: {name}")
     return value
+
+
+def _env_for_names(names: tuple[str, ...]) -> dict[str, str]:
+    env: dict[str, str] = {}
+    for name in names:
+        _validate_nonempty_string(name, "env_var_name")
+        value = os.environ.get(name)
+        if value is not None:
+            env[name] = value
+    return env
 
 
 def _ensure_official_handle(value: object) -> None:

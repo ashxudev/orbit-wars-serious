@@ -37,6 +37,7 @@ class DaytonaShardExecutionRequest:
     expected_download_paths: tuple[str, ...]
     local_shard_result_path: str
     spec: DaytonaShardJobSpec
+    env_var_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _validate_nonempty_string(self.job_id, "job_id")
@@ -46,6 +47,7 @@ class DaytonaShardExecutionRequest:
             _validate_nonempty_string(self.sandbox_name, "sandbox_name")
         _validate_string_tuple(self.worker_argv, "worker_argv")
         _validate_nonempty_string(self.working_dir, "working_dir")
+        _validate_string_tuple(self.env_var_names, "env_var_names")
         _validate_string_tuple(self.expected_upload_paths, "expected_upload_paths")
         _validate_string_tuple(self.expected_download_paths, "expected_download_paths")
         _validate_nonempty_string(
@@ -65,6 +67,7 @@ class DaytonaShardExecutionRequest:
             "sandbox_name": self.sandbox_name,
             "worker_argv": list(self.worker_argv),
             "working_dir": self.working_dir,
+            "env_var_names": list(self.env_var_names),
             "expected_upload_paths": list(self.expected_upload_paths),
             "expected_download_paths": list(self.expected_download_paths),
             "local_shard_result_path": self.local_shard_result_path,
@@ -385,11 +388,18 @@ def _request_for_spec(spec: DaytonaShardJobSpec) -> DaytonaShardExecutionRequest
         sandbox_name=spec.sandbox_name,
         worker_argv=spec.worker_argv,
         working_dir=spec.working_dir,
+        env_var_names=_env_var_names_for_spec(spec),
         expected_upload_paths=spec.expected_upload_paths,
         expected_download_paths=spec.expected_download_paths,
         local_shard_result_path=spec.local_shard_result_path,
         spec=spec,
     )
+
+
+def _env_var_names_for_spec(spec: DaytonaShardJobSpec) -> tuple[str, ...]:
+    if spec.source_mode == "github" and spec.github_token_env_var:
+        return (spec.github_token_env_var,)
+    return ()
 
 
 def _error_result(
