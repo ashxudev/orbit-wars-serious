@@ -348,3 +348,24 @@ Already-doomed source-guard follow-up:
   fallback `718.1`). No new live submission was made for this patch.
 - Focused validation command:
   `python3 -m unittest tests.test_fallback_source_guard_candidate -v`.
+
+Mode-split reserve candidate follow-up:
+
+- No live Kaggle submission was made.
+- Local variant search showed that a response-margin guard was strong in 4P but
+  bad in 2P. The tracked `agents.fallback_mode_split` candidate therefore uses
+  the already-doomed source-guard behavior in 2P and response-margin behavior
+  only when the observation appears to be 4P.
+- Tracked local pressure check:
+  `/tmp/ow-mode-split-tracked/fallback_mode_split-report.json`.
+  The mode-split candidate went `4/6`, mean rank `1.333`, mean score `0.333`,
+  with no errors, versus `2/6` for the patched source-guard candidate and `1/6`
+  for the prior source-guard baseline on the same pressure scenarios.
+- Winning pressure scenarios:
+  `2p seat-1 vs claude-v9` (`rank=1`, final production `84`),
+  `2p seat-0 vs ow2-current-main` (`rank=1`, final production `47`),
+  `4p top-score seat-3` (`rank=1`, final production `76`), and
+  `4p ow2-smoke-reference seat-0` (`rank=1`, final production `68`).
+- Remaining pressure losses:
+  `2p seat-1 vs claude-v31` and `4p mixed-style seat-2`, both still collapsing
+  to zero production.

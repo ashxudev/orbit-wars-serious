@@ -1,0 +1,117 @@
+"""Tests for the fallback mode-split reserve candidate."""
+
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+from agents import fallback_mode_split, fallback_source_guard
+from scripts import build_fallback_mode_split_submission
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+TWO_P_FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "kaggle_seed7_2p_step0.json"
+FOUR_P_FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "kaggle_seed7_4p_step0.json"
+
+
+class FallbackModeSplitCandidateTests(unittest.TestCase):
+    def test_build_source_is_deterministic_and_contains_both_modes(self) -> None:
+        first = fallback_mode_split.build_source()
+        second = fallback_mode_split.build_source()
+
+        self.assertEqual(first, second)
+        self.assertIn("_SOURCE_GUARD_SOURCE", first)
+        self.assertIn("_RESPONSE_MARGIN_SOURCE", first)
+        self.assertIn("MARGIN_ENEMY = 8", first)
+        self.assertIn("RESP_DISCOUNT = 0.75", first)
+        self.assertIn("already_doomed_source", first)
+
+    def test_player_count_detects_two_and_four_player_observations(self) -> None:
+        two_p = json.loads(TWO_P_FIXTURE_PATH.read_text(encoding="utf-8"))
+        four_p = json.loads(FOUR_P_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(fallback_mode_split.player_count_for_observation(two_p), 2)
+        self.assertEqual(fallback_mode_split.player_count_for_observation(four_p), 4)
+
+    def test_two_player_dispatch_matches_source_guard(self) -> None:
+        observation = json.loads(TWO_P_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            fallback_mode_split.agent(observation, {}),
+            fallback_source_guard.agent(observation, {}),
+        )
+
+    def test_four_player_dispatch_returns_legal_shape(self) -> None:
+        observation = json.loads(FOUR_P_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+        actions = fallback_mode_split.agent(observation, {})
+
+        self.assertIsInstance(actions, list)
+        self.assertTrue(actions)
+        for action in actions:
+            self.assertIsInstance(action, list)
+            self.assertEqual(len(action), 3)
+            self.assertIsInstance(action[0], int)
+            self.assertIsInstance(action[1], float)
+            self.assertIsInstance(action[2], int)
+
+    def test_standalone_builder_writes_importable_agent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "fallback_mode_split.py"
+
+            build_fallback_mode_split_submission.write_submission(output_path)
+
+            self.assertEqual(
+                hashlib.sha256(output_path.read_bytes()).hexdigest(),
+                hashlib.sha256(
+                    fallback_mode_split.build_source().encode("utf-8")
+                ).hexdigest(),
+            )
+            spec = importlib.util.spec_from_file_location(
+                "fallback_mode_split_submission",
+                output_path,
+            )
+            self.assertIsNotNone(spec)
+            self.assertIsNotNone(spec.loader)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            observation = json.loads(TWO_P_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+            self.assertEqual(
+                module.agent(observation, {}),
+                fallback_mode_split.agent(observation, {}),
+            )
+
+    def test_builder_cli_writes_output_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "submission.py"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(
+                        REPO_ROOT
+                        / "scripts"
+                        / "build_fallback_mode_split_submission.py"
+                    ),
+                    "--output",
+                    str(output_path),
+                ],
+                cwd=REPO_ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.stdout, "")
+            self.assertEqual(result.stderr, "")
+            self.assertTrue(output_path.is_file())
+
+
+if __name__ == "__main__":
+    unittest.main()
