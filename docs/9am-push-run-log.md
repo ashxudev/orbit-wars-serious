@@ -442,3 +442,16 @@ Retention mode-split follow-up:
   `claude-v31` loss. This suggests the submitted 2P retention margin is not
   clearly better than the original 2P path; it should be considered only as a
   follow-up candidate if replay evidence explains the `600.0` score.
+
+4P-retention-only reserve candidate:
+
+- No live Kaggle submission was made.
+- Added the opt-in `agents.fallback_mode_split_4p_retention` candidate. It
+  preserves exact `agents.fallback_source_guard` behavior in 2P, and applies
+  the retention-patched response-margin behavior only in 4P.
+- Local tracked pressure-six result:
+  `/tmp/ow-4p-retention-tracked/report.json`. The candidate went `5/6`, mean
+  rank `1.167`, mean score `0.667`, with only the known
+  `2p seat-1 vs claude-v31` collapse remaining. This matched the temporary
+  `4p-retention-only` probe while avoiding the submitted retention candidate's
+  extra 2P defense margin.
