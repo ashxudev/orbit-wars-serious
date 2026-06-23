@@ -186,15 +186,7 @@ def read_daytona_real_execution_config_from_env(
         DAYTONA_API_KEY_ENV_VAR_NAME_ENV_VAR,
         default=DEFAULT_DAYTONA_API_KEY_ENV_VAR,
     )
-    legacy_github_token_env_var = _env_optional(
-        effective_env,
-        GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR,
-    )
-    github_token_env_var = _env_optional(
-        effective_env,
-        DAYTONA_GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR,
-        default=legacy_github_token_env_var or DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR,
-    )
+    github_token_env_var = _github_token_env_var(effective_env)
     source_mode = normalize_daytona_source_mode(
         _env_optional(
             effective_env,
@@ -335,7 +327,24 @@ def _load_dotenv_if_using_process_env(env: Mapping[str, str] | None) -> None:
     if dotenv_path is not None and dotenv_path.strip():
         load_dotenv(dotenv_path.strip(), override=False)
     else:
-        load_dotenv(override=False)
+        load_dotenv(Path.cwd() / ".env", override=False)
+
+
+def _github_token_env_var(env: Mapping[str, str]) -> str | None:
+    legacy_env_var_name = _env_optional(env, GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR)
+    configured_env_var_name = _env_optional(
+        env,
+        DAYTONA_GITHUB_TOKEN_ENV_VAR_NAME_ENV_VAR,
+    )
+    if configured_env_var_name is not None:
+        return configured_env_var_name
+    if legacy_env_var_name is not None:
+        return legacy_env_var_name
+    if not _env_value_missing(env, DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR):
+        return DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR
+    if not _env_value_missing(env, DEFAULT_GITHUB_TOKEN_ENV_VAR):
+        return DEFAULT_GITHUB_TOKEN_ENV_VAR
+    return DEFAULT_DAYTONA_GITHUB_TOKEN_ENV_VAR
 
 
 def _env_value_missing(env: Mapping[str, str], name: str) -> bool:

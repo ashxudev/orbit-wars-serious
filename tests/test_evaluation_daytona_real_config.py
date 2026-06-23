@@ -162,6 +162,17 @@ class DaytonaRealExecutionConfigTests(unittest.TestCase):
 
         self.assertEqual(readiness.exit_code, 0)
 
+    def test_env_reader_uses_legacy_github_token_when_new_token_is_absent(self) -> None:
+        config = read_daytona_real_execution_config_from_env(
+            {
+                "OW_EVAL_ALLOW_REAL_DAYTONA": "true",
+                "DAYTONA_API_KEY": "daytona-secret",
+                "GITHUB_TOKEN": "github-secret",
+            }
+        )
+
+        self.assertEqual(config.github_token_env_var, "GITHUB_TOKEN")
+
     def test_auto_snapshot_id_resolves_to_current_head_snapshot_name(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         completed = subprocess.run(
@@ -248,6 +259,34 @@ class DaytonaRealExecutionConfigTests(unittest.TestCase):
         self.assertEqual(config.target, "from-process-env")
         self.assertEqual(config.github_token_env_var, "DAYTONA_GITHUB_TOKEN")
         self.assertTrue(config.require_github_token)
+        self.assertTrue(readiness.passed)
+
+    def test_default_dotenv_loads_from_current_working_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env"
+            env_path.write_text(
+                "\n".join(
+                    (
+                        "OW_EVAL_ALLOW_REAL_DAYTONA=1",
+                        "DAYTONA_API_KEY=from-dotenv",
+                        "DAYTONA_TARGET=from-dotenv",
+                        "GITHUB_TOKEN=legacy-from-dotenv",
+                    )
+                ),
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {}, clear=True):
+                old_cwd = Path.cwd()
+                try:
+                    os.chdir(temp_dir)
+                    config = read_daytona_real_execution_config_from_env()
+                    readiness = validate_daytona_real_execution_readiness(config)
+                finally:
+                    os.chdir(old_cwd)
+
+        self.assertTrue(config.allow_real_daytona)
+        self.assertEqual(config.github_token_env_var, "GITHUB_TOKEN")
+        self.assertEqual(config.target, "from-dotenv")
         self.assertTrue(readiness.passed)
 
     def test_explicit_env_mapping_does_not_load_dotenv(self) -> None:
