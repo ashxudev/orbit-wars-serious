@@ -219,12 +219,14 @@ def build_github_bootstrap_argv(
             f"GIT_REF={_shell_quote(git_ref)}",
             f"CHECKOUT_DIR={_shell_quote(checkout_dir)}",
             f"PYTHON_BIN={_shell_quote(python_command)}",
+            'BOOTSTRAP_PYTHON_BIN="$PYTHON_BIN"',
+            'if command -v python3 >/dev/null 2>&1; then BOOTSTRAP_PYTHON_BIN=python3; fi',
             f"TOKEN_ENV={_shell_quote(token_env)}",
             'TOKEN_VALUE=""',
             'if [ -n "$TOKEN_ENV" ]; then TOKEN_VALUE="${!TOKEN_ENV:-}"; fi',
             'CLONE_URL="$REPO_URL"',
             'if [ -n "$TOKEN_VALUE" ]; then',
-            '  CLONE_URL="$("$PYTHON_BIN" -c \'import os,sys,urllib.parse as u; '
+            '  CLONE_URL="$("$BOOTSTRAP_PYTHON_BIN" -c \'import os,sys,urllib.parse as u; '
             'repo=sys.argv[1]; token=os.environ.get(sys.argv[2], ""); '
             'p=u.urlsplit(repo); print(u.urlunsplit((p.scheme, '
             '"x-access-token:"+u.quote(token)+"@"+p.netloc, p.path, p.query, p.fragment)))\' "$REPO_URL" "$TOKEN_ENV")"',
@@ -243,7 +245,7 @@ def build_github_bootstrap_argv(
             '  git -C "$CHECKOUT_DIR" checkout --detach "$GIT_REF"',
             '  test "$(git -C "$CHECKOUT_DIR" rev-parse HEAD)" = "$GIT_REF"',
             "else",
-            '"$PYTHON_BIN" - "$REPO_URL" "$GIT_REF" "$CHECKOUT_DIR" "$TOKEN_ENV" <<\'PY\'',
+            '"$BOOTSTRAP_PYTHON_BIN" - "$REPO_URL" "$GIT_REF" "$CHECKOUT_DIR" "$TOKEN_ENV" <<\'PY\'',
             "import io, os, shutil, sys, urllib.parse, urllib.request, zipfile",
             "repo, ref, checkout_dir, token_env = sys.argv[1:5]",
             "parts = urllib.parse.urlsplit(repo)",
