@@ -455,3 +455,13 @@ Retention mode-split follow-up:
   `2p seat-1 vs claude-v31` collapse remaining. This matched the temporary
   `4p-retention-only` probe while avoiding the submitted retention candidate's
   extra 2P defense margin.
+- Daytona validation used commit
+  `3e1b9f257bb332b2b58c6594011aaa31a6965fe7` and artifacts under
+  `/tmp/ow-4p-retention-daytona`. It matched local evidence at `5/6`: 2P
+  source-guard behavior won `claude-v9` and `ow2-current-main`, lost the known
+  `claude-v31` case, and 4P retention won all three historical pressure
+  scenarios including `mixed-style`.
+- Standalone candidate file was built at
+  `/tmp/orbit_wars_fallback_mode_split_4p_retention_submission.py`, SHA256
+  `0c5e0aa62669ef6e8c24201d821f574b7e2f348acf3365ce9f48eaacd39fe44f`.
+  No Kaggle submission was made; this remains a validated reserve artifact.
