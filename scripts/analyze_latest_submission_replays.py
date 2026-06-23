@@ -176,9 +176,8 @@ def add_action_rows(
     episode: dict[str, Any],
     submission_id: int,
 ) -> dict[str, Any]:
-    # Reuse the compact largest-turn output in the public report; keep full rows
-    # out of the committed JSON to avoid bloating docs with per-action detail.
-    row["action_rows"] = []
+    _ = replay_path, episode, submission_id
+    row.setdefault("action_rows", [])
     return row
 
 

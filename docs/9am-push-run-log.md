@@ -208,3 +208,54 @@ slot, but it is not near the top-10 target. The reserve submission remains
 unused. Further work should continue from the opening-trajectory rewrite
 diagnosis rather than trying to patch V2 into the leaderboard with another
 late-cycle heuristic.
+
+## Post-Submit Reserve Candidate Follow-Up
+
+Goal: continue improving toward a reserve candidate without making another live
+submission. No Kaggle submission was made in this follow-up.
+
+The final fallback live losses and top-player replay sample both point to the
+same gap: the fallback is not materially behind by turn `10` or `20` in 2P, but
+it fails to preserve or convert the turn `40` position. The loss pattern is
+source-drain plus short-hold collapse:
+
+- 2P losses often peak around `26`-`38` production, then lose all production
+  between turns `92` and `131`.
+- 4P collapse losses show the same pattern earlier or under third-party
+  pressure, including short-held productive planets that flip back within a few
+  turns.
+- Direct replay diagnostics found many launches from sources that were lost
+  within `20` turns after launch.
+
+Throwaway local full-500 sweep root:
+`/tmp/ow-fallback-reserve-sweep/`.
+
+Matched pressure scenarios:
+
+- `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness`
+- `historical-gauntlet-2p-500-seat-1-vs-claude-v9-hold-aware-capture`
+- `historical-gauntlet-2p-500-seat-0-vs-ow2-current-main`
+- `historical-gauntlet-4p-500-top-score-seat-3`
+- `historical-gauntlet-4p-500-mixed-style-seat-2`
+- `historical-gauntlet-4p-500-ow2-smoke-reference-seat-0`
+
+Local sweep summary:
+
+| Variant | Wins | Mean rank | Mean survived | Read |
+|---|---:|---:|---:|---|
+| fallback base | `0/6` | `2.00` | `182.5` | baseline collapse |
+| response discount `0.85` | `0/6` | `2.00` | `204.3` | survival up, no wins |
+| strict hold | `0/6` | `2.00` | `196.5` | modest survival up, no wins |
+| strict hold + response discount `0.85` | `0/6` | `2.00` | `204.0` | no clear gain over response discount |
+| enemy margin `8` | `1/6` | `1.83` | `180.6` | one win, broad regression risk |
+| source/short-hold guard | `1/6` | `1.83` | `203.0` | one win, mixed but conceptually aligned |
+| source/short-hold guard + response discount `0.85` | `1/6` | `1.83` | `184.8` | no improvement over source guard |
+
+Decision: source/short-hold guarding is the most defensible reserve-candidate
+surface, but the local evidence is not submission-worthy. The tracked
+`agents.fallback_source_guard` candidate is isolated from default runtime
+behavior and exists only to support broader A/B evaluation. If evaluated next,
+use `scripts/prepare_fallback_source_guard_ab_daytona_package.py` to run a
+matched Daytona A/B against the unmodified fallback baseline. Keep the final
+submission reserve unused unless Daytona and live-game evidence improve
+materially.
