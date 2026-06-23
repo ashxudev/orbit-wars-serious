@@ -4,20 +4,38 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .types import ActionSetPlan, BoardDiagnosis, EvaluatedPlan, MissionFamily, PlannerV2Config
+from .types import (
+    ActionSetPlan,
+    BoardDiagnosis,
+    EvaluatedPlan,
+    MissionFamily,
+    PlannerV2Config,
+    ScenarioEvaluation,
+)
 
 
 def score_action_set_plans(
     action_sets: Sequence[ActionSetPlan],
     diagnosis: BoardDiagnosis,
     config: PlannerV2Config | None = None,
+    *,
+    scenario_evaluations: Sequence[ScenarioEvaluation] = (),
 ) -> tuple[EvaluatedPlan, ...]:
     """Return deterministic scores for candidate action sets."""
 
     effective_config = PlannerV2Config() if config is None else config
     horizons = _scoring_horizons(diagnosis, effective_config)
+    scenarios_by_plan_id = {
+        evaluation.plan_id: evaluation
+        for evaluation in scenario_evaluations
+    }
     evaluated = [
-        _evaluated_plan(plan, diagnosis, horizons)
+        _evaluated_plan(
+            plan,
+            diagnosis,
+            horizons,
+            scenarios_by_plan_id.get(plan.plan_id),
+        )
         for plan in action_sets
     ]
     return tuple(
@@ -32,8 +50,12 @@ def _evaluated_plan(
     plan: ActionSetPlan,
     diagnosis: BoardDiagnosis,
     horizons: tuple[int, ...],
+    scenario_evaluation: ScenarioEvaluation | None,
 ) -> EvaluatedPlan:
-    base_components = _score_components(plan, diagnosis)
+    if scenario_evaluation is not None:
+        return _scenario_evaluated_plan(plan, diagnosis, scenario_evaluation)
+
+    base_components = _legacy_score_components(plan, diagnosis)
     base_score = sum(value for _name, value in base_components)
     horizon_scores = tuple(
         (horizon, _score_for_horizon(base_score, plan, diagnosis, horizon))
@@ -49,11 +71,41 @@ def _evaluated_plan(
         score_components=base_components,
         horizon_scores=horizon_scores,
         selected_horizon=selected_horizon,
+        scenario_evaluation=None,
         labels=plan.labels,
     )
 
 
-def _score_components(
+def _scenario_evaluated_plan(
+    plan: ActionSetPlan,
+    diagnosis: BoardDiagnosis,
+    scenario_evaluation: ScenarioEvaluation,
+) -> EvaluatedPlan:
+    components = _scenario_score_components(plan, diagnosis, scenario_evaluation)
+    horizon_scores = tuple(
+        (outcome.horizon, outcome.score)
+        for outcome in scenario_evaluation.outcomes
+    )
+    if horizon_scores:
+        selected_horizon, selected_score = max(
+            horizon_scores,
+            key=lambda item: (item[1], -item[0]),
+        )
+    else:
+        selected_horizon, selected_score = None, -10000.0
+    score = selected_score + sum(value for _name, value in components)
+    return EvaluatedPlan(
+        plan=plan,
+        score=score,
+        score_components=components,
+        horizon_scores=horizon_scores,
+        selected_horizon=selected_horizon,
+        scenario_evaluation=scenario_evaluation,
+        labels=plan.labels,
+    )
+
+
+def _legacy_score_components(
     plan: ActionSetPlan,
     diagnosis: BoardDiagnosis,
 ) -> tuple[tuple[str, float], ...]:
@@ -93,6 +145,60 @@ def _score_components(
         )
         components.append(("source_drain_risk_cost", -0.5 * risky_committed))
     return tuple(components)
+
+
+def _scenario_score_components(
+    plan: ActionSetPlan,
+    diagnosis: BoardDiagnosis,
+    scenario_evaluation: ScenarioEvaluation,
+) -> tuple[tuple[str, float], ...]:
+    family = plan.missions[0].family if plan.missions else None
+    components: list[tuple[str, float]] = []
+    valid_outcomes = tuple(
+        outcome for outcome in scenario_evaluation.outcomes if outcome.valid
+    )
+    if not scenario_evaluation.valid or not valid_outcomes:
+        return (("invalid_scenario", -10000.0),)
+
+    best_outcome = max(valid_outcomes, key=lambda outcome: (outcome.score, -outcome.horizon))
+    worst_outcome = min(valid_outcomes, key=lambda outcome: (outcome.score, outcome.horizon))
+    components.append(("scenario_best_score", best_outcome.score))
+    if len(valid_outcomes) > 1:
+        components.append(("scenario_worst_score_guard", worst_outcome.score * 0.25))
+    components.append(("mission_priority_tiebreak", _family_tiebreak(family) * 0.5))
+    if plan.missions:
+        components.append(("mission_priority_small", plan.missions[0].priority * 0.02))
+    if "reserve_preserving" in plan.labels:
+        components.append(("reserve_tiebreak", 1.0))
+    if len(plan.missions) > 1:
+        components.append(("coordination_tiebreak", 1.0))
+    if diagnosis.vulnerable_owned_planet_ids and family is MissionFamily.URGENT_DEFEND:
+        components.append(("urgent_defense_tiebreak", 2.0))
+    if best_outcome.eliminated:
+        components.append(("elimination_guard", -1000.0))
+    if scenario_evaluation.has_source_loss:
+        components.append(("source_loss_guard", -120.0))
+    if scenario_evaluation.has_vulnerable_loss:
+        components.append(("vulnerable_loss_guard", -160.0))
+    ships_committed = sum(launch.ships for launch in plan.launches)
+    components.append(("ship_commitment_cost", -0.05 * ships_committed))
+    return tuple(components)
+
+
+def _family_tiebreak(family: MissionFamily | None) -> float:
+    order = {
+        MissionFamily.URGENT_DEFEND: 7.0,
+        MissionFamily.SAFE_EXPAND: 6.0,
+        MissionFamily.HOLD_CAPTURE: 5.0,
+        MissionFamily.RECAPTURE: 5.0,
+        MissionFamily.ENEMY_PRODUCTION_DENIAL: 4.0,
+        MissionFamily.LEADER_PRESSURE: 3.0,
+        MissionFamily.RANK_SWING: 3.0,
+        MissionFamily.MULTI_SOURCE_CAPTURE: 2.0,
+        MissionFamily.FUNNEL_FOR_DOWNSTREAM_ATTACK: 1.0,
+        MissionFamily.LATE_LIQUIDATION: 1.0,
+    }
+    return order.get(family, 0.0)
 
 
 def _scoring_horizons(

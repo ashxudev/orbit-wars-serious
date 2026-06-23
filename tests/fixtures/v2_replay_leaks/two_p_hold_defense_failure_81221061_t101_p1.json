@@ -22,22 +22,11 @@
     "action_count": 1,
     "action_set_count": 16,
     "action_summary": [
-      "26|-2.906661250756393|1"
+      "10|2.9035905447293775|1"
     ],
-    "diagnosis_labels": [
-      "two_player",
-      "owned_production_available",
-      "pressure_visible",
-      "rank_context_visible",
-      "own_transfer_context_visible",
-      "enemy_denial_context_visible",
-      "four_player_plateau_context_visible"
-    ],
-    "evaluated_plan_count": 16,
     "mission_count": 32,
     "no_action_reason": null,
-    "selected_family": "urgent_defend",
-    "selected_horizon": 10
+    "selected_family": "urgent_defend"
   },
   "leak_class": "hold_defense_failure",
   "notes": "2P high-production position keeps sending neutral/moving missions while incoming pressure builds.",

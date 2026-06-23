@@ -19,10 +19,10 @@
   "entry_status": "ACTIVE",
   "episode_steps": 500,
   "expected_current_v2_runtime": {
-    "action_count": 2,
-    "candidate_count": 6,
+    "action_count": 1,
+    "candidate_count": 8,
     "diagnostic_status": "actions",
-    "evaluation_count": 6,
+    "evaluation_count": 8,
     "no_action_reason": "actions_emitted",
     "owned_planet_count": 4,
     "owned_production": 4,
@@ -30,7 +30,7 @@
     "player_id": 3,
     "selected_commitment_type": "reserve_preserving",
     "selected_mission_type": "",
-    "selection_notes": "planner_v2|coordinated_action_set|urgent_defend|reserve_preserving|productive_response|leader_pressure",
+    "selection_notes": "planner_v2|urgent_defend|reserve_preserving|productive_response",
     "selection_status": "selected",
     "state_step": 150
   },

@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .types import BoardDiagnosis, EvaluatedPlan, MissionFamily, PlannerV2Config
+from .types import (
+    BoardDiagnosis,
+    EvaluatedPlan,
+    FallbackRankRecord,
+    MissionFamily,
+    PlannerV2Config,
+)
 
 
 def select_evaluated_plan(
@@ -20,8 +26,31 @@ def select_evaluated_plan(
             return None, "source_less_no_owned_planets", ("no owned planets",)
         return None, "no_action_sets_generated", ("no validated action sets",)
 
+    selectable = _scenario_selectable_plans(evaluated_plans)
+    if not selectable:
+        return (
+            None,
+            "all_plans_invalid_scenario",
+            (f"evaluated_plan_count={len(evaluated_plans)}",),
+        )
+    non_eliminating = tuple(
+        plan
+        for plan in selectable
+        if (
+            plan.scenario_evaluation is None
+            or not plan.scenario_evaluation.has_elimination
+        )
+    )
+    if non_eliminating:
+        selectable = non_eliminating
+
+    best_score = max(plan.score for plan in selectable)
+    close_score_window = 0.25
+    close_plans = tuple(
+        plan for plan in selectable if plan.score >= best_score - close_score_window
+    )
     ordered = sorted(
-        evaluated_plans,
+        close_plans,
         key=lambda plan: (_fallback_rank(plan, diagnosis), -plan.score, plan.plan.plan_id),
     )
     selected = ordered[0]
@@ -40,6 +69,45 @@ def select_evaluated_plan(
         f"family={selected.plan.missions[0].family.value if selected.plan.missions else 'none'}",
         f"score={selected.score}",
     )
+
+
+def fallback_rank_records(
+    evaluated_plans: Sequence[EvaluatedPlan],
+    diagnosis: BoardDiagnosis,
+    selected_plan: EvaluatedPlan | None,
+) -> tuple[FallbackRankRecord, ...]:
+    """Return compact final-ordering diagnostics without changing selection."""
+
+    selected_plan_id = None if selected_plan is None else selected_plan.plan.plan_id
+    ordered = sorted(
+        evaluated_plans,
+        key=lambda plan: (_fallback_rank(plan, diagnosis), -plan.score, plan.plan.plan_id),
+    )
+    return tuple(
+        FallbackRankRecord(
+            plan_id=plan.plan.plan_id,
+            rank=index,
+            score=plan.score,
+            selected=plan.plan.plan_id == selected_plan_id,
+        )
+        for index, plan in enumerate(ordered)
+    )
+
+
+def _scenario_selectable_plans(
+    evaluated_plans: Sequence[EvaluatedPlan],
+) -> tuple[EvaluatedPlan, ...]:
+    plans = tuple(
+        plan
+        for plan in evaluated_plans
+        if (
+            plan.scenario_evaluation is None
+            or plan.scenario_evaluation.valid
+        )
+    )
+    if plans:
+        return plans
+    return ()
 
 
 def _fallback_rank(plan: EvaluatedPlan, diagnosis: BoardDiagnosis) -> int:
@@ -70,4 +138,4 @@ def _fallback_rank(plan: EvaluatedPlan, diagnosis: BoardDiagnosis) -> int:
     return order.get(family, 7)
 
 
-__all__ = ("select_evaluated_plan",)
+__all__ = ("fallback_rank_records", "select_evaluated_plan")

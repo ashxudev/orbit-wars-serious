@@ -13,6 +13,8 @@ from ow_planner_v2 import (
     MissionPlan,
     PlannerV2Mode,
     PlannerV2Config,
+    ScenarioEvaluation,
+    ScenarioOutcome,
     score_action_set_plans,
 )
 
@@ -46,6 +48,31 @@ def action_set(plan_id: str, family: MissionFamily) -> ActionSetPlan:
         ),
         launches=(LaunchCandidate(source_planet_id=1, angle=0.0, ships=2, player_id=0),),
         labels=(family.value,),
+    )
+
+
+def scenario(
+    plan_id: str,
+    *,
+    score: float,
+    valid: bool = True,
+    eliminated: bool = False,
+    source_loss: bool = False,
+    vulnerable_loss: bool = False,
+) -> ScenarioEvaluation:
+    return ScenarioEvaluation(
+        plan_id=plan_id,
+        valid=valid,
+        outcomes=(
+            ScenarioOutcome(
+                horizon=10,
+                valid=valid,
+                score=score,
+                source_planet_lost_ids=(1,) if source_loss else (),
+                vulnerable_planet_lost_ids=(1,) if vulnerable_loss else (),
+                eliminated=eliminated,
+            ),
+        ),
     )
 
 
@@ -90,6 +117,76 @@ class PlannerV2ScoringTests(unittest.TestCase):
             (10, 25, 80),
         )
         self.assertEqual(evaluated[0].selected_horizon, 80)
+
+    def test_scenario_safe_expansion_beats_static_enemy_denial_priority(self) -> None:
+        plans = (
+            action_set("denial", MissionFamily.ENEMY_PRODUCTION_DENIAL),
+            action_set("expand", MissionFamily.SAFE_EXPAND),
+        )
+
+        evaluated = score_action_set_plans(
+            plans,
+            diagnosis(),
+            scenario_evaluations=(
+                scenario("denial", score=-200.0, source_loss=True),
+                scenario("expand", score=40.0),
+            ),
+        )
+
+        self.assertEqual(evaluated[0].plan.plan_id, "expand")
+        self.assertGreater(evaluated[0].score, evaluated[1].score)
+        self.assertIsNotNone(evaluated[0].scenario_evaluation)
+
+    def test_elimination_penalty_dominates_family_priority(self) -> None:
+        plans = (
+            action_set("denial", MissionFamily.ENEMY_PRODUCTION_DENIAL),
+            action_set("expand", MissionFamily.SAFE_EXPAND),
+        )
+
+        evaluated = score_action_set_plans(
+            plans,
+            diagnosis(),
+            scenario_evaluations=(
+                scenario("denial", score=100.0, eliminated=True),
+                scenario("expand", score=20.0),
+            ),
+        )
+
+        self.assertEqual(evaluated[0].plan.plan_id, "expand")
+
+    def test_source_and_vulnerable_loss_penalties_dominate_small_denial_bonus(self) -> None:
+        plans = (
+            action_set("denial", MissionFamily.ENEMY_PRODUCTION_DENIAL),
+            action_set("defend", MissionFamily.URGENT_DEFEND),
+        )
+
+        evaluated = score_action_set_plans(
+            plans,
+            diagnosis(threatened=True),
+            scenario_evaluations=(
+                scenario("denial", score=50.0, source_loss=True, vulnerable_loss=True),
+                scenario("defend", score=10.0),
+            ),
+        )
+
+        self.assertEqual(evaluated[0].plan.plan_id, "defend")
+
+    def test_family_prior_only_breaks_close_scenario_scores(self) -> None:
+        plans = (
+            action_set("denial", MissionFamily.ENEMY_PRODUCTION_DENIAL),
+            action_set("expand", MissionFamily.SAFE_EXPAND),
+        )
+
+        evaluated = score_action_set_plans(
+            plans,
+            diagnosis(),
+            scenario_evaluations=(
+                scenario("denial", score=20.0),
+                scenario("expand", score=20.0),
+            ),
+        )
+
+        self.assertEqual(evaluated[0].plan.plan_id, "expand")
 
 
 if __name__ == "__main__":

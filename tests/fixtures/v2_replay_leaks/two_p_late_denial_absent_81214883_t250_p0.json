@@ -22,21 +22,11 @@
     "action_count": 1,
     "action_set_count": 16,
     "action_summary": [
-      "22|1.2382293161538818|1"
+      "8|-1.2466289293464083|1"
     ],
-    "diagnosis_labels": [
-      "two_player",
-      "owned_production_available",
-      "rank_context_visible",
-      "own_transfer_context_visible",
-      "enemy_denial_context_visible",
-      "four_player_plateau_context_visible"
-    ],
-    "evaluated_plan_count": 16,
     "mission_count": 32,
     "no_action_reason": null,
-    "selected_family": "funnel_for_downstream_attack",
-    "selected_horizon": 10
+    "selected_family": "funnel_for_downstream_attack"
   },
   "leak_class": "late_enemy_denial_absent",
   "notes": "2P rank-one high-production position does not deny opponent buildup before late all-in.",

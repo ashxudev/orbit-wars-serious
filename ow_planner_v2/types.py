@@ -187,6 +187,121 @@ class ActionSetPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class ActionSetPruneRecord:
+    """One V2 action-set plan or possible combination excluded before scoring."""
+
+    reason: str
+    plan: ActionSetPlan | None = None
+    mission_ids: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "mission_ids": list(self.mission_ids),
+            "plan": None if self.plan is None else self.plan.to_dict(),
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ActionSetCoverageReport:
+    """Minimal funnel coverage for action-set construction."""
+
+    single_action_sets: tuple[ActionSetPlan, ...]
+    kept_action_sets: tuple[ActionSetPlan, ...]
+    pruned_action_sets: tuple[ActionSetPruneRecord, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "kept_action_sets": [
+                action_set.to_dict()
+                for action_set in self.kept_action_sets
+            ],
+            "pruned_action_sets": [
+                record.to_dict()
+                for record in self.pruned_action_sets
+            ],
+            "single_action_sets": [
+                action_set.to_dict()
+                for action_set in self.single_action_sets
+            ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioOutcome:
+    """One simulated action-set outcome compared with an idle baseline."""
+
+    horizon: int
+    valid: bool
+    score: float
+    own_production_delta: int = 0
+    own_planet_delta: int = 0
+    own_planet_count: int = 0
+    own_ship_delta: int = 0
+    own_production: int = 0
+    opponent_production_delta: int = 0
+    idle_own_planet_count: int = 0
+    idle_own_production: int = 0
+    target_owned_by_player_count: int = 0
+    target_planet_ids: tuple[int, ...] = ()
+    source_planet_lost_ids: tuple[int, ...] = ()
+    vulnerable_planet_lost_ids: tuple[int, ...] = ()
+    eliminated: bool = False
+    notes: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "eliminated": self.eliminated,
+            "horizon": self.horizon,
+            "notes": list(self.notes),
+            "opponent_production_delta": self.opponent_production_delta,
+            "own_planet_delta": self.own_planet_delta,
+            "own_planet_count": self.own_planet_count,
+            "idle_own_planet_count": self.idle_own_planet_count,
+            "idle_own_production": self.idle_own_production,
+            "own_production_delta": self.own_production_delta,
+            "own_production": self.own_production,
+            "own_ship_delta": self.own_ship_delta,
+            "score": self.score,
+            "source_planet_lost_ids": list(self.source_planet_lost_ids),
+            "target_owned_by_player_count": self.target_owned_by_player_count,
+            "target_planet_ids": list(self.target_planet_ids),
+            "valid": self.valid,
+            "vulnerable_planet_lost_ids": list(self.vulnerable_planet_lost_ids),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioEvaluation:
+    """Scenario outcomes for one action-set plan."""
+
+    plan_id: str
+    outcomes: tuple[ScenarioOutcome, ...]
+    valid: bool
+    notes: tuple[str, ...] = ()
+
+    @property
+    def has_elimination(self) -> bool:
+        return any(outcome.eliminated for outcome in self.outcomes if outcome.valid)
+
+    @property
+    def has_source_loss(self) -> bool:
+        return any(outcome.source_planet_lost_ids for outcome in self.outcomes if outcome.valid)
+
+    @property
+    def has_vulnerable_loss(self) -> bool:
+        return any(outcome.vulnerable_planet_lost_ids for outcome in self.outcomes if outcome.valid)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "notes": list(self.notes),
+            "outcomes": [outcome.to_dict() for outcome in self.outcomes],
+            "plan_id": self.plan_id,
+            "valid": self.valid,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluatedPlan:
     """Planner V2 scored action-set plan."""
 
@@ -195,6 +310,7 @@ class EvaluatedPlan:
     score_components: tuple[tuple[str, float], ...] = ()
     horizon_scores: tuple[tuple[int, float], ...] = ()
     selected_horizon: int | None = None
+    scenario_evaluation: ScenarioEvaluation | None = None
     labels: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
@@ -211,6 +327,46 @@ class EvaluatedPlan:
                 for horizon, score in self.horizon_scores
             ],
             "selected_horizon": self.selected_horizon,
+            "scenario_evaluation": (
+                None
+                if self.scenario_evaluation is None
+                else self.scenario_evaluation.to_dict()
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FallbackRankRecord:
+    """Final-selection ordering evidence for one evaluated V2 plan."""
+
+    plan_id: str
+    rank: int
+    score: float
+    selected: bool = False
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "plan_id": self.plan_id,
+            "rank": self.rank,
+            "score": self.score,
+            "selected": self.selected,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PlannerV2FunnelDiagnostics:
+    """Minimal V2 planner-funnel diagnostics for search diagnosis."""
+
+    action_set_report: ActionSetCoverageReport
+    fallback_ranks: tuple[FallbackRankRecord, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "action_set_report": self.action_set_report.to_dict(),
+            "fallback_ranks": [
+                record.to_dict()
+                for record in self.fallback_ranks
+            ],
         }
 
 
@@ -226,6 +382,7 @@ class PlannerV2Result:
     selected_plan: EvaluatedPlan | None
     no_action_reason: str | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
+    funnel_diagnostics: PlannerV2FunnelDiagnostics | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -242,6 +399,11 @@ class PlannerV2Result:
             "diagnosis": self.diagnosis.to_dict(),
             "evaluated_plans": [plan.to_dict() for plan in self.evaluated_plans],
             "missions": [mission.to_dict() for mission in self.missions],
+            "funnel_diagnostics": (
+                None
+                if self.funnel_diagnostics is None
+                else self.funnel_diagnostics.to_dict()
+            ),
             "no_action_reason": self.no_action_reason,
             "notes": list(self.notes),
             "selected_plan": None if self.selected_plan is None else self.selected_plan.to_dict(),
@@ -257,11 +419,17 @@ def _validate_optional_nonnegative_int(value: object, name: str) -> None:
 
 __all__ = (
     "ActionSetPlan",
+    "ActionSetCoverageReport",
+    "ActionSetPruneRecord",
     "BoardDiagnosis",
     "EvaluatedPlan",
+    "FallbackRankRecord",
     "MissionFamily",
     "MissionPlan",
     "PlannerV2Config",
     "PlannerV2Mode",
+    "PlannerV2FunnelDiagnostics",
     "PlannerV2Result",
+    "ScenarioEvaluation",
+    "ScenarioOutcome",
 )

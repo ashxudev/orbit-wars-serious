@@ -29,13 +29,14 @@ from ow_planner import (
 )
 from ow_sim.state import GameState
 
-from .action_sets import build_action_set_plans
+from .action_sets import build_action_set_report
 from .diagnosis import diagnose_board
-from .fallback import select_evaluated_plan
+from .fallback import fallback_rank_records, select_evaluated_plan
 from .mission_generation import generate_mission_plans
 from .mission_surfaces import generate_surface_candidates
+from .scenario_eval import evaluate_action_set_scenarios
 from .scoring import score_action_set_plans
-from .types import PlannerV2Config, PlannerV2Result
+from .types import PlannerV2Config, PlannerV2FunnelDiagnostics, PlannerV2Result
 
 
 def run_planner_v2(
@@ -107,20 +108,36 @@ def run_planner_v2_from_artifacts(
         evaluations,
         effective_config,
     )
-    action_sets = build_action_set_plans(
+    action_set_report = build_action_set_report(
         missions,
         commitment_options,
+        effective_config,
+    )
+    action_sets = action_set_report.kept_action_sets
+    scenario_evaluations = evaluate_action_set_scenarios(
+        state,
+        action_sets,
+        diagnosis,
         effective_config,
     )
     evaluated_plans = score_action_set_plans(
         action_sets,
         diagnosis,
         effective_config,
+        scenario_evaluations=scenario_evaluations,
     )
     selected_plan, no_action_reason, notes = select_evaluated_plan(
         evaluated_plans,
         diagnosis,
         effective_config,
+    )
+    funnel_diagnostics = PlannerV2FunnelDiagnostics(
+        action_set_report=action_set_report,
+        fallback_ranks=fallback_rank_records(
+            evaluated_plans,
+            diagnosis,
+            selected_plan,
+        ),
     )
     return PlannerV2Result(
         actions=(
@@ -135,6 +152,7 @@ def run_planner_v2_from_artifacts(
         selected_plan=selected_plan,
         no_action_reason=no_action_reason,
         notes=notes,
+        funnel_diagnostics=funnel_diagnostics,
     )
 
 

@@ -61,12 +61,12 @@ def generate_surface_candidates(
         if _surface_limit_reached(candidates, effective_config):
             return tuple(candidates)
 
-    for candidate in _enemy_denial_candidates(state, effective_diagnosis):
+    for candidate in _safe_continuation_candidates(state, effective_diagnosis):
         append(candidate)
         if _surface_limit_reached(candidates, effective_config):
             return tuple(candidates)
 
-    for candidate in _safe_continuation_candidates(state, effective_diagnosis):
+    for candidate in _enemy_denial_candidates(state, effective_diagnosis):
         append(candidate)
         if _surface_limit_reached(candidates, effective_config):
             return tuple(candidates)
@@ -182,10 +182,7 @@ def _safe_continuation_candidates(
     owned = _owned_planets(state, player_id)
     if not owned:
         return ()
-    if diagnosis.mode is PlannerV2Mode.FOUR_PLAYER:
-        targets = _ordered_enemy_targets(state, diagnosis, player_id)
-    else:
-        targets = _ordered_neutral_targets(state, player_id)
+    targets = _ordered_neutral_targets(state, player_id)
     if not targets:
         targets = _ordered_enemy_targets(state, diagnosis, player_id)
     candidates: list[MissionCandidate] = []

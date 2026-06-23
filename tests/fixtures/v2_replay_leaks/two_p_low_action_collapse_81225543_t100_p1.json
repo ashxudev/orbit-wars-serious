@@ -22,21 +22,11 @@
     "action_count": 1,
     "action_set_count": 16,
     "action_summary": [
-      "13|1.2663902406986451|9"
+      "17|-3.1045902829248426|1"
     ],
-    "diagnosis_labels": [
-      "two_player",
-      "owned_production_available",
-      "pressure_visible",
-      "rank_context_visible",
-      "enemy_denial_context_visible",
-      "four_player_plateau_context_visible"
-    ],
-    "evaluated_plan_count": 16,
     "mission_count": 16,
     "no_action_reason": null,
-    "selected_family": "enemy_production_denial",
-    "selected_horizon": 25
+    "selected_family": "funnel_for_downstream_attack"
   },
   "leak_class": "two_player_action_starvation",
   "notes": "2P reaches three planets and production 10, then emits little response before collapse.",

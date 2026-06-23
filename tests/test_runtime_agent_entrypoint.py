@@ -49,6 +49,8 @@ class RuntimeAgentEntrypointTests(unittest.TestCase):
         self.assertIsNotNone(config.planner_config)
         self.assertEqual(config.planner_config.planner_version, PLANNER_VERSION_V2)
         self.assertEqual(config.planner_config.candidate_config.max_candidates, 8)
+        self.assertIsNotNone(config.planner_config.planner_v2_config)
+        self.assertGreaterEqual(config.planner_config.planner_v2_config.max_action_sets, 4)
 
     def test_agent_delegates_standard_call_shape_to_safe_runtime_turn(self) -> None:
         turn_config = RuntimeTurnConfig()

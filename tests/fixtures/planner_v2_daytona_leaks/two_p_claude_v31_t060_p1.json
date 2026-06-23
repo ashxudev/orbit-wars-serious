@@ -18,7 +18,7 @@
     "player_id": 1,
     "selected_commitment_type": "reserve_preserving",
     "selected_mission_type": "",
-    "selection_notes": "planner_v2|enemy_production_denial|reserve_preserving|productive_response",
+    "selection_notes": "planner_v2|funnel_for_downstream_attack|reserve_preserving",
     "selection_status": "selected",
     "state_step": 60
   },

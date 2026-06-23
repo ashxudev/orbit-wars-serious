@@ -29,7 +29,7 @@
   "entry_status": "ACTIVE",
   "episode_steps": 500,
   "expected_current_v2_runtime": {
-    "action_count": 2,
+    "action_count": 1,
     "candidate_count": 11,
     "diagnostic_status": "actions",
     "evaluation_count": 11,
@@ -40,7 +40,7 @@
     "player_id": 1,
     "selected_commitment_type": "reserve_preserving",
     "selected_mission_type": "",
-    "selection_notes": "planner_v2|coordinated_action_set|urgent_defend|reserve_preserving|productive_response|enemy_production_denial",
+    "selection_notes": "planner_v2|urgent_defend|reserve_preserving|productive_response",
     "selection_status": "selected",
     "state_step": 90
   },

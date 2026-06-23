@@ -129,6 +129,50 @@ class PlannerV2ActionSetTests(unittest.TestCase):
         self.assertIn("coordinated_action_set", action_sets[2].labels)
         self.assertEqual(len(action_sets[2].launches), 2)
 
+    def test_action_set_cap_preserves_family_diversity_not_first_prefix(self) -> None:
+        specs = (
+            (MissionFamily.ENEMY_PRODUCTION_DENIAL, candidate(source=1, target=11)),
+            (MissionFamily.LEADER_PRESSURE, candidate(source=2, target=12)),
+            (MissionFamily.SAFE_EXPAND, candidate(source=3, target=13)),
+            (MissionFamily.URGENT_DEFEND, candidate(source=4, target=14)),
+        )
+        missions = tuple(
+            MissionPlan(
+                mission_id=f"mission-{index:04d}",
+                family=family,
+                candidate=mission_candidate,
+                priority=10.0,
+            )
+            for index, (family, mission_candidate) in enumerate(specs)
+        )
+        options = tuple(
+            CandidateCommitmentOptions(
+                candidate=mission_candidate,
+                options=(
+                    CommitmentOption(
+                        option_type=CommitmentOptionType.RESERVE_PRESERVING,
+                        candidate=mission_candidate,
+                        launches=mission_candidate.launches,
+                        source_planet_ids=mission_candidate.source_planet_ids,
+                        ships_committed=4,
+                        status=CommitmentOptionStatus.VALIDATED,
+                    ),
+                ),
+            )
+            for _family, mission_candidate in specs
+        )
+
+        action_sets = build_action_set_plans(
+            missions,
+            options,
+            PlannerV2Config(max_action_sets=2),
+        )
+
+        self.assertEqual(
+            tuple(action_set.missions[0].family for action_set in action_sets),
+            (MissionFamily.SAFE_EXPAND, MissionFamily.URGENT_DEFEND),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

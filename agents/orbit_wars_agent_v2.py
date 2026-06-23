@@ -15,6 +15,7 @@ from ow_planner.actions import KaggleActionRow
 from .runtime_config import runtime_turn_config_for_observation as _base_config
 from .runtime_planner import PLANNER_VERSION_V2, RuntimePlannerConfig
 from .runtime_turn import RuntimeTurnConfig, safe_actions_for_observation
+from ow_planner_v2 import PlannerV2Config
 
 
 def runtime_turn_config_for_observation(
@@ -30,6 +31,11 @@ def runtime_turn_config_for_observation(
         planner_config=replace(
             planner_config,
             planner_version=PLANNER_VERSION_V2,
+            planner_v2_config=(
+                planner_config.planner_v2_config
+                if planner_config.planner_v2_config is not None
+                else PlannerV2Config(max_action_sets=4)
+            ),
         ),
     )
 

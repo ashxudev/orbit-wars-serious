@@ -22,20 +22,11 @@
     "action_count": 1,
     "action_set_count": 16,
     "action_summary": [
-      "16|-1.3349083749403114|5"
+      "9|-0.6952376948960834|1"
     ],
-    "diagnosis_labels": [
-      "four_player",
-      "owned_production_available",
-      "rank_context_visible",
-      "enemy_denial_context_visible",
-      "four_player_plateau_context_visible"
-    ],
-    "evaluated_plan_count": 16,
-    "mission_count": 8,
+    "mission_count": 12,
     "no_action_reason": null,
-    "selected_family": "leader_pressure",
-    "selected_horizon": 50
+    "selected_family": "funnel_for_downstream_attack"
   },
   "leak_class": "four_player_action_starvation",
   "notes": "4P reaches production then goes quiet after opening; source episode loses home later.",

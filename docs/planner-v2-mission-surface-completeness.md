@@ -165,3 +165,257 @@ Priority fixture targets:
 
 Segment sentinel remains pending until the post-fix probes pass:
 `PLANNER_V2_MISSION_SURFACE_COMPLETENESS_COMPLETE`.
+
+## Scenario-Backed Selection Follow-Up
+
+The follow-up scenario-selection work replaces V2's static mission-family
+ordering with scenario-backed action-set scoring. V2 remains opt-in; V1,
+runtime safety, simulator mechanics, action conversion, submission bundling,
+and Kaggle/live-submission behavior remain unchanged.
+
+### Source Artifacts And Fixtures
+
+Compact fixtures were extracted from the post-surface Daytona replay artifacts:
+
+- 2P source root: `/tmp/ow-planner-v2-surface-daytona-2p/`.
+- 4P source root: `/tmp/ow-planner-v2-surface-daytona-4p/`.
+
+New committed fixture directory:
+
+- `tests/fixtures/planner_v2_scenario_selection/`.
+
+Fixture windows:
+
+| Case group | Turns | Player | Purpose |
+|---|---:|---:|---|
+| 2P `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` | `20`, `40`, `54`, `60` | `1` | one-planet pressure, source-drain, and early-collapse characterization |
+| 4P `historical-gauntlet-4p-500-top-score-seat-3` | `20`, `40`, `60`, `80` | `3` | under-expansion, rank/leader pressure, and early-collapse characterization |
+
+The fixtures are compact single-observation cases. They intentionally point to
+the `/tmp` replay/result artifacts as provenance but do not commit full replays
+or generated reports.
+
+### Implementation Summary
+
+- Added `ScenarioOutcome` and `ScenarioEvaluation` diagnostics to
+  `ow_planner_v2.types`.
+- Added `ow_planner_v2.scenario_eval.evaluate_action_set_scenarios(...)`.
+- Scenario evaluation compares each action set against an idle baseline over
+  configured horizons using existing `ow_sim` launch and rollout primitives.
+- `ow_planner_v2.scoring.score_action_set_plans(...)` now uses scenario
+  outcomes as the dominant score when evaluations are supplied.
+- `ow_planner_v2.fallback.select_evaluated_plan(...)` skips invalid scenario
+  plans, avoids simulated elimination when viable alternatives exist, and uses
+  mission-family order only as a tight close-score tie breaker.
+- 4P V2 surface generation now exposes neutral safe-continuation candidates
+  before additional enemy-pressure candidates.
+- Action-set construction now applies family-diverse pre-scenario pruning
+  instead of first-prefix truncation when `max_action_sets` is bounded. The
+  selected set prioritizes representative safe expansion, urgent defense,
+  recapture/hold, enemy denial, and rank/leader-pressure families.
+- The experimental `agents.orbit_wars_agent_v2` entrypoint now evaluates four
+  diverse action sets by default. This fixes the prior reviewer blocker where
+  the entrypoint used `PlannerV2Config(max_action_sets=1)`, which prevented
+  scenario-backed scoring from comparing alternatives. The normal V1 submission
+  entrypoint is unchanged.
+
+### Fixture Before/After Characterization
+
+Under bounded V2 runtime configuration, the scenario-selection fixtures now
+select safe neutral expansion where it scores above enemy or leader pressure:
+
+| Fixture | Failure class | Current selected family | Target class | Runtime result |
+|---|---|---|---|---|
+| `two_p_scenario_selection_t020_p1.json` | `over_aggressive_enemy_pressure` | `safe_expand` | neutral | action emitted |
+| `two_p_scenario_selection_t040_p1.json` | `over_aggressive_enemy_pressure` | `safe_expand` | neutral | action emitted |
+| `two_p_scenario_selection_t054_p1.json` | `early_collapse` | none | none | no owned planets |
+| `two_p_scenario_selection_t060_p1.json` | `early_collapse` | `safe_expand` | neutral | action emitted |
+| `four_p_scenario_selection_t020_p3.json` | `under_expansion` | `safe_expand` | neutral | action emitted |
+| `four_p_scenario_selection_t040_p3.json` | `under_expansion` | `safe_expand` | neutral | action emitted |
+| `four_p_scenario_selection_t060_p3.json` | `under_expansion` | `safe_expand` | neutral | action emitted |
+| `four_p_scenario_selection_t080_p3.json` | `early_collapse` | none | none | no owned planets |
+
+The new diagnostics include selected horizon, scenario notes, production delta,
+planet delta, opponent-production delta, source-lost ids, vulnerable-lost ids,
+and elimination flags.
+
+### Local Full-500 Probe Result
+
+The two one-scenario local full-500 probes were rerun with V2 enabled:
+
+```text
+.venv/bin/python scripts/run_evaluation_experiment.py /tmp/ow-planner-v2-surface-daytona-2p/planner-v2-surface-2p-probe.manifest.source.json --report-output /tmp/ow-planner-v2-scenario-backed-local-2p-report.json
+.venv/bin/python scripts/run_evaluation_experiment.py /tmp/ow-planner-v2-surface-daytona-4p/planner-v2-surface-4p-probe.manifest.source.json --report-output /tmp/ow-planner-v2-scenario-backed-local-4p-report.json
+```
+
+Both commands completed the single scheduled match and wrote reports under
+`/tmp`, but the experiment CLI returned nonzero because the original probe
+manifests still contain multi-scenario promotion thresholds.
+
+| Probe | Completed | Errors | Final rank | Turns survived | Final production | No-action count | Primary no-action evidence |
+|---|---:|---:|---:|---:|---:|---:|---|
+| 2P Claude v31 race-awareness | `1/1` | `0` | `2` | `160` | `0` | `87` | `no_owned_planets:75`, `strategy_selection_no_action:6`, `budget_guard_low_budget:4`, `budget_guard_budget_exhausted:1` |
+| 4P top-score pool | `1/1` | `0` | `2` | `201` | `0` | `156` | `no_owned_planets:135`, `budget_guard_budget_exhausted:15`, `strategy_selection_no_action:4`, `budget_guard_low_budget:1` |
+
+Compared with the last post-surface Daytona probes, this scenario-backed
+selection pass shows partial improvement but does not yet earn promotion
+evidence:
+
+- Compared with the earlier local scenario-backed run that still used the
+  one-action-set bottleneck, 2P survival improved from `106` to `160` turns and
+  4P survival improved from `185` to `201` turns.
+- Compared with the last post-surface Daytona probes, 2P survival improved
+  from `130` to `160` turns and 4P survival improved from `186` to `201` turns.
+- Both probes still lose by production collapse.
+- Strategy-selection no-action remains visible in both full-horizon probes.
+- 4P still has budget-heavy windows under full-horizon pressure.
+- The local results support the architecture and reviewer fix, but they do not
+  yet justify a real Daytona rerun or V2 promotion.
+
+Because the local full-500 gate still ends in production collapse, no real
+Daytona rerun was launched for this cycle.
+
+### Verification
+
+Focused checks run for this scenario-backed selection pass:
+
+```text
+.venv/bin/python -m unittest tests.test_planner_v2_scenario_selection_fixtures tests.test_planner_v2_scenario_eval tests.test_planner_v2_scoring tests.test_planner_v2_fallback
+.venv/bin/python -m unittest tests.test_planner_v2_daytona_leak_fixtures tests.test_planner_v2_mission_surface_completeness tests.test_runtime_planner_pipeline tests.test_runtime_agent_entrypoint tests.test_planner_v2_action_sets
+.venv/bin/python -m unittest tests.test_runtime_state_adapter tests.test_runtime_turn tests.test_runtime_actions tests.test_planner_v2_diagnosis tests.test_planner_v2_mission_generation
+```
+
+These focused checks passed locally. Final validation for this change also
+passed:
+
+```text
+.venv/bin/python -m unittest discover -s tests
+Ran 1496 tests in 262.936s
+OK
+
+.venv/bin/python scripts/evaluation_gate.py
+gate=PASS matches=2 win_rate=1 mean_rank=1 error_rate=0 parity=pass failures=0
+
+.venv/bin/python scripts/submission_preflight.py --quiet-progress
+submission_preflight=PASS total=3 passed=3 failed=0 failed_checks=none exit_code=0
+
+git diff --check
+PASS
+```
+
+### Status
+
+The scenario-backed selector improves compact fixture choices, but the local
+full-500 probes show that V2 is still not promotion-ready. The completion
+sentinel is therefore not emitted:
+
+`PLANNER_V2_SCENARIO_BACKED_SELECTION_COMPLETE` remains pending.
+
+## Controlled Search Diagnosis Follow-Up
+
+The next pass added minimal V2 funnel diagnostics so collapse windows can be
+classified before adding another heuristic. The diagnostics now expose:
+
+- mission family counts;
+- pre-cap single action-set count;
+- kept action-set count;
+- pruned action-set count and prune reason counts;
+- selected plan score components, fallback rank, and scenario outcome summary.
+
+### Latest Local Fixture Set
+
+The fixture source is the latest local full-500 probe artifacts, not the older
+Daytona artifacts:
+
+| Probe | Report | Replay |
+|---|---|---|
+| 2P Claude v31 race-awareness | `/tmp/ow-planner-v2-scenario-backed-local-2p-report.json` | `/tmp/ow-eval-artifacts/planner-v2-surface-2p-probe-match-0000-replay.json` |
+| 4P top-score pool | `/tmp/ow-planner-v2-scenario-backed-local-4p-report.json` | `/tmp/ow-eval-artifacts/planner-v2-surface-4p-probe-match-0000-replay.json` |
+
+New compact fixtures:
+
+- `tests/fixtures/planner_v2_scenario_backed_losses/`.
+
+The fixtures run two diagnostic configurations:
+
+- baseline runtime-like V2: `max_action_sets=4`, horizons `(10, 25, 50)`;
+- offline diagnostic V2: `max_action_sets=16`, horizons `(10, 25, 50, 80)`.
+
+Each fixture is mechanically classified using scenario outcomes. A
+survival-improving plan must avoid elimination, retain owned production, match
+or improve worst-horizon production, avoid source/vulnerable planet loss, and
+beat the selected plan's worst-horizon scenario score.
+
+| Fixture | Bucket | Evidence |
+|---|---|---|
+| `two_p_scenario_backed_loss_t020_p1.json` | `missing_plan` | no survival-improving offline plan |
+| `two_p_scenario_backed_loss_t040_p1.json` | `missing_plan` | no survival-improving offline plan |
+| `two_p_scenario_backed_loss_t054_p1.json` | `missing_plan` | no survival-improving offline plan |
+| `two_p_scenario_backed_loss_t060_p1.json` | `missing_plan` | no survival-improving offline plan |
+| `four_p_scenario_backed_loss_t020_p3.json` | `scored_wrong` | survival-improving plans evaluated offline but baseline selection chooses a worse safe expansion |
+| `four_p_scenario_backed_loss_t040_p3.json` | `scored_wrong` | survival-improving plans evaluated offline but baseline selection chooses a worse safe expansion |
+| `four_p_scenario_backed_loss_t060_p3.json` | `missing_plan` | no survival-improving offline plan |
+| `four_p_scenario_backed_loss_t080_p3.json` | `source_less_terminal` | no owned planets remain |
+
+Dominant diagnosis: `missing_plan` (`5/8` fixtures). The actionable scored-wrong
+subset is smaller (`2/8`) and depends on a longer horizon that does not fit
+comfortably into the normal one-second runtime when combined with a wider
+action-set cap. Because no mechanical survival-improving single-turn plan exists
+for the dominant missing-plan cases, this pass did not add a speculative
+mission-surface heuristic.
+
+### Rejected Wider-Search Experiment
+
+One narrow search-width experiment was tested locally: `max_action_sets=8` with
+single-horizon `(10,)`. It fit the runtime budget, but the full-500 probes got
+worse:
+
+| Probe | Baseline survival | Wider-search survival | Result |
+|---|---:|---:|---|
+| 2P Claude v31 race-awareness | `160` | `128` | regression |
+| 4P top-score pool | `201` | `178` | regression |
+
+The runtime-facing V2 cap therefore remains `max_action_sets=4`; the wider
+short-horizon run is retained only as diagnostic evidence in the compact
+fixtures.
+
+### Diagnostic Segment Verification
+
+The diagnostic segment was stabilized without adding a behavior fix. The V2
+Daytona leak fixture characterization test now disables wall-clock runtime
+budgeting for committed fixture assertions so full-suite machine load does not
+turn a planner-output characterization into a budget-guard assertion.
+
+Current verification results:
+
+```text
+.venv/bin/python -m unittest tests.test_planner_v2_scenario_backed_loss_fixtures
+Ran 5 tests in 10.354s
+OK
+
+.venv/bin/python -m unittest discover -s tests
+Ran 1501 tests in 280.974s
+OK
+
+.venv/bin/python scripts/evaluation_gate.py
+gate=PASS matches=2 win_rate=1 mean_rank=1 error_rate=0 parity=pass failures=0
+
+.venv/bin/python scripts/submission_preflight.py --quiet-progress
+submission_preflight=PASS total=3 passed=3 failed=0 failed_checks=none exit_code=0
+preflight_check=submission_build status=PASS exit_code=0
+preflight_check=submission_parity status=PASS mismatches=0 exit_code=0
+preflight_check=regression_gate status=PASS failures=0 exit_code=0
+
+git diff --check
+PASS
+```
+
+### Next Fix Target
+
+Do not run Daytona from this state. The next deterministic segment should
+target the dominant `missing_plan` class by designing and proving new mission
+surfaces that create an actually survival-improving plan under the mechanical
+definition above. If that still fails, the right next level is strategic
+trajectory evaluation rather than more local collapse-window scoring.
+
+`PLANNER_V2_SCENARIO_BACKED_SELECTION_COMPLETE` remains pending.
