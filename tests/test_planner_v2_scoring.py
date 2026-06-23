@@ -15,13 +15,20 @@ from ow_planner_v2 import (
     PlannerV2Config,
     ScenarioEvaluation,
     ScenarioOutcome,
+    TrajectoryDiagnosis,
+    TrajectoryObjective,
+    TrajectoryPhase,
     score_action_set_plans,
 )
 
 
-def diagnosis(*, threatened: bool = False) -> BoardDiagnosis:
+def diagnosis(
+    *,
+    threatened: bool = False,
+    mode: PlannerV2Mode = PlannerV2Mode.TWO_PLAYER,
+) -> BoardDiagnosis:
     return BoardDiagnosis(
-        mode=PlannerV2Mode.TWO_PLAYER,
+        mode=mode,
         player_id=0,
         active_player_ids=(0, 1),
         opponent_player_ids=(1,),
@@ -65,6 +72,9 @@ def scenario(
     target_hold_failure_production: int = 0,
     vulnerable_loss: bool = False,
     vulnerable_loss_production: int = 0,
+    own_production_delta: int = 0,
+    own_planet_delta: int = 0,
+    target_owned_by_player_count: int = 0,
 ) -> ScenarioEvaluation:
     return ScenarioEvaluation(
         plan_id=plan_id,
@@ -74,6 +84,9 @@ def scenario(
                 horizon=10,
                 valid=valid,
                 score=score,
+                own_production_delta=own_production_delta,
+                own_planet_delta=own_planet_delta,
+                target_owned_by_player_count=target_owned_by_player_count,
                 source_planet_lost_ids=(1,) if source_loss else (),
                 source_planet_lost_production=source_loss_production,
                 source_counterattack_lost_ids=(
@@ -88,6 +101,37 @@ def scenario(
                 vulnerable_planet_lost_production=vulnerable_loss_production,
                 eliminated=eliminated,
             ),
+        ),
+    )
+
+
+def fragile_base_trajectory() -> TrajectoryDiagnosis:
+    return TrajectoryDiagnosis(
+        turn=20,
+        phase=TrajectoryPhase.EARLY_BASE,
+        player_id=0,
+        owned_planet_count=1,
+        owned_production=1,
+        owned_ships=2,
+        owned_fleet_ships=0,
+        best_neutral_production_available=4,
+        nearest_productive_neutral_ids=(2,),
+        nearest_productive_neutral_distances=(12.0,),
+        second_source_secured=False,
+        single_source_fragile=True,
+        source_drain_risk=True,
+        expansion_deficit=1,
+        production_gap_to_leader=3,
+        recommended_objectives=(
+            TrajectoryObjective.SECURE_SECOND_SOURCE,
+            TrajectoryObjective.CAPTURE_NEAREST_PRODUCTIVE_NEUTRAL,
+            TrajectoryObjective.PRESERVE_PRIMARY_SOURCE,
+        ),
+        labels=(
+            "under_expanded",
+            "single_source_fragile",
+            "source_drained",
+            "production_gap_to_leader",
         ),
     )
 
@@ -142,7 +186,7 @@ class PlannerV2ScoringTests(unittest.TestCase):
 
         evaluated = score_action_set_plans(
             plans,
-            diagnosis(),
+            diagnosis(mode=PlannerV2Mode.FOUR_PLAYER),
             scenario_evaluations=(
                 scenario("denial", score=-200.0, source_loss=True),
                 scenario("expand", score=40.0),
@@ -161,7 +205,7 @@ class PlannerV2ScoringTests(unittest.TestCase):
 
         evaluated = score_action_set_plans(
             plans,
-            diagnosis(),
+            diagnosis(mode=PlannerV2Mode.FOUR_PLAYER),
             scenario_evaluations=(
                 scenario("denial", score=100.0, eliminated=True),
                 scenario("expand", score=20.0),
@@ -195,7 +239,7 @@ class PlannerV2ScoringTests(unittest.TestCase):
 
         evaluated = score_action_set_plans(
             plans,
-            diagnosis(),
+            diagnosis(mode=PlannerV2Mode.FOUR_PLAYER),
             scenario_evaluations=(
                 scenario(
                     "denial",
@@ -221,7 +265,7 @@ class PlannerV2ScoringTests(unittest.TestCase):
 
         evaluated = score_action_set_plans(
             plans,
-            diagnosis(),
+            diagnosis(mode=PlannerV2Mode.FOUR_PLAYER),
             scenario_evaluations=(
                 scenario(
                     "thin-capture",
@@ -261,6 +305,49 @@ class PlannerV2ScoringTests(unittest.TestCase):
         )
 
         self.assertEqual(evaluated[0].plan.plan_id, "expand")
+
+    def test_fragile_base_guard_penalizes_non_improving_safe_expand(self) -> None:
+        evaluated = score_action_set_plans(
+            (action_set("expand", MissionFamily.SAFE_EXPAND),),
+            diagnosis(mode=PlannerV2Mode.FOUR_PLAYER),
+            scenario_evaluations=(
+                scenario(
+                    "expand",
+                    score=-0.2,
+                    own_production_delta=0,
+                    own_planet_delta=0,
+                    target_owned_by_player_count=0,
+                ),
+            ),
+            trajectory_diagnosis=fragile_base_trajectory(),
+        )
+
+        self.assertIn(
+            ("fragile_base_non_improving_plan_guard", -120.0),
+            evaluated[0].score_components,
+        )
+        self.assertLess(evaluated[0].score, -100.0)
+
+    def test_fragile_base_guard_does_not_penalize_productive_expand(self) -> None:
+        evaluated = score_action_set_plans(
+            (action_set("expand", MissionFamily.SAFE_EXPAND),),
+            diagnosis(mode=PlannerV2Mode.FOUR_PLAYER),
+            scenario_evaluations=(
+                scenario(
+                    "expand",
+                    score=20.0,
+                    own_production_delta=3,
+                    own_planet_delta=1,
+                    target_owned_by_player_count=1,
+                ),
+            ),
+            trajectory_diagnosis=fragile_base_trajectory(),
+        )
+
+        self.assertNotIn(
+            ("fragile_base_non_improving_plan_guard", -120.0),
+            evaluated[0].score_components,
+        )
 
 
 if __name__ == "__main__":

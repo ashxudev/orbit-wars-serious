@@ -10,6 +10,7 @@ from .types import (
     EvaluatedPlan,
     MissionFamily,
     PlannerV2Config,
+    PlannerV2Mode,
     ScenarioEvaluation,
     ScenarioOutcome,
     TrajectoryDiagnosis,
@@ -196,6 +197,13 @@ def _scenario_score_components(
         components.append(("urgent_defense_tiebreak", 2.0))
     if _should_delay_pressure_until_base_secured(family, trajectory_diagnosis):
         components.append(("base_security_ordering_guard", -50.0))
+    if _should_guard_fragile_non_improving_plan(
+        family,
+        diagnosis,
+        valid_outcomes,
+        trajectory_diagnosis,
+    ):
+        components.append(("fragile_base_non_improving_plan_guard", -120.0))
     if any(outcome.eliminated for outcome in valid_outcomes):
         components.append(("elimination_guard", -1000.0))
     if scenario_evaluation.has_source_loss:
@@ -286,6 +294,38 @@ def _should_delay_pressure_until_base_secured(
         return False
     labels = set(trajectory_diagnosis.labels)
     return bool({"under_expanded", "single_source_fragile"} & labels)
+
+
+def _should_guard_fragile_non_improving_plan(
+    family: MissionFamily | None,
+    diagnosis: BoardDiagnosis,
+    outcomes: Sequence[ScenarioOutcome],
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
+) -> bool:
+    if trajectory_diagnosis is None:
+        return False
+    if diagnosis.mode is not PlannerV2Mode.FOUR_PLAYER:
+        return False
+    if family is MissionFamily.URGENT_DEFEND:
+        return False
+    if trajectory_diagnosis.turn is None or trajectory_diagnosis.turn < 20:
+        return False
+    labels = set(trajectory_diagnosis.labels)
+    if not {"under_expanded", "single_source_fragile"} & labels:
+        return False
+    objectives = set(trajectory_diagnosis.recommended_objectives)
+    if not (
+        TrajectoryObjective.SECURE_SECOND_SOURCE in objectives
+        or TrajectoryObjective.CAPTURE_NEAREST_PRODUCTIVE_NEUTRAL in objectives
+    ):
+        return False
+    return not any(
+        outcome.target_owned_by_player_count > 0
+        or outcome.own_production_delta > 0
+        or outcome.own_planet_delta > 0
+        for outcome in outcomes
+        if outcome.valid
+    )
 
 
 def _family_tiebreak(family: MissionFamily | None) -> float:
