@@ -199,6 +199,11 @@ runs the shard command from that checkout. Historical opponent agents used by
 the gauntlet are committed under `historical_opponents/`, so GitHub mode does
 not upload repo source or package-local copies of historical agents.
 
+After checkout, the GitHub bootstrap installs the committed `requirements.txt`
+when present. This keeps the sandbox dependency set tied to the pushed commit;
+the official `kaggle_environments` dependency is required for real match
+execution and artifact capture.
+
 Real GitHub-mode shard execution fails closed unless the local source commit is
 ready for the sandbox to fetch. Before opening a real Daytona client, the
 guarded runner verifies local `HEAD`, checks for relevant uncommitted source

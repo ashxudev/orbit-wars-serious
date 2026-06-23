@@ -47,6 +47,7 @@ class DaytonaSourceTests(unittest.TestCase):
         self.assertIn("DAYTONA_GITHUB_TOKEN", argv[2])
         self.assertIn("abc123", argv[2])
         self.assertIn("scripts/run_evaluation_shard_job.py", argv[2])
+        self.assertIn('pip install -r "$CHECKOUT_DIR/requirements.txt"', argv[2])
         self.assertNotIn("secret-token", argv[2])
         self.assertEqual(
             redacted_github_repo_url("https://token@github.com/owner/repo.git"),
