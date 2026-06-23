@@ -428,3 +428,17 @@ Retention mode-split follow-up:
 - Kaggle live submission `53993264` was made from the retention standalone file
   with message
   `final retention mode split; commit 95757eb; standalone 5/6 pressure-six; 4p daytona 3/3`.
+- First post-submit status check showed `53993264` complete with public score
+  `600.0`, below both source-guard `53992217` (`727.8`) and fallback
+  `53988022` (`718.1`). Existing replay helper found `0` accessible public
+  episodes for `53993264` at this check, so the score could not yet be
+  attributed from live replay artifacts.
+- Current last-two live submissions after this check are `53993264` retention
+  and `53992217` source-guard. Because source-guard remains in the active pair
+  and has the stronger known public score, the remaining final submission slot
+  was preserved rather than replacing source-guard with an unproven candidate.
+- A temp `4p-retention-only` split, using the original source-guard path in 2P
+  and retention only in 4P, also went `5/6` locally with the same remaining
+  `claude-v31` loss. This suggests the submitted 2P retention margin is not
+  clearly better than the original 2P path; it should be considered only as a
+  follow-up candidate if replay evidence explains the `600.0` score.
