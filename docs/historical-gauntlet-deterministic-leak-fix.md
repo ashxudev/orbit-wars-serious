@@ -555,3 +555,51 @@ This migration is infrastructure-only. It does not rerun the 2P Daytona probe,
 run a 4P probe, submit to Kaggle, or change planner/runtime behavior. The
 segment should emit `GITHUB_DAYTONA_GAUNTLET_READY` only after GitHub-mode real
 2P and 4P Daytona probes complete end to end.
+
+## GitHub-Mode 2P Probe Attempt Status
+
+After the GitHub-backed migration was committed and pushed, the one-scenario 2P
+probe was regenerated under `/tmp/ow-github-daytona-2p-probe/` for:
+
+- Scenario: `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness`
+- Player count: `2`
+- Episode steps: `500`
+- Daytona plan: `/tmp/ow-github-daytona-2p-probe/daytona-shard-jobs.json`
+- Latest attempted Git ref: `7f61486246ccb3d50d140a9d6e3413007989f21b`
+- Source mode: `github`
+- Expected uploads: job JSON and shard manifest only; no historical source
+  files or repo source are uploaded.
+
+Local package materialization, plan validation, and fake Daytona dry-run all
+passed for the one-job plan. Real Daytona execution reached the sandbox
+bootstrap but did not complete the match:
+
+1. First GitHub-mode attempt failed because the Daytona snapshot did not have
+   `git` installed.
+2. A Python GitHub zipball fallback was added and pushed.
+3. The fallback then failed with GitHub `404`, consistent with attempting to
+   fetch a private repository without a GitHub token inside the sandbox.
+4. Local GitHub CLI authentication exists, but using `gh auth token` to export a
+   token into the Daytona sandbox was rejected by the local approval policy as a
+   credential-disclosure action. No token value was printed or committed, and no
+   further credential workaround was attempted.
+
+Current blocker:
+
+- The GitHub-mode Daytona workflow needs an explicitly approved private-repo
+  credential path, or the repository must be cloneable by the Daytona sandbox
+  without a token. Until then, the real 2P and 4P probe cycles remain blocked at
+  private GitHub checkout.
+
+Next safe options:
+
+- Provide explicit approval for a one-time real Daytona run that injects a
+  GitHub token into the sandbox environment, understanding that this discloses
+  the token to the external Daytona execution environment.
+- Configure a Daytona-managed secret/env injection path outside Codex and rerun
+  the same plan.
+- Make the repository publicly cloneable for the probe window and rerun without
+  a token.
+
+Do not emit `GITHUB_DAYTONA_GAUNTLET_READY` until both the 2P and 4P GitHub-mode
+real probes complete end to end and produce shard artifacts.
