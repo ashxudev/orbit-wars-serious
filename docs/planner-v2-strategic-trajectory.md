@@ -279,3 +279,73 @@ This segment produced source-controlled trajectory evidence and a bounded V2
 trajectory surface, then tested it with a 12-match matched Daytona A/B matrix.
 It is not a promotion segment. V2 remains opt-in, no live Kaggle command was
 run, and `trajectory_second_source` remains enabled only for explicit V2 runs.
+
+## 9am Push Evidence
+
+At the start of the 9am push, read-only Kaggle submissions showed the current
+serious submissions remained far below the historical archive:
+
+| Ref | File | Public score |
+|---:|---|---:|
+| `53925932` | `orbit_wars_v2_submission.py` | `423.2` |
+| `53894832` | `orbit_wars_v1_submission.py` | `407.3` |
+| `53555669` | historical `claude-v3-wide-search-forecast` | `912.2` |
+
+Read-only top-player replay analysis was run to `/tmp/ow-top-player-analysis`.
+The current rank-1 public submission was `53958734` from `Isaiah @ Tufa Labs`
+with score `1834.0`. The 10 sampled public replays were all 2P wins. Aggregate
+signals:
+
+- median first production lead: `t20`;
+- median first rank-1 total-ship position: `t20`;
+- mean final production: `37.7`;
+- mean final total ships: `3759.9`;
+- target mix was broad, including enemy, moving enemy, own transfers, neutral,
+  and moving/comet targets;
+- the top player accepts ownership churn but preserves production into the
+  endgame.
+
+This is the useful benchmark for serious-agent work: our V2 collapse windows
+are not just failing to emit actions; they are failing to reach and retain the
+early production curve top players get by roughly turn 20.
+
+## Trajectory Divergence Fixtures
+
+The Daytona A/B artifacts above were compacted into paired divergence fixtures:
+
+- `tests/fixtures/planner_v2_trajectory_divergences/`
+
+The fixture set captures:
+
+- `4p ow2-smoke-reference seat-0`, where trajectory-on regressed from full
+  survival `500` to `184`;
+- `4p mixed-style seat-2`, where trajectory-on improved survival from `163` to
+  `213`;
+- `2p claude-v9 hold-aware/capture`, where trajectory-on improved survival from
+  `94` to `101`.
+
+The dominant class is source-drain / target-choice, not candidate starvation.
+Several replay branches differ because earlier actions moved the game into a
+different state; therefore the fixtures store both replay action context and
+current budgetless V2 rerun diagnostics for trajectory-on and trajectory-off.
+
+The first targeted change from these fixtures is a V2 scenario-scoring guard:
+when trajectory facts say `delay_enemy_denial_until_base_secured` and the state
+is under-expanded or single-source fragile, enemy/leader/rank-pressure plans
+receive a base-security ordering penalty. This changes the severe
+`four_p_ow2_smoke_on_t150_p0` fixture away from `rank_swing` into
+`safe_expand` without adding new candidates or runtime fallback behavior.
+
+Focused validation:
+
+```text
+.venv/bin/python -m unittest tests.test_planner_v2_trajectory_divergence_fixtures
+Ran 6 tests in 39.510s
+OK
+
+.venv/bin/python -m unittest tests.test_planner_v2_trajectory_loss_fixtures tests.test_planner_v2_scenario_backed_loss_fixtures tests.test_planner_v2_scoring tests.test_planner_v2_fallback tests.test_planner_v2_scenario_eval
+Ran 29 tests in 20.451s
+OK
+```
+
+The change still needs broad local/Daytona validation before promotion.

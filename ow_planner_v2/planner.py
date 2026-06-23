@@ -127,6 +127,7 @@ def run_planner_v2_from_artifacts(
         diagnosis,
         effective_config,
         scenario_evaluations=scenario_evaluations,
+        trajectory_diagnosis=trajectory_diagnosis,
     )
     selected_plan, no_action_reason, notes = select_evaluated_plan(
         evaluated_plans,

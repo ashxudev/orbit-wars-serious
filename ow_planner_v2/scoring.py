@@ -11,6 +11,8 @@ from .types import (
     MissionFamily,
     PlannerV2Config,
     ScenarioEvaluation,
+    TrajectoryDiagnosis,
+    TrajectoryObjective,
 )
 
 
@@ -20,6 +22,7 @@ def score_action_set_plans(
     config: PlannerV2Config | None = None,
     *,
     scenario_evaluations: Sequence[ScenarioEvaluation] = (),
+    trajectory_diagnosis: TrajectoryDiagnosis | None = None,
 ) -> tuple[EvaluatedPlan, ...]:
     """Return deterministic scores for candidate action sets."""
 
@@ -35,6 +38,7 @@ def score_action_set_plans(
             diagnosis,
             horizons,
             scenarios_by_plan_id.get(plan.plan_id),
+            trajectory_diagnosis,
         )
         for plan in action_sets
     ]
@@ -51,9 +55,15 @@ def _evaluated_plan(
     diagnosis: BoardDiagnosis,
     horizons: tuple[int, ...],
     scenario_evaluation: ScenarioEvaluation | None,
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
 ) -> EvaluatedPlan:
     if scenario_evaluation is not None:
-        return _scenario_evaluated_plan(plan, diagnosis, scenario_evaluation)
+        return _scenario_evaluated_plan(
+            plan,
+            diagnosis,
+            scenario_evaluation,
+            trajectory_diagnosis,
+        )
 
     base_components = _legacy_score_components(plan, diagnosis)
     base_score = sum(value for _name, value in base_components)
@@ -80,8 +90,14 @@ def _scenario_evaluated_plan(
     plan: ActionSetPlan,
     diagnosis: BoardDiagnosis,
     scenario_evaluation: ScenarioEvaluation,
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
 ) -> EvaluatedPlan:
-    components = _scenario_score_components(plan, diagnosis, scenario_evaluation)
+    components = _scenario_score_components(
+        plan,
+        diagnosis,
+        scenario_evaluation,
+        trajectory_diagnosis,
+    )
     horizon_scores = tuple(
         (outcome.horizon, outcome.score)
         for outcome in scenario_evaluation.outcomes
@@ -151,6 +167,7 @@ def _scenario_score_components(
     plan: ActionSetPlan,
     diagnosis: BoardDiagnosis,
     scenario_evaluation: ScenarioEvaluation,
+    trajectory_diagnosis: TrajectoryDiagnosis | None = None,
 ) -> tuple[tuple[str, float], ...]:
     family = plan.missions[0].family if plan.missions else None
     components: list[tuple[str, float]] = []
@@ -174,6 +191,8 @@ def _scenario_score_components(
         components.append(("coordination_tiebreak", 1.0))
     if diagnosis.vulnerable_owned_planet_ids and family is MissionFamily.URGENT_DEFEND:
         components.append(("urgent_defense_tiebreak", 2.0))
+    if _should_delay_pressure_until_base_secured(family, trajectory_diagnosis):
+        components.append(("base_security_ordering_guard", -50.0))
     if best_outcome.eliminated:
         components.append(("elimination_guard", -1000.0))
     if scenario_evaluation.has_source_loss:
@@ -183,6 +202,25 @@ def _scenario_score_components(
     ships_committed = sum(launch.ships for launch in plan.launches)
     components.append(("ship_commitment_cost", -0.05 * ships_committed))
     return tuple(components)
+
+
+def _should_delay_pressure_until_base_secured(
+    family: MissionFamily | None,
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
+) -> bool:
+    if trajectory_diagnosis is None:
+        return False
+    if family not in (
+        MissionFamily.ENEMY_PRODUCTION_DENIAL,
+        MissionFamily.LEADER_PRESSURE,
+        MissionFamily.RANK_SWING,
+    ):
+        return False
+    objectives = set(trajectory_diagnosis.recommended_objectives)
+    if TrajectoryObjective.DELAY_ENEMY_DENIAL_UNTIL_BASE_SECURED not in objectives:
+        return False
+    labels = set(trajectory_diagnosis.labels)
+    return bool({"under_expanded", "single_source_fragile"} & labels)
 
 
 def _family_tiebreak(family: MissionFamily | None) -> float:
