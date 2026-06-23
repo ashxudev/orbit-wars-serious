@@ -26,6 +26,7 @@ def planner_v2_diagnostics(result: PlannerV2Result) -> dict[str, object]:
             if record.selected:
                 selected_fallback_rank = record.rank
                 break
+    trajectory = result.trajectory_diagnosis
     return {
         "planner_v2_action_count": len(result.actions),
         "planner_v2_action_set_count": len(result.action_sets),
@@ -80,6 +81,19 @@ def planner_v2_diagnostics(result: PlannerV2Result) -> dict[str, object]:
             None
             if scenario is None
             else scenario.valid
+        ),
+        "planner_v2_trajectory": (
+            None if trajectory is None else trajectory.to_dict()
+        ),
+        "planner_v2_trajectory_labels": (
+            [] if trajectory is None else list(trajectory.labels)
+        ),
+        "planner_v2_trajectory_objectives": (
+            []
+            if trajectory is None
+            else [
+                objective.value for objective in trajectory.recommended_objectives
+            ]
         ),
     }
 

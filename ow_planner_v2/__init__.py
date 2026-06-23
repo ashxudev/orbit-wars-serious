@@ -14,6 +14,7 @@ from .planner import (
 )
 from .scenario_eval import evaluate_action_set_scenarios
 from .scoring import score_action_set_plans
+from .trajectory import diagnose_trajectory
 from .types import (
     ActionSetPlan,
     ActionSetCoverageReport,
@@ -29,6 +30,9 @@ from .types import (
     PlannerV2Result,
     ScenarioEvaluation,
     ScenarioOutcome,
+    TrajectoryDiagnosis,
+    TrajectoryObjective,
+    TrajectoryPhase,
 )
 
 __all__ = (
@@ -46,9 +50,13 @@ __all__ = (
     "PlannerV2Result",
     "ScenarioEvaluation",
     "ScenarioOutcome",
+    "TrajectoryDiagnosis",
+    "TrajectoryObjective",
+    "TrajectoryPhase",
     "build_action_set_plans",
     "build_action_set_report",
     "diagnose_board",
+    "diagnose_trajectory",
     "evaluate_action_set_scenarios",
     "generate_mission_plans",
     "generate_surface_candidates",

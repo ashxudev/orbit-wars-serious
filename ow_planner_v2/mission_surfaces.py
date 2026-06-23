@@ -19,6 +19,7 @@ from ow_sim.geometry import angle_between, distance
 from ow_sim.state import GameState, Planet
 
 from .diagnosis import diagnose_board
+from .trajectory import diagnose_trajectory
 from .types import BoardDiagnosis, PlannerV2Config, PlannerV2Mode
 
 
@@ -43,6 +44,7 @@ def generate_surface_candidates(
         return ()
 
     effective_diagnosis = diagnose_board(state) if diagnosis is None else diagnosis
+    trajectory = diagnose_trajectory(state)
     candidates: list[MissionCandidate] = []
     existing_keys = _candidate_keys(existing_candidates)
 
@@ -55,6 +57,11 @@ def generate_surface_candidates(
         if key in _candidate_keys(candidates):
             return
         candidates.append(candidate)
+
+    for candidate in _trajectory_second_source_candidates(state, trajectory):
+        append(candidate)
+        if _surface_limit_reached(candidates, effective_config):
+            return tuple(candidates)
 
     for candidate in _urgent_defense_candidates(state, effective_diagnosis):
         append(candidate)
@@ -125,6 +132,47 @@ def _urgent_defense_candidates(
                 launches=(launch,),
                 outcome=CandidateOutcome.VALIDATED,
                 note="planner_v2_surface:urgent_defense",
+            )
+        )
+    return tuple(candidates)
+
+
+def _trajectory_second_source_candidates(
+    state: GameState,
+    trajectory,
+) -> tuple[MissionCandidate, ...]:
+    player_id = state.player_id
+    if player_id is None:
+        return ()
+    objectives = {
+        objective.value for objective in trajectory.recommended_objectives
+    }
+    if not (
+        "secure_second_source" in objectives
+        or "capture_nearest_productive_neutral" in objectives
+    ):
+        return ()
+    owned = _owned_planets(state, player_id)
+    if not owned:
+        return ()
+    targets = _ordered_neutral_targets(state, player_id)
+    candidates: list[MissionCandidate] = []
+    for target in targets[:4]:
+        source = _source_preserving_source_for_target(owned, target)
+        if source is None:
+            continue
+        ships = _source_preserving_capture_ships(source, target)
+        if ships <= 0:
+            continue
+        launch = _launch_between(source, target, ships, player_id)
+        candidates.append(
+            MissionCandidate(
+                mission_type=MissionType.CAPTURE_NEUTRAL,
+                target_planet_id=target.planet_id,
+                source_planet_ids=(source.planet_id,),
+                launches=(launch,),
+                outcome=CandidateOutcome.VALIDATED,
+                note="planner_v2_surface:trajectory_second_source",
             )
         )
     return tuple(candidates)
@@ -303,6 +351,34 @@ def _target_send_ships(source: Planet, target: Planet) -> int:
     if capacity >= 3:
         return max(2, capacity // 2)
     return capacity
+
+
+def _source_preserving_source_for_target(
+    owned: Sequence[Planet],
+    target: Planet,
+) -> Planet | None:
+    candidates = tuple(
+        planet for planet in owned if _source_preserving_capture_ships(planet, target) > 0
+    )
+    if not candidates:
+        return None
+    return min(
+        candidates,
+        key=lambda planet: (
+            0 if planet.production > 0 else 1,
+            distance(planet.position, target.position),
+            -planet.ships,
+            planet.planet_id,
+        ),
+    )
+
+
+def _source_preserving_capture_ships(source: Planet, target: Planet) -> int:
+    reserve = max(3, source.production * 2 + 1)
+    capture_need = max(1, target.ships + 1)
+    if source.ships - capture_need < reserve:
+        return 0
+    return capture_need
 
 
 def _launch_between(

@@ -36,6 +36,7 @@ from .mission_generation import generate_mission_plans
 from .mission_surfaces import generate_surface_candidates
 from .scenario_eval import evaluate_action_set_scenarios
 from .scoring import score_action_set_plans
+from .trajectory import diagnose_trajectory
 from .types import PlannerV2Config, PlannerV2FunnelDiagnostics, PlannerV2Result
 
 
@@ -102,6 +103,7 @@ def run_planner_v2_from_artifacts(
     _ = response_evaluations, bundles
     effective_config = PlannerV2Config() if config is None else config
     diagnosis = diagnose_board(state) if diagnosis is None else diagnosis
+    trajectory_diagnosis = diagnose_trajectory(state)
     missions = generate_mission_plans(
         diagnosis,
         candidates,
@@ -153,6 +155,7 @@ def run_planner_v2_from_artifacts(
         no_action_reason=no_action_reason,
         notes=notes,
         funnel_diagnostics=funnel_diagnostics,
+        trajectory_diagnosis=trajectory_diagnosis,
     )
 
 

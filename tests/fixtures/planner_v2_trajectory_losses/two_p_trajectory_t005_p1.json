@@ -1,128 +1,139 @@
 {
-  "case_id": "two_p_scenario_backed_loss_t020_p1",
-  "classification_bucket": "missing_plan",
-  "expected_baseline_runtime": {
+  "case_id": "two_p_trajectory_t005_p1",
+  "entry_action_summary": [
+    [
+      23,
+      1.9202861100316073,
+      3
+    ]
+  ],
+  "entry_status": "ACTIVE",
+  "episode_steps": 500,
+  "expected_current_v2_runtime": {
     "action_count": 1,
-    "defend_expand_combo_evaluated": false,
-    "defend_expand_combo_kept": false,
-    "defend_expand_combo_pre_cap": false,
-    "denial_evaluated": true,
-    "denial_kept": true,
-    "denial_pre_cap": true,
-    "hold_or_recapture_evaluated": false,
-    "hold_or_recapture_kept": false,
-    "hold_or_recapture_pre_cap": false,
+    "candidate_count": 9,
     "kept_action_set_count": 4,
     "mission_family_counts": {
-      "enemy_production_denial": 2,
-      "safe_expand": 4
+      "enemy_production_denial": 1,
+      "safe_expand": 8
     },
+    "neutral_production_remaining": 94,
     "no_action_reason": "actions_emitted",
     "owned_planet_count": 1,
     "owned_production": 5,
-    "pre_cap_action_set_count": 6,
+    "owned_ships": 9,
+    "pre_cap_action_set_count": 9,
     "prune_reason_counts": {
-      "lower_family_priority": 2
+      "lower_family_priority": 5
     },
-    "pruned_action_set_count": 2,
-    "safe_expand_evaluated": true,
-    "safe_expand_kept": true,
-    "safe_expand_pre_cap": true,
+    "pruned_action_set_count": 5,
     "selected_family": "safe_expand",
-    "selected_plan_id": "action-set-0000",
+    "selected_scenario_summary": {
+      "outcomes": [
+        {
+          "eliminated": false,
+          "horizon": 10,
+          "idle_own_planet_count": 1,
+          "idle_own_production": 5,
+          "notes": [],
+          "opponent_production_delta": 0,
+          "own_planet_count": 1,
+          "own_planet_delta": 0,
+          "own_production": 5,
+          "own_production_delta": 0,
+          "own_ship_delta": 0,
+          "score": -1.4000000000000001,
+          "source_planet_lost_ids": [],
+          "target_owned_by_player_count": 0,
+          "target_planet_ids": [
+            16
+          ],
+          "valid": true,
+          "vulnerable_planet_lost_ids": []
+        },
+        {
+          "eliminated": false,
+          "horizon": 25,
+          "idle_own_planet_count": 2,
+          "idle_own_production": 8,
+          "notes": [],
+          "opponent_production_delta": 0,
+          "own_planet_count": 2,
+          "own_planet_delta": 0,
+          "own_production": 8,
+          "own_production_delta": 0,
+          "own_ship_delta": 0,
+          "score": -1.4000000000000001,
+          "source_planet_lost_ids": [],
+          "target_owned_by_player_count": 0,
+          "target_planet_ids": [
+            16
+          ],
+          "valid": true,
+          "vulnerable_planet_lost_ids": []
+        },
+        {
+          "eliminated": false,
+          "horizon": 50,
+          "idle_own_planet_count": 3,
+          "idle_own_production": 11,
+          "notes": [],
+          "opponent_production_delta": 0,
+          "own_planet_count": 3,
+          "own_planet_delta": 0,
+          "own_production": 11,
+          "own_production_delta": 0,
+          "own_ship_delta": 0,
+          "score": 16.6,
+          "source_planet_lost_ids": [],
+          "target_owned_by_player_count": 1,
+          "target_planet_ids": [
+            16
+          ],
+          "valid": true,
+          "vulnerable_planet_lost_ids": []
+        }
+      ],
+      "selected_horizon": 50,
+      "valid": true
+    },
     "selected_target_class": "neutral",
-    "selected_worst_outcome": {
-      "eliminated": false,
-      "own_production": 5,
-      "score": -1.4000000000000001,
-      "source_loss": false,
-      "vulnerable_loss": false
-    },
-    "urgent_defend_evaluated": false,
-    "urgent_defend_kept": false,
-    "urgent_defend_pre_cap": false
-  },
-  "expected_offline_diagnostic": {
-    "action_count": 1,
-    "defend_expand_combo_evaluated": false,
-    "defend_expand_combo_kept": false,
-    "defend_expand_combo_pre_cap": false,
-    "denial_evaluated": true,
-    "denial_kept": true,
-    "denial_pre_cap": true,
-    "hold_or_recapture_evaluated": false,
-    "hold_or_recapture_kept": false,
-    "hold_or_recapture_pre_cap": false,
-    "kept_action_set_count": 6,
-    "mission_family_counts": {
-      "enemy_production_denial": 2,
-      "safe_expand": 4
-    },
-    "no_action_reason": "actions_emitted",
-    "owned_planet_count": 1,
-    "owned_production": 5,
-    "pre_cap_action_set_count": 6,
-    "prune_reason_counts": {
-      "shared_source_conflict": 15
-    },
-    "pruned_action_set_count": 15,
-    "safe_expand_evaluated": true,
-    "safe_expand_kept": true,
-    "safe_expand_pre_cap": true,
-    "selected_family": "safe_expand",
-    "selected_plan_id": "action-set-0000",
-    "selected_target_class": "neutral",
-    "selected_worst_outcome": {
-      "eliminated": false,
-      "own_production": 5,
-      "score": -3.1500000000000004,
-      "source_loss": false,
-      "vulnerable_loss": false
-    },
-    "urgent_defend_evaluated": false,
-    "urgent_defend_kept": false,
-    "urgent_defend_pre_cap": false
-  },
-  "expected_wider_short_horizon_diagnostic": {
-    "action_count": 1,
-    "defend_expand_combo_evaluated": false,
-    "defend_expand_combo_kept": false,
-    "defend_expand_combo_pre_cap": false,
-    "denial_evaluated": true,
-    "denial_kept": true,
-    "denial_pre_cap": true,
-    "hold_or_recapture_evaluated": false,
-    "hold_or_recapture_kept": false,
-    "hold_or_recapture_pre_cap": false,
-    "kept_action_set_count": 6,
-    "mission_family_counts": {
-      "enemy_production_denial": 2,
-      "safe_expand": 4
-    },
-    "no_action_reason": "actions_emitted",
-    "owned_planet_count": 1,
-    "owned_production": 5,
-    "pre_cap_action_set_count": 6,
-    "prune_reason_counts": {
-      "shared_source_conflict": 15
-    },
-    "pruned_action_set_count": 15,
-    "safe_expand_evaluated": true,
-    "safe_expand_kept": true,
-    "safe_expand_pre_cap": true,
-    "selected_family": "safe_expand",
-    "selected_plan_id": "action-set-0000",
-    "selected_target_class": "neutral",
-    "selected_worst_outcome": {
-      "eliminated": false,
-      "own_production": 5,
-      "score": -1.4000000000000001,
-      "source_loss": false,
-      "vulnerable_loss": false
-    },
-    "urgent_defend_evaluated": false,
-    "urgent_defend_kept": false,
-    "urgent_defend_pre_cap": false
+    "trajectory": {
+      "best_neutral_production_available": 5,
+      "expansion_deficit": 0,
+      "labels": [
+        "single_source_fragile",
+        "source_drained",
+        "late_denial_before_base"
+      ],
+      "nearest_productive_neutral_distances": [
+        10.823365,
+        12.775931,
+        15.231196
+      ],
+      "nearest_productive_neutral_ids": [
+        15,
+        7,
+        27
+      ],
+      "owned_fleet_ships": 26,
+      "owned_planet_count": 1,
+      "owned_production": 5,
+      "owned_ships": 9,
+      "phase": "opening",
+      "player_id": 1,
+      "production_gap_to_leader": 0,
+      "recommended_objectives": [
+        "secure_second_source",
+        "capture_nearest_productive_neutral",
+        "preserve_primary_source",
+        "delay_enemy_denial_until_base_secured"
+      ],
+      "second_source_secured": false,
+      "single_source_fragile": true,
+      "source_drain_risk": true,
+      "turn": 5
+    }
   },
   "observation": {
     "angular_velocity": 0.029371411624292677,
@@ -130,10 +141,19 @@
     "comets": [],
     "fleets": [
       [
+        0,
+        0,
+        77.1069377120248,
+        72.92949852157315,
+        -0.7044211380522349,
+        20,
+        9
+      ],
+      [
         1,
         1,
-        68.94728859996522,
-        10.996791480388858,
+        43.359125957322846,
+        16.68818310819662,
         -0.21886010807953002,
         23,
         7
@@ -141,8 +161,8 @@
       [
         2,
         1,
-        67.24141109045573,
-        11.376217588909375,
+        41.653248447813354,
+        17.067609216717134,
         -0.21886010807953002,
         23,
         7
@@ -150,8 +170,8 @@
       [
         3,
         0,
-        31.25721237982646,
-        68.0804032940769,
+        58.84502175566357,
+        78.33997487714166,
         -2.7855532164415178,
         20,
         10
@@ -159,8 +179,8 @@
       [
         4,
         1,
-        26.341093809568086,
-        41.24461439746142,
+        31.32450963001587,
+        24.59028486330728,
         1.8615432867830217,
         23,
         2
@@ -168,8 +188,8 @@
       [
         5,
         1,
-        56.654101818463296,
-        41.39448913923024,
+        38.356403606128424,
+        22.623760697911965,
         0.7981584717680846,
         23,
         7
@@ -177,8 +197,8 @@
       [
         6,
         0,
-        78.39547009227958,
-        49.84866117456667,
+        66.83614708004713,
+        77.89943296607552,
         -1.1799148216469038,
         20,
         11
@@ -186,137 +206,11 @@
       [
         7,
         1,
-        26.82288820643911,
-        40.07112021561267,
+        33.588010251285986,
+        21.50858874880241,
         1.9202861100316073,
         23,
         3
-      ],
-      [
-        8,
-        1,
-        55.59565121216435,
-        38.49801293233697,
-        0.8227037048007418,
-        23,
-        7
-      ],
-      [
-        9,
-        1,
-        28.491546161177038,
-        36.309761444099905,
-        1.9790289332801927,
-        23,
-        3
-      ],
-      [
-        11,
-        1,
-        54.70128475352997,
-        35.583447469337706,
-        0.8471640932855491,
-        23,
-        7
-      ],
-      [
-        12,
-        0,
-        69.20935446001538,
-        50.34698693403083,
-        -1.9998190956587496,
-        28,
-        7
-      ],
-      [
-        13,
-        1,
-        30.518293361382216,
-        32.718422052956946,
-        2.037771756528778,
-        23,
-        3
-      ],
-      [
-        14,
-        1,
-        53.96843532627304,
-        32.65840304933328,
-        0.8715289113625129,
-        23,
-        7
-      ],
-      [
-        15,
-        1,
-        32.888439420236345,
-        29.325946350435128,
-        2.0965145797773634,
-        23,
-        3
-      ],
-      [
-        16,
-        1,
-        53.3940892819155,
-        29.730275612696964,
-        0.8957866937387665,
-        23,
-        7
-      ],
-      [
-        17,
-        1,
-        35.585156530549185,
-        26.160012255313113,
-        2.155257403025949,
-        23,
-        3
-      ],
-      [
-        18,
-        0,
-        84.12606419793104,
-        55.53464362348318,
-        -1.1655823299673573,
-        28,
-        32
-      ],
-      [
-        19,
-        0,
-        42.909298218998806,
-        67.70631521339428,
-        -2.2193603436793756,
-        20,
-        30
-      ],
-      [
-        20,
-        1,
-        52.97478968130918,
-        26.806225489751185,
-        0.9199251237756524,
-        23,
-        7
-      ],
-      [
-        21,
-        1,
-        52.7066385376357,
-        23.893156990158523,
-        0.943930906677998,
-        23,
-        7
-      ],
-      [
-        22,
-        1,
-        55.22079312358915,
-        13.274869936132987,
-        -0.183473423889469,
-        23,
-        7
       ]
     ],
     "initial_planets": [
@@ -609,7 +503,7 @@
         4
       ]
     ],
-    "next_fleet_id": 23,
+    "next_fleet_id": 8,
     "planets": [
       [
         0,
@@ -722,8 +616,8 @@
       [
         12,
         -1,
-        59.19063180712107,
-        82.59331893004543,
+        72.21262395285318,
+        75.56152360519334,
         1.0,
         19,
         1
@@ -731,8 +625,8 @@
       [
         13,
         -1,
-        17.406681069954573,
-        59.190631807121065,
+        24.438476394806656,
+        72.21262395285318,
         1.0,
         19,
         1
@@ -740,8 +634,8 @@
       [
         14,
         -1,
-        82.59331893004543,
-        40.809368192878935,
+        75.56152360519334,
+        27.78737604714683,
         1.0,
         19,
         1
@@ -749,8 +643,8 @@
       [
         15,
         -1,
-        40.809368192878935,
-        17.406681069954573,
+        27.78737604714683,
+        24.438476394806653,
         1.0,
         19,
         1
@@ -794,17 +688,17 @@
       [
         20,
         0,
-        48.78848003206864,
-        85.58338217428889,
+        64.07892297193932,
+        82.70212218716694,
         2.6094379124341005,
-        35,
+        5,
         5
       ],
       [
         21,
         -1,
-        14.416617825711114,
-        48.78848003206864,
+        17.297877812833065,
+        64.07892297193932,
         2.6094379124341005,
         29,
         5
@@ -812,8 +706,8 @@
       [
         22,
         -1,
-        85.58338217428889,
-        51.21151996793136,
+        82.70212218716694,
+        35.92107702806067,
         2.6094379124341005,
         29,
         5
@@ -821,17 +715,17 @@
       [
         23,
         1,
-        51.21151996793136,
-        14.416617825711114,
+        35.92107702806067,
+        17.29787781283307,
         2.6094379124341005,
-        23,
+        9,
         5
       ],
       [
         24,
         -1,
-        57.28109483444126,
-        72.93961535666475,
+        66.36855062710248,
+        67.64400309079092,
         1.6931471805599454,
         14,
         2
@@ -839,8 +733,8 @@
       [
         25,
         -1,
-        27.060384643335254,
-        57.28109483444128,
+        32.35599690920908,
+        66.36855062710248,
         1.6931471805599454,
         14,
         2
@@ -848,8 +742,8 @@
       [
         26,
         -1,
-        72.93961535666475,
-        42.71890516555874,
+        67.64400309079092,
+        33.63144937289752,
         1.6931471805599454,
         14,
         2
@@ -857,26 +751,26 @@
       [
         27,
         -1,
-        42.71890516555874,
-        27.06038464333525,
+        33.63144937289752,
+        32.35599690920908,
         1.6931471805599454,
         14,
         2
       ],
       [
         28,
-        0,
-        69.70297970175974,
-        80.34516458248643,
+        -1,
+        80.76238985482426,
+        69.04499391141805,
         2.386294361119891,
-        31,
+        6,
         4
       ],
       [
         29,
         -1,
-        19.654835417513574,
-        69.70297970175974,
+        30.955006088581946,
+        80.76238985482425,
         2.386294361119891,
         6,
         4
@@ -884,8 +778,8 @@
       [
         30,
         -1,
-        80.34516458248643,
-        30.29702029824026,
+        69.04499391141805,
+        19.237610145175744,
         2.386294361119891,
         6,
         4
@@ -893,21 +787,34 @@
       [
         31,
         -1,
-        30.29702029824026,
-        19.654835417513574,
+        19.23761014517574,
+        30.955006088581953,
         2.386294361119891,
         6,
         4
       ]
     ],
     "player": 1,
-    "remainingOverageTime": 59.928561
+    "remainingOverageTime": 60,
+    "step": 5
   },
   "player_count": 2,
   "player_id": 1,
-  "source_label": "historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness",
-  "source_replay_path": "/tmp/ow-eval-artifacts/planner-v2-surface-2p-probe-match-0000-replay.json",
-  "source_result_path": "/tmp/ow-eval-artifacts/planner-v2-surface-2p-probe-match-0000-result.json",
-  "survival_improving_offline_plan_ids": [],
-  "turn": 20
+  "source_probe": "planner-v2-trajectory-local-2p",
+  "source_replay_path": "/tmp/ow-eval-artifacts/planner-v2-trajectory-local-2p-match-0000-replay.json",
+  "source_report_path": "/tmp/ow-planner-v2-trajectory-local-2p-report.json",
+  "source_result_path": "/tmp/ow-eval-artifacts/planner-v2-trajectory-local-2p-match-0000-result.json",
+  "source_scenario_label": "historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness",
+  "trajectory_labels": [
+    "single_source_fragile",
+    "source_drained",
+    "late_denial_before_base"
+  ],
+  "trajectory_objectives": [
+    "secure_second_source",
+    "capture_nearest_productive_neutral",
+    "preserve_primary_source",
+    "delay_enemy_denial_until_base_secured"
+  ],
+  "turn": 5
 }

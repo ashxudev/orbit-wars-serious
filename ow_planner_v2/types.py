@@ -38,6 +38,26 @@ class MissionFamily(str, Enum):
     LATE_LIQUIDATION = "late_liquidation"
 
 
+class TrajectoryPhase(str, Enum):
+    """Coarse V2 trajectory phase labels."""
+
+    OPENING = "opening"
+    EARLY_BASE = "early_base"
+    MIDGAME = "midgame"
+    TERMINAL = "terminal"
+
+
+class TrajectoryObjective(str, Enum):
+    """Measurable V2 trajectory objectives."""
+
+    SECURE_SECOND_SOURCE = "secure_second_source"
+    PRESERVE_PRIMARY_SOURCE = "preserve_primary_source"
+    CAPTURE_NEAREST_PRODUCTIVE_NEUTRAL = "capture_nearest_productive_neutral"
+    DELAY_ENEMY_DENIAL_UNTIL_BASE_SECURED = "delay_enemy_denial_until_base_secured"
+    HOLD_RECENT_CAPTURE = "hold_recent_capture"
+    DENY_AFTER_STABILIZING = "deny_after_stabilizing"
+
+
 @dataclass(frozen=True, slots=True)
 class PlannerV2Config:
     """Configuration for bounded Planner V2 mission/search execution."""
@@ -130,6 +150,55 @@ class BoardDiagnosis:
             "source_drain_risk_planet_ids": list(self.source_drain_risk_planet_ids),
             "transfer_labels": list(self.transfer_labels),
             "vulnerable_owned_planet_ids": list(self.vulnerable_owned_planet_ids),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class TrajectoryDiagnosis:
+    """V2 trajectory facts for early strategic-collapse diagnosis."""
+
+    turn: int | None
+    phase: TrajectoryPhase
+    player_id: int | None
+    owned_planet_count: int
+    owned_production: int
+    owned_ships: int
+    owned_fleet_ships: int
+    best_neutral_production_available: int
+    nearest_productive_neutral_ids: tuple[int, ...] = ()
+    nearest_productive_neutral_distances: tuple[float, ...] = ()
+    second_source_secured: bool = False
+    single_source_fragile: bool = False
+    source_drain_risk: bool = False
+    expansion_deficit: int = 0
+    production_gap_to_leader: int = 0
+    recommended_objectives: tuple[TrajectoryObjective, ...] = ()
+    labels: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "best_neutral_production_available": self.best_neutral_production_available,
+            "expansion_deficit": self.expansion_deficit,
+            "labels": list(self.labels),
+            "nearest_productive_neutral_distances": [
+                round(value, 6)
+                for value in self.nearest_productive_neutral_distances
+            ],
+            "nearest_productive_neutral_ids": list(self.nearest_productive_neutral_ids),
+            "owned_fleet_ships": self.owned_fleet_ships,
+            "owned_planet_count": self.owned_planet_count,
+            "owned_production": self.owned_production,
+            "owned_ships": self.owned_ships,
+            "phase": self.phase.value,
+            "player_id": self.player_id,
+            "production_gap_to_leader": self.production_gap_to_leader,
+            "recommended_objectives": [
+                objective.value for objective in self.recommended_objectives
+            ],
+            "second_source_secured": self.second_source_secured,
+            "single_source_fragile": self.single_source_fragile,
+            "source_drain_risk": self.source_drain_risk,
+            "turn": self.turn,
         }
 
 
@@ -383,6 +452,7 @@ class PlannerV2Result:
     no_action_reason: str | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
     funnel_diagnostics: PlannerV2FunnelDiagnostics | None = None
+    trajectory_diagnosis: TrajectoryDiagnosis | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -407,6 +477,11 @@ class PlannerV2Result:
             "no_action_reason": self.no_action_reason,
             "notes": list(self.notes),
             "selected_plan": None if self.selected_plan is None else self.selected_plan.to_dict(),
+            "trajectory_diagnosis": (
+                None
+                if self.trajectory_diagnosis is None
+                else self.trajectory_diagnosis.to_dict()
+            ),
         }
 
 
@@ -432,4 +507,7 @@ __all__ = (
     "PlannerV2Result",
     "ScenarioEvaluation",
     "ScenarioOutcome",
+    "TrajectoryDiagnosis",
+    "TrajectoryObjective",
+    "TrajectoryPhase",
 )
