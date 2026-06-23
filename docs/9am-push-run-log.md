@@ -259,3 +259,40 @@ use `scripts/prepare_fallback_source_guard_ab_daytona_package.py` to run a
 matched Daytona A/B against the unmodified fallback baseline. Keep the final
 submission reserve unused unless Daytona and live-game evidence improve
 materially.
+
+Follow-up live submission:
+
+- User explicitly requested another live Kaggle submission soon to get results
+  over the next hour.
+- Submitted reserve candidate:
+  `/tmp/orbit_wars_fallback_source_guard_submission.py`.
+- SHA256:
+  `bf8e277a4386409011533ee22dcb34735a0d066c6e4b11b423e081d00e3ae319`.
+- Kaggle ref: `53992217`.
+- Submitted at: `2026-06-24 08:13 AEST`.
+- Submission message:
+  `reserve fallback-source-guard; targets source-drain and short-hold live-loss pattern; commit 6e1b3ba; prior fallback 53988022 score 720 sample 6-6`.
+- Status immediately after submit: `SubmissionStatus.PENDING`.
+- Exploratory/final reserve status: the previously held final reserve has now
+  been used. No further Kaggle submission should be made unless explicitly
+  instructed by the user.
+
+Daytona A/B evidence for the submitted reserve candidate:
+
+- Root: `/tmp/ow-fallback-source-guard-ab-daytona/`.
+- Initial 4-job parallel Daytona plan exceeded the organization memory limit,
+  so the same four jobs were run sequentially as one-job plans.
+- Result: all `4` one-job Daytona runs completed, covering `12` full-500
+  matched historical pressure matches.
+- Summary JSON:
+  `/tmp/ow-fallback-source-guard-ab-daytona/fallback-source-guard-ab-summary.json`.
+
+| Cell | Matches | Wins | Mean rank | Mean survived | Mean final production | Collapses |
+|---|---:|---:|---:|---:|---:|---:|
+| fallback base | `6` | `0` | `2.0` | `188.0` | `0.0` | `6` |
+| source-guard | `6` | `1` | `1.8333` | `193.1667` | `14.0` | `5` |
+
+Interpretation: source-guard is only weakly better than fallback in the matched
+Daytona A/B. It is not proven top-10 quality, but it is directionally aligned
+with the observed live-loss source-drain/short-hold failure class and is now
+live for empirical feedback.
