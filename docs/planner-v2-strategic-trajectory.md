@@ -118,6 +118,119 @@ Interpretation:
   timing/defense worse than the prior action, or whether the selected trajectory
   action creates a delayed source-drain race.
 
+## Daytona A/B Matrix
+
+Cycle: Planner V2 Trajectory Daytona A/B.
+
+Tested commit:
+
+```text
+833be58 Add Planner V2 trajectory A/B tooling
+```
+
+The A/B run compared matched historical pressure scenarios with only the
+`trajectory_second_source` behavior surface toggled. Planner V2 remained
+opt-in. V1/default submission behavior was unchanged.
+
+Source-controlled support added for the matrix:
+
+- `PlannerV2Config.enable_trajectory_second_source`, default `True`.
+- `agents.orbit_wars_agent_v2_trajectory_off`, which disables only
+  `trajectory_second_source` candidate creation while keeping trajectory
+  diagnostics and scenario evaluation enabled.
+- `scripts/prepare_v2_trajectory_ab_daytona_package.py`.
+- `scripts/analyze_v2_trajectory_ab_daytona.py`.
+
+Package and result roots:
+
+```text
+/tmp/ow-v2-trajectory-ab-daytona/
+/tmp/ow-v2-trajectory-ab-daytona/daytona-real-report.json
+/tmp/ow-v2-trajectory-ab-daytona/v2-trajectory-ab-summary.json
+```
+
+Commands used:
+
+```text
+.venv/bin/python scripts/prepare_v2_trajectory_ab_daytona_package.py --output-root /tmp/ow-v2-trajectory-ab-daytona
+.venv/bin/python scripts/prepare_daytona_shard_jobs.py /tmp/ow-v2-trajectory-ab-daytona/package/shard-jobs.index.json --output-path /tmp/ow-v2-trajectory-ab-daytona/daytona-shard-jobs.json --working-dir /workspace/orbit-wars-serious --sandbox-name-prefix ow-v2-trajectory-ab
+.venv/bin/python scripts/validate_daytona_shard_jobs.py /tmp/ow-v2-trajectory-ab-daytona/daytona-shard-jobs.json
+.venv/bin/python scripts/run_daytona_shard_jobs.py /tmp/ow-v2-trajectory-ab-daytona/daytona-shard-jobs.json --dry-run --json-output /tmp/ow-v2-trajectory-ab-daytona/daytona-dry-run-result.json
+.venv/bin/python scripts/run_daytona_real_smoke.py --allow-real-daytona --json-output /tmp/ow-v2-trajectory-ab-daytona/daytona-smoke.json
+.venv/bin/python scripts/run_daytona_real_shard_jobs.py /tmp/ow-v2-trajectory-ab-daytona/daytona-shard-jobs.json --allow-real-daytona --json-output /tmp/ow-v2-trajectory-ab-daytona/daytona-real-report.json
+.venv/bin/python scripts/analyze_v2_trajectory_ab_daytona.py --root /tmp/ow-v2-trajectory-ab-daytona --output-json /tmp/ow-v2-trajectory-ab-daytona/v2-trajectory-ab-summary.json
+```
+
+Daytona execution summary:
+
+```text
+daytona_real_cli=COMPLETE plan_path=/tmp/ow-v2-trajectory-ab-daytona/daytona-shard-jobs.json allow_real_daytona=True events=96 operation_plans=4 exit_code=0
+daytona_client_execution_report=COMPLETE plan_path=/tmp/ow-v2-trajectory-ab-daytona/daytona-shard-jobs.json jobs=4 events=96 operation_plans=4 exit_code=0
+```
+
+Matrix:
+
+| Cell | Mode | Trajectory surface | Scenarios | Episode steps |
+|---|---|---|---:|---:|
+| `2p-off` | 2P | disabled | `3` | `500` |
+| `2p-on` | 2P | enabled | `3` | `500` |
+| `4p-off` | 4P | disabled | `3` | `500` |
+| `4p-on` | 4P | enabled | `3` | `500` |
+
+Scenarios:
+
+| Mode | Scenario |
+|---|---|
+| 2P | `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` |
+| 2P | `historical-gauntlet-2p-500-seat-1-vs-claude-v9-hold-aware-capture` |
+| 2P | `historical-gauntlet-2p-500-seat-0-vs-ow2-current-main` |
+| 4P | `historical-gauntlet-4p-500-top-score-seat-3` |
+| 4P | `historical-gauntlet-4p-500-mixed-style-seat-2` |
+| 4P | `historical-gauntlet-4p-500-ow2-smoke-reference-seat-0` |
+
+Aggregate results:
+
+| Cell | Matches | Complete | Mean rank | Mean survived | No-actions | No-action owned prod | Strategy no-action | Enemy | Neutral | Own transfer |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `2p-off` | `3` | `3` | `2.0` | `105.3333` | `166` | `56` | `26` | `17` | `103` | `30` |
+| `2p-on` | `3` | `3` | `2.0` | `107.6667` | `174` | `66` | `31` | `16` | `103` | `30` |
+| `4p-off` | `3` | `3` | `2.0` | `282.6667` | `487` | `394` | `44` | `27` | `103` | `230` |
+| `4p-on` | `3` | `3` | `2.0` | `213.0` | `503` | `324` | `56` | `11` | `101` | `24` |
+
+Per-scenario observations:
+
+| Scenario | Off survival / zero-owned | On survival / zero-owned | Read |
+|---|---:|---:|---|
+| `2p seat-0 vs ow2-current-main` | `87` / `46` | `87` / `46` | unchanged |
+| `2p seat-1 vs claude-v31-race-awareness` | `135` / `84` | `135` / `87` | slight zero-owned delay |
+| `2p seat-1 vs claude-v9-hold-aware-capture` | `94` / `76` | `101` / `82` | modest survival/zero-owned improvement |
+| `4p mixed-style seat-2` | `163` / `142` | `213` / `183` | material improvement |
+| `4p ow2-smoke-reference seat-0` | `500` / none | `184` / `176` | severe regression |
+| `4p top-score seat-3` | `185` / `113` | `242` / `99` | longer survival but earlier zero-owned |
+
+Decision:
+
+- The A/B result is `noisy/mixed`.
+- The surface is not clearly promotable: it slightly helps two 2P cases and one
+  4P case, but it severely regresses the 4P OW2 smoke-reference case.
+- No default behavior was changed after the matrix.
+- The next useful step is compact divergence-fixture extraction from the
+  largest paired differences, especially:
+  - `4p ow2-smoke-reference seat-0`, where trajectory-on collapses from a
+    completed full-500 run to `184` survived turns;
+  - `4p mixed-style seat-2`, where trajectory-on improves survival from `163`
+    to `213`;
+  - `2p claude-v9 hold-aware/capture`, where trajectory-on modestly improves
+    but increases no-action pressure.
+
+Metrics not available in the current shard-result schema:
+
+- selected V2 family mix per turn;
+- trajectory objective mix per turn.
+
+The generated package, Daytona plan, client report, shard results, replay
+artifacts, and A/B summary remain `/tmp` artifacts and are not source-controlled.
+
 ## Verification
 
 Focused trajectory fixture check:
@@ -131,12 +244,20 @@ OK
 Final validation:
 
 ```text
+.venv/bin/python -m unittest tests.test_planner_v2_trajectory_loss_fixtures tests.test_planner_v2_trajectory_ab_daytona tests.test_planner_v2_scenario_selection_fixtures tests.test_planner_v2_scenario_eval tests.test_planner_v2_scoring tests.test_planner_v2_fallback
+Ran 31 tests in 26.204s
+OK
+
+.venv/bin/python -m unittest tests.test_planner_v2_daytona_leak_fixtures tests.test_planner_v2_mission_surface_completeness tests.test_runtime_planner_pipeline
+Ran 21 tests in 3.778s
+OK
+
 .venv/bin/python -m unittest tests.test_planner_v2_trajectory_loss_fixtures tests.test_planner_v2_scenario_backed_loss_fixtures tests.test_planner_v2_scenario_selection_fixtures tests.test_planner_v2_scenario_eval tests.test_planner_v2_scoring tests.test_planner_v2_fallback tests.test_planner_v2_daytona_leak_fixtures tests.test_planner_v2_mission_surface_completeness tests.test_runtime_planner_pipeline
 Ran 52 tests in 38.679s
 OK
 
 .venv/bin/python -m unittest discover -s tests
-Ran 1506 tests in 297.582s
+Ran 1511 tests in 289.498s
 OK
 
 .venv/bin/python scripts/evaluation_gate.py
@@ -155,5 +276,6 @@ PASS
 ## Status
 
 This segment produced source-controlled trajectory evidence and a bounded V2
-trajectory surface, but it is not a promotion segment. V2 remains opt-in, and no
-Daytona or Kaggle command was run.
+trajectory surface, then tested it with a 12-match matched Daytona A/B matrix.
+It is not a promotion segment. V2 remains opt-in, no live Kaggle command was
+run, and `trajectory_second_source` remains enabled only for explicit V2 runs.
