@@ -144,3 +144,28 @@ Final submission decision:
 - Exploratory live submissions used in this push: `0`.
 - Final submissions used in this push: `1`.
 - Final submissions held in reserve: `1`.
+
+First live-result check:
+
+- Checked at: `2026-06-24 04:16 AEST`.
+- Kaggle status: `SubmissionStatus.COMPLETE`.
+- Public score shown: `594.3`.
+- Public episodes available/analyzed: `3`.
+- Analysis root, kept out of git:
+  `/tmp/orbit-wars-final-53988022-live-analysis/`.
+- Live sample record: `1-2`.
+- Mean final rank: `1.67`.
+- Mean final production: `25.3`.
+
+Episode summary:
+
+| Episode | Mode | Result | Final rank | Final production | Peak production | First zero production after peak |
+|---:|---:|---:|---:|---:|---:|---:|
+| `81519637` | 4P | loss | `2` | `0.0` | `17.0` | `60` |
+| `81519221` | 2P | loss | `2` | `0.0` | `32.0` | `92` |
+| `81518964` | 4P | win | `1` | `76.0` | `76.0` | n/a |
+
+Interpretation: the fallback remains the correct final choice versus serious V2
+because it is already outperforming the current serious submissions, but the
+first three live games are not enough to infer final leaderboard strength. Keep
+the remaining final submission in reserve and continue passive monitoring.
