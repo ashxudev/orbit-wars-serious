@@ -11,6 +11,7 @@ from .types import (
     MissionFamily,
     PlannerV2Config,
     ScenarioEvaluation,
+    ScenarioOutcome,
     TrajectoryDiagnosis,
     TrajectoryObjective,
 )
@@ -177,9 +178,11 @@ def _scenario_score_components(
     if not scenario_evaluation.valid or not valid_outcomes:
         return (("invalid_scenario", -10000.0),)
 
-    best_outcome = max(valid_outcomes, key=lambda outcome: (outcome.score, -outcome.horizon))
+    selected_outcome = max(
+        valid_outcomes,
+        key=lambda outcome: (outcome.score, -outcome.horizon),
+    )
     worst_outcome = min(valid_outcomes, key=lambda outcome: (outcome.score, outcome.horizon))
-    components.append(("scenario_best_score", best_outcome.score))
     if len(valid_outcomes) > 1:
         components.append(("scenario_worst_score_guard", worst_outcome.score * 0.25))
     components.append(("mission_priority_tiebreak", _family_tiebreak(family) * 0.5))
@@ -193,15 +196,77 @@ def _scenario_score_components(
         components.append(("urgent_defense_tiebreak", 2.0))
     if _should_delay_pressure_until_base_secured(family, trajectory_diagnosis):
         components.append(("base_security_ordering_guard", -50.0))
-    if best_outcome.eliminated:
+    if any(outcome.eliminated for outcome in valid_outcomes):
         components.append(("elimination_guard", -1000.0))
     if scenario_evaluation.has_source_loss:
         components.append(("source_loss_guard", -120.0))
+        critical_source_loss = _critical_source_lost_production(
+            valid_outcomes,
+            diagnosis,
+        )
+        if critical_source_loss:
+            components.append(
+                (
+                    "critical_source_production_loss_guard",
+                    -180.0 * critical_source_loss,
+                )
+            )
+    if selected_outcome.source_counterattack_lost_ids:
+        components.append(("source_counterattack_guard", -180.0))
+        counterattack_loss = selected_outcome.source_counterattack_lost_production
+        if counterattack_loss:
+            components.append(
+                (
+                    "source_counterattack_production_guard",
+                    -140.0 * counterattack_loss,
+                )
+            )
+    if selected_outcome.target_hold_failure_ids:
+        components.append(("target_hold_failure_guard", -140.0))
+        target_hold_failure_production = selected_outcome.target_hold_failure_production
+        if target_hold_failure_production:
+            components.append(
+                (
+                    "target_hold_failure_production_guard",
+                    -80.0 * target_hold_failure_production,
+                )
+            )
     if scenario_evaluation.has_vulnerable_loss:
         components.append(("vulnerable_loss_guard", -160.0))
+        vulnerable_loss = max(
+            (
+                outcome.vulnerable_planet_lost_production
+                for outcome in valid_outcomes
+            ),
+            default=0,
+        )
+        if vulnerable_loss:
+            components.append(
+                (
+                    "vulnerable_production_loss_guard",
+                    -120.0 * vulnerable_loss,
+                )
+            )
     ships_committed = sum(launch.ships for launch in plan.launches)
     components.append(("ship_commitment_cost", -0.05 * ships_committed))
     return tuple(components)
+
+
+def _critical_source_lost_production(
+    outcomes: Sequence[ScenarioOutcome],
+    diagnosis: BoardDiagnosis,
+) -> int:
+    max_lost_production = max(
+        (outcome.source_planet_lost_production for outcome in outcomes),
+        default=0,
+    )
+    if max_lost_production <= 0:
+        return 0
+    if diagnosis.owned_planet_count <= 2:
+        return max_lost_production
+    if max_lost_production * 2 >= max(1, diagnosis.owned_production):
+        return max_lost_production
+    return 0
 
 
 def _should_delay_pressure_until_base_secured(

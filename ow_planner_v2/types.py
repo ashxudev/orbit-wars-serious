@@ -317,7 +317,13 @@ class ScenarioOutcome:
     target_owned_by_player_count: int = 0
     target_planet_ids: tuple[int, ...] = ()
     source_planet_lost_ids: tuple[int, ...] = ()
+    source_planet_lost_production: int = 0
+    source_counterattack_lost_ids: tuple[int, ...] = ()
+    source_counterattack_lost_production: int = 0
+    target_hold_failure_ids: tuple[int, ...] = ()
+    target_hold_failure_production: int = 0
     vulnerable_planet_lost_ids: tuple[int, ...] = ()
+    vulnerable_planet_lost_production: int = 0
     eliminated: bool = False
     notes: tuple[str, ...] = ()
 
@@ -335,11 +341,23 @@ class ScenarioOutcome:
             "own_production": self.own_production,
             "own_ship_delta": self.own_ship_delta,
             "score": self.score,
+            "source_counterattack_lost_ids": list(
+                self.source_counterattack_lost_ids
+            ),
+            "source_counterattack_lost_production": (
+                self.source_counterattack_lost_production
+            ),
             "source_planet_lost_ids": list(self.source_planet_lost_ids),
+            "source_planet_lost_production": self.source_planet_lost_production,
+            "target_hold_failure_ids": list(self.target_hold_failure_ids),
+            "target_hold_failure_production": self.target_hold_failure_production,
             "target_owned_by_player_count": self.target_owned_by_player_count,
             "target_planet_ids": list(self.target_planet_ids),
             "valid": self.valid,
             "vulnerable_planet_lost_ids": list(self.vulnerable_planet_lost_ids),
+            "vulnerable_planet_lost_production": (
+                self.vulnerable_planet_lost_production
+            ),
         }
 
 
@@ -359,6 +377,22 @@ class ScenarioEvaluation:
     @property
     def has_source_loss(self) -> bool:
         return any(outcome.source_planet_lost_ids for outcome in self.outcomes if outcome.valid)
+
+    @property
+    def has_source_counterattack_loss(self) -> bool:
+        return any(
+            outcome.source_counterattack_lost_ids
+            for outcome in self.outcomes
+            if outcome.valid
+        )
+
+    @property
+    def has_target_hold_failure(self) -> bool:
+        return any(
+            outcome.target_hold_failure_ids
+            for outcome in self.outcomes
+            if outcome.valid
+        )
 
     @property
     def has_vulnerable_loss(self) -> bool:

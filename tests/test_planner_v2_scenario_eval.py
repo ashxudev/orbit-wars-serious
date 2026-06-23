@@ -123,8 +123,61 @@ class PlannerV2ScenarioEvaluationTests(unittest.TestCase):
         outcome = evaluation.outcomes[0]
         self.assertTrue(outcome.valid)
         self.assertIn(1, outcome.source_planet_lost_ids)
+        self.assertEqual(outcome.source_planet_lost_production, 4)
         self.assertLess(outcome.own_production_delta, 0)
         self.assertIn("source_planet_lost", outcome.notes)
+
+    def test_enemy_response_branch_flags_source_counterattack_loss(self) -> None:
+        board = state(
+            planet(1, 0, 0.0, 0.0, 10, 4),
+            planet(2, 1, 50.0, 0.0, 1, 4),
+            planet(3, 1, 5.0, 0.0, 30, 5),
+        )
+
+        evaluation = evaluate_action_set_scenarios(
+            board,
+            (
+                action_set(
+                    "unsafe-denial",
+                    MissionFamily.ENEMY_PRODUCTION_DENIAL,
+                    ships=8,
+                ),
+            ),
+            diagnose_board(board),
+            PlannerV2Config(horizons=(10,)),
+        )[0]
+
+        outcome = evaluation.outcomes[0]
+        self.assertTrue(outcome.valid)
+        self.assertEqual(outcome.source_counterattack_lost_ids, (1,))
+        self.assertEqual(outcome.source_counterattack_lost_production, 4)
+        self.assertIn("source_counterattack_lost", outcome.notes)
+
+    def test_enemy_response_branch_flags_target_hold_failure(self) -> None:
+        board = state(
+            planet(1, 0, -3.0, 20.0, 50, 2),
+            planet(2, -1, 0.0, 20.0, 1, 4),
+            planet(3, 1, 14.0, 20.0, 30, 3),
+        )
+
+        evaluation = evaluate_action_set_scenarios(
+            board,
+            (
+                action_set(
+                    "thin-capture",
+                    MissionFamily.SAFE_EXPAND,
+                    ships=10,
+                ),
+            ),
+            diagnose_board(board),
+            PlannerV2Config(horizons=(6,)),
+        )[0]
+
+        outcome = evaluation.outcomes[0]
+        self.assertTrue(outcome.valid)
+        self.assertEqual(outcome.target_hold_failure_ids, (2,))
+        self.assertEqual(outcome.target_hold_failure_production, 4)
+        self.assertIn("target_hold_failure", outcome.notes)
 
     def test_invalid_launch_returns_invalid_outcome(self) -> None:
         board = state(

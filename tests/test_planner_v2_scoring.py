@@ -58,7 +58,13 @@ def scenario(
     valid: bool = True,
     eliminated: bool = False,
     source_loss: bool = False,
+    source_loss_production: int = 0,
+    source_counterattack_loss: bool = False,
+    source_counterattack_loss_production: int = 0,
+    target_hold_failure: bool = False,
+    target_hold_failure_production: int = 0,
     vulnerable_loss: bool = False,
+    vulnerable_loss_production: int = 0,
 ) -> ScenarioEvaluation:
     return ScenarioEvaluation(
         plan_id=plan_id,
@@ -69,7 +75,17 @@ def scenario(
                 valid=valid,
                 score=score,
                 source_planet_lost_ids=(1,) if source_loss else (),
+                source_planet_lost_production=source_loss_production,
+                source_counterattack_lost_ids=(
+                    (1,) if source_counterattack_loss else ()
+                ),
+                source_counterattack_lost_production=(
+                    source_counterattack_loss_production
+                ),
+                target_hold_failure_ids=(2,) if target_hold_failure else (),
+                target_hold_failure_production=target_hold_failure_production,
                 vulnerable_planet_lost_ids=(1,) if vulnerable_loss else (),
+                vulnerable_planet_lost_production=vulnerable_loss_production,
                 eliminated=eliminated,
             ),
         ),
@@ -170,6 +186,64 @@ class PlannerV2ScoringTests(unittest.TestCase):
         )
 
         self.assertEqual(evaluated[0].plan.plan_id, "defend")
+
+    def test_critical_source_production_loss_dominates_optimistic_best_horizon(self) -> None:
+        plans = (
+            action_set("denial", MissionFamily.ENEMY_PRODUCTION_DENIAL),
+            action_set("expand", MissionFamily.SAFE_EXPAND),
+        )
+
+        evaluated = score_action_set_plans(
+            plans,
+            diagnosis(),
+            scenario_evaluations=(
+                scenario(
+                    "denial",
+                    score=500.0,
+                    source_loss=True,
+                    source_loss_production=3,
+                ),
+                scenario("expand", score=20.0),
+            ),
+        )
+
+        self.assertEqual(evaluated[0].plan.plan_id, "expand")
+        self.assertIn(
+            ("critical_source_production_loss_guard", -540.0),
+            evaluated[1].score_components,
+        )
+
+    def test_counterattack_and_hold_failure_guards_penalize_brittle_capture(self) -> None:
+        plans = (
+            action_set("thin-capture", MissionFamily.ENEMY_PRODUCTION_DENIAL),
+            action_set("expand", MissionFamily.SAFE_EXPAND),
+        )
+
+        evaluated = score_action_set_plans(
+            plans,
+            diagnosis(),
+            scenario_evaluations=(
+                scenario(
+                    "thin-capture",
+                    score=450.0,
+                    source_counterattack_loss=True,
+                    source_counterattack_loss_production=3,
+                    target_hold_failure=True,
+                    target_hold_failure_production=4,
+                ),
+                scenario("expand", score=20.0),
+            ),
+        )
+
+        self.assertEqual(evaluated[0].plan.plan_id, "expand")
+        self.assertIn(
+            ("source_counterattack_production_guard", -420.0),
+            evaluated[1].score_components,
+        )
+        self.assertIn(
+            ("target_hold_failure_production_guard", -320.0),
+            evaluated[1].score_components,
+        )
 
     def test_family_prior_only_breaks_close_scenario_scores(self) -> None:
         plans = (
