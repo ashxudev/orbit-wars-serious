@@ -101,7 +101,7 @@ class HistoricalChampionGauntletManifestTests(unittest.TestCase):
 
                 self.assertEqual(manifest.candidate_agent.name, "orbit-wars-runtime-v2")
                 self.assertEqual(manifest.candidate_agent.source_kind, AgentSourceKind.MODULAR_AGENT)
-                self.assertEqual(manifest.candidate_agent.module_path, "agents.orbit_wars_agent")
+                self.assertEqual(manifest.candidate_agent.module_path, "agents.orbit_wars_agent_v2")
 
     def test_every_scenario_is_full_horizon_and_schema_valid(self) -> None:
         expected_counts = {

@@ -3,7 +3,7 @@
     "callable_name": "agent",
     "file_path": null,
     "metadata": {},
-    "module_path": "agents.orbit_wars_agent",
+    "module_path": "agents.orbit_wars_agent_v2",
     "name": "orbit-wars-runtime-v2",
     "source_kind": "modular_agent"
   },

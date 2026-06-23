@@ -232,9 +232,13 @@ class EvaluationManifestFixtureTests(unittest.TestCase):
                     manifest.candidate_agent.source_kind,
                     AgentSourceKind.MODULAR_AGENT,
                 )
+                if name.startswith("historical-champion-gauntlet-"):
+                    expected_module_path = "agents.orbit_wars_agent_v2"
+                else:
+                    expected_module_path = "agents.orbit_wars_agent"
                 self.assertEqual(
                     manifest.candidate_agent.module_path,
-                    "agents.orbit_wars_agent",
+                    expected_module_path,
                 )
                 for scenario in manifest.scenarios:
                     for opponent in scenario.opponent_agents:
