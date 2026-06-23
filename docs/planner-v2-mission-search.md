@@ -104,7 +104,18 @@ Interpretation: Planner V2 is locally executable and does not regress the
 bounded smoke suites, but it has not yet beaten V1 on the first full-500
 historical champion probes. It should remain opt-in.
 
-GitHub-backed Daytona promotion is blocked until the current V2 implementation
-is committed and pushed, because real Daytona execution is guarded by the
-commit/push preflight. After that, run selected V2 Daytona probes before any
-default switch.
+The V2 implementation was committed and pushed as
+`0dc38e4251ad8b32c419db322ab2116011016c66`, then tested through two
+GitHub-backed Daytona probes. Both probes used source mode `github`; the
+sandbox cloned the pushed commit, and no repo-source package upload was used.
+
+| Daytona probe | Status | Result | Artifact paths |
+|---|---|---|---|
+| `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` | complete, `1/1` match, `0` execution errors | final rank `2`, final score `-1.0`, survived `109` turns, production collapse `true`, no-action count `47`, no-action with owned production `38` | `/tmp/ow-planner-v2-daytona-2p/planner-v2-2p-probe-0000.artifacts/planner-v2-2p-probe-0000-match-0000-replay.json`; `/tmp/ow-planner-v2-daytona-2p/planner-v2-2p-probe-0000.artifacts/planner-v2-2p-probe-0000-match-0000-result.json` |
+| `historical-gauntlet-4p-500-top-score-seat-3` | complete, `1/1` match, `0` execution errors | final rank `2`, final score `-1.0`, survived `244` turns, production collapse `true`, no-action count `107`, no-action with owned production `47` | `/tmp/ow-planner-v2-daytona-4p/planner-v2-4p-probe-0000.artifacts/planner-v2-4p-probe-0000-match-0000-replay.json`; `/tmp/ow-planner-v2-daytona-4p/planner-v2-4p-probe-0000.artifacts/planner-v2-4p-probe-0000-match-0000-result.json` |
+
+Daytona execution conclusion: GitHub-backed V2 execution works end to end and
+produces replay/result artifacts, but V2 is not promotion-ready. The selected
+full-horizon historical probes still lose with production collapse. Next work
+should extract compact fixtures from the Daytona artifacts above and improve V2
+mission/search policy before any default switch.
