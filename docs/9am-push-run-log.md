@@ -414,3 +414,17 @@ Retention mode-split follow-up:
 - Focused validation:
   `.venv/bin/python -m unittest tests.test_fallback_mode_split_retention_candidate tests.test_fallback_mode_split_candidate tests.test_fallback_source_guard_candidate -v`
   and `git diff --check`.
+- Standalone final-check file:
+  `/tmp/orbit_wars_fallback_mode_split_retention_submission.py`, SHA256
+  `d29d3ff58341fead1732eb6cd609981294296f0f8ce10c9454cfd80e27a4de27`.
+  The standalone pressure-six check also went `5/6`, mean rank `1.167`,
+  mean score `0.667`, with only `2p seat-1 vs claude-v31` still lost.
+- Daytona retention validation used commit
+  `95757eb6363ff15406a12a69d3b828b4294393c0` and artifacts under
+  `/tmp/ow-mode-split-retention-daytona`. It matched local evidence at `5/6`:
+  2P wins against `claude-v9` and `ow2-current-main`, 4P wins against
+  `top-score`, `mixed-style`, and `ow2-smoke-reference`; only `claude-v31`
+  remained a zero-production collapse.
+- Kaggle live submission `53993264` was made from the retention standalone file
+  with message
+  `final retention mode split; commit 95757eb; standalone 5/6 pressure-six; 4p daytona 3/3`.
