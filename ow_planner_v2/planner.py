@@ -109,6 +109,7 @@ def run_planner_v2_from_artifacts(
         candidates,
         evaluations,
         effective_config,
+        trajectory_diagnosis=trajectory_diagnosis,
     )
     action_set_report = build_action_set_report(
         missions,
@@ -121,6 +122,7 @@ def run_planner_v2_from_artifacts(
         action_sets,
         diagnosis,
         effective_config,
+        trajectory_diagnosis=trajectory_diagnosis,
     )
     evaluated_plans = score_action_set_plans(
         action_sets,

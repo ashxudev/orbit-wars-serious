@@ -349,3 +349,55 @@ OK
 ```
 
 The change still needs broad local/Daytona validation before promotion.
+
+## 4P Trajectory Continuation Bridge
+
+The next 9am-push segment added a V2-only continuation bridge for the case
+where a second source has been secured but the base is still drained. This is
+not a live-promotion change. It makes the trajectory contract explicit so later
+work can test and tune the multi-turn sequence:
+
+```text
+secure productive base -> preserve/hold drained source -> unlock denial
+```
+
+Source changes:
+
+- `TrajectoryDiagnosis` now records `preservation_target_planet_ids` and
+  `denial_unlocked`.
+- `MissionPlan` now carries trajectory objective and target metadata.
+- `ScenarioOutcome` records preservation-target losses separately from source,
+  target-hold, and vulnerable-planet losses.
+- `mission_surfaces.py` can generate bounded 4P-only
+  `planner_v2_surface:trajectory_preserve_source` reinforce candidates.
+- `scoring.py` adds 4P-only preservation/denial-lock components so drained
+  secured bases prefer preservation before leader/denial pressure.
+
+The surface is intentionally scoped to 4P. An initial unscoped version changed
+the `two_p_trajectory_t054_p1` compact fixture away from a productive neutral
+expansion into a hold action; that was rejected as a 2P regression risk. The
+scoped version leaves that 2P fixture on `safe_expand` while adding
+preservation diagnostics to the 4P source-drain divergence windows.
+
+Validation:
+
+```text
+.venv/bin/python -m unittest tests.test_planner_v2_trajectory_continuation tests.test_planner_v2_trajectory_loss_fixtures tests.test_planner_v2_trajectory_divergence_fixtures tests.test_planner_v2_scenario_selection_fixtures tests.test_planner_v2_scenario_backed_loss_fixtures tests.test_v2_replay_leak_fixtures tests.test_runtime_planner_pipeline tests.test_planner_v2_scoring tests.test_planner_v2_scenario_eval tests.test_planner_v2_mission_generation tests.test_planner_v2_mission_surface_completeness
+Ran 71 tests in 162.416s
+OK
+```
+
+Daytona evidence for the previous fragile-base guard at commit `3f8514b` was
+captured under `/tmp/ow-9am-v2-fragile-guard-probe/`. The filtered shard-004
+and shard-005 run completed 10 full-500 historical matches with zero execution
+errors, but every match lost. Aggregate results:
+
+| Mode | Matches | Mean survived | Mean final rank | Mean final production | Collapse rate |
+|---|---:|---:|---:|---:|---:|
+| 2P | `6` | `103.67` | `2.0` | `0.0` | `1.0` |
+| 4P | `4` | `173.0` | `2.0` | `1.25` | `0.75` |
+
+Interpretation: the fragile-base guard is not a promotion candidate. The 4P
+continuation bridge should be treated as source-controlled planner
+infrastructure and fixture evidence, then validated with a fresh current-commit
+Daytona probe before any submission decision.

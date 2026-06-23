@@ -7,14 +7,15 @@
     "action_count": 1,
     "actions": [
       [
-        17,
-        -0.0065111017918901915,
-        1
+        16,
+        3.135081551797903,
+        2
       ]
     ],
     "candidate_count": null,
     "kept_action_set_count": 4,
     "mission_family_counts": {
+      "hold_capture": 1,
       "leader_pressure": 4,
       "recapture": 4,
       "urgent_defend": 2
@@ -25,40 +26,14 @@
     "owned_ships": 27,
     "pre_cap_action_set_count": null,
     "prune_reason_counts": {
-      "lower_family_priority": 6
+      "lower_family_priority": 7
     },
-    "pruned_action_set_count": 6,
-    "selected_family": "urgent_defend",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": -0.0065111017918901915,
-          "player_id": null,
-          "ships": 1,
-          "source_planet_id": 17
-        }
-      ],
-      "missions": [
-        {
-          "family": "urgent_defend",
-          "labels": [
-            "targets_vulnerable_owned_planet"
-          ],
-          "mission_id": "mission-0000",
-          "mission_type": "reinforce",
-          "priority": 100.0,
-          "source_planet_ids": [
-            17
-          ],
-          "target_planet_id": 16
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": 48.5
-    },
+    "pruned_action_set_count": 7,
+    "selected_family": "hold_capture",
     "selected_target_class": "owned",
     "trajectory": {
       "best_neutral_production_available": 2,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -81,6 +56,9 @@
       "owned_ships": 27,
       "phase": "opening",
       "player_id": 2,
+      "preservation_target_planet_ids": [
+        17
+      ],
       "production_gap_to_leader": 52,
       "recommended_objectives": [
         "preserve_primary_source",
@@ -97,14 +75,15 @@
     "action_count": 1,
     "actions": [
       [
-        17,
-        -0.0065111017918901915,
-        1
+        16,
+        3.135081551797903,
+        2
       ]
     ],
     "candidate_count": null,
     "kept_action_set_count": 4,
     "mission_family_counts": {
+      "hold_capture": 1,
       "leader_pressure": 4,
       "recapture": 4,
       "urgent_defend": 2
@@ -115,40 +94,14 @@
     "owned_ships": 27,
     "pre_cap_action_set_count": null,
     "prune_reason_counts": {
-      "lower_family_priority": 6
+      "lower_family_priority": 7
     },
-    "pruned_action_set_count": 6,
-    "selected_family": "urgent_defend",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": -0.0065111017918901915,
-          "player_id": null,
-          "ships": 1,
-          "source_planet_id": 17
-        }
-      ],
-      "missions": [
-        {
-          "family": "urgent_defend",
-          "labels": [
-            "targets_vulnerable_owned_planet"
-          ],
-          "mission_id": "mission-0000",
-          "mission_type": "reinforce",
-          "priority": 100.0,
-          "source_planet_ids": [
-            17
-          ],
-          "target_planet_id": 16
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": 48.5
-    },
+    "pruned_action_set_count": 7,
+    "selected_family": "hold_capture",
     "selected_target_class": "owned",
     "trajectory": {
       "best_neutral_production_available": 2,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -171,6 +124,9 @@
       "owned_ships": 27,
       "phase": "opening",
       "player_id": 2,
+      "preservation_target_planet_ids": [
+        17
+      ],
       "production_gap_to_leader": 52,
       "recommended_objectives": [
         "preserve_primary_source",

@@ -29,34 +29,10 @@
     },
     "pruned_action_set_count": 9,
     "selected_family": "funnel_for_downstream_attack",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": 0.903128325255677,
-          "player_id": null,
-          "ships": 1,
-          "source_planet_id": 16
-        }
-      ],
-      "missions": [
-        {
-          "family": "funnel_for_downstream_attack",
-          "labels": [],
-          "mission_id": "mission-0005",
-          "mission_type": "reinforce",
-          "priority": 30.0,
-          "source_planet_ids": [
-            16
-          ],
-          "target_planet_id": 8
-        }
-      ],
-      "plan_id": "action-set-0005",
-      "score": 42.0375
-    },
     "selected_target_class": "owned",
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": true,
       "expansion_deficit": 0,
       "labels": [
         "production_gap_to_leader",
@@ -78,6 +54,7 @@
       "owned_ships": 649,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 38,
       "recommended_objectives": [
         "deny_after_stabilizing"
@@ -114,34 +91,10 @@
     },
     "pruned_action_set_count": 9,
     "selected_family": "funnel_for_downstream_attack",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": 0.903128325255677,
-          "player_id": null,
-          "ships": 1,
-          "source_planet_id": 16
-        }
-      ],
-      "missions": [
-        {
-          "family": "funnel_for_downstream_attack",
-          "labels": [],
-          "mission_id": "mission-0005",
-          "mission_type": "reinforce",
-          "priority": 30.0,
-          "source_planet_ids": [
-            16
-          ],
-          "target_planet_id": 8
-        }
-      ],
-      "plan_id": "action-set-0005",
-      "score": 42.0375
-    },
     "selected_target_class": "owned",
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": true,
       "expansion_deficit": 0,
       "labels": [
         "production_gap_to_leader",
@@ -163,6 +116,7 @@
       "owned_ships": 649,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 38,
       "recommended_objectives": [
         "deny_after_stabilizing"

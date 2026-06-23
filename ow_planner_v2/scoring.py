@@ -197,6 +197,16 @@ def _scenario_score_components(
         components.append(("urgent_defense_tiebreak", 2.0))
     if _should_delay_pressure_until_base_secured(family, trajectory_diagnosis):
         components.append(("base_security_ordering_guard", -50.0))
+    if _should_delay_denial_until_trajectory_unlocked(family, trajectory_diagnosis):
+        components.append(("trajectory_denial_locked_guard", -80.0))
+    preservation_bonus = _trajectory_preservation_bonus(
+        plan,
+        diagnosis,
+        valid_outcomes,
+        trajectory_diagnosis,
+    )
+    if preservation_bonus:
+        components.append(("trajectory_preservation_bonus", preservation_bonus))
     if _should_guard_fragile_non_improving_plan(
         family,
         diagnosis,
@@ -237,6 +247,22 @@ def _scenario_score_components(
                 (
                     "target_hold_failure_production_guard",
                     -80.0 * target_hold_failure_production,
+                )
+            )
+    if scenario_evaluation.has_preservation_target_loss:
+        components.append(("preservation_target_loss_guard", -160.0))
+        preservation_loss = max(
+            (
+                outcome.preservation_target_lost_production
+                for outcome in valid_outcomes
+            ),
+            default=0,
+        )
+        if preservation_loss:
+            components.append(
+                (
+                    "preservation_target_production_loss_guard",
+                    -120.0 * preservation_loss,
                 )
             )
     if scenario_evaluation.has_vulnerable_loss:
@@ -326,6 +352,57 @@ def _should_guard_fragile_non_improving_plan(
         for outcome in outcomes
         if outcome.valid
     )
+
+
+def _should_delay_denial_until_trajectory_unlocked(
+    family: MissionFamily | None,
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
+) -> bool:
+    if trajectory_diagnosis is None or trajectory_diagnosis.denial_unlocked:
+        return False
+    if family not in (
+        MissionFamily.ENEMY_PRODUCTION_DENIAL,
+        MissionFamily.LEADER_PRESSURE,
+        MissionFamily.RANK_SWING,
+    ):
+        return False
+    objectives = set(trajectory_diagnosis.recommended_objectives)
+    return bool(
+        {
+            TrajectoryObjective.PRESERVE_PRIMARY_SOURCE,
+            TrajectoryObjective.HOLD_RECENT_CAPTURE,
+            TrajectoryObjective.SECURE_SECOND_SOURCE,
+        }
+        & objectives
+    )
+
+
+def _trajectory_preservation_bonus(
+    plan: ActionSetPlan,
+    diagnosis: BoardDiagnosis,
+    outcomes: Sequence[ScenarioOutcome],
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
+) -> float:
+    if trajectory_diagnosis is None:
+        return 0.0
+    if diagnosis.mode is not PlannerV2Mode.FOUR_PLAYER:
+        return 0.0
+    if not plan.missions:
+        return 0.0
+    if not trajectory_diagnosis.preservation_target_planet_ids:
+        return 0.0
+    if not any(
+        objective in plan.missions[0].trajectory_objectives
+        for objective in (
+            TrajectoryObjective.PRESERVE_PRIMARY_SOURCE,
+            TrajectoryObjective.HOLD_RECENT_CAPTURE,
+        )
+    ):
+        return 0.0
+    if any(outcome.preservation_target_lost_ids for outcome in outcomes if outcome.valid):
+        return 0.0
+    target_count = len(plan.missions[0].trajectory_target_planet_ids)
+    return 85.0 + target_count * 15.0
 
 
 def _family_tiebreak(family: MissionFamily | None) -> float:

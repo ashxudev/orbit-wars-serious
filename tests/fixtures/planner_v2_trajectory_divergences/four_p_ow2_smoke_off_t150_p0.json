@@ -29,36 +29,10 @@
     },
     "pruned_action_set_count": 5,
     "selected_family": "safe_expand",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": -3.1346632491141992,
-          "player_id": 0,
-          "ships": 83,
-          "source_planet_id": 8
-        }
-      ],
-      "missions": [
-        {
-          "family": "safe_expand",
-          "labels": [
-            "targets_high_value_planet"
-          ],
-          "mission_id": "mission-0003",
-          "mission_type": "capture_neutral",
-          "priority": 80.0,
-          "source_planet_ids": [
-            8
-          ],
-          "target_planet_id": 5
-        }
-      ],
-      "plan_id": "action-set-0003",
-      "score": 222.60000000000002
-    },
     "selected_target_class": "neutral",
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": true,
       "expansion_deficit": 0,
       "labels": [
         "production_gap_to_leader",
@@ -80,6 +54,7 @@
       "owned_ships": 825,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 13,
       "recommended_objectives": [
         "deny_after_stabilizing"
@@ -116,36 +91,10 @@
     },
     "pruned_action_set_count": 5,
     "selected_family": "safe_expand",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": -3.1346632491141992,
-          "player_id": 0,
-          "ships": 83,
-          "source_planet_id": 8
-        }
-      ],
-      "missions": [
-        {
-          "family": "safe_expand",
-          "labels": [
-            "targets_high_value_planet"
-          ],
-          "mission_id": "mission-0003",
-          "mission_type": "capture_neutral",
-          "priority": 80.0,
-          "source_planet_ids": [
-            8
-          ],
-          "target_planet_id": 5
-        }
-      ],
-      "plan_id": "action-set-0003",
-      "score": 222.60000000000002
-    },
     "selected_target_class": "neutral",
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": true,
       "expansion_deficit": 0,
       "labels": [
         "production_gap_to_leader",
@@ -167,6 +116,7 @@
       "owned_ships": 825,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 13,
       "recommended_objectives": [
         "deny_after_stabilizing"

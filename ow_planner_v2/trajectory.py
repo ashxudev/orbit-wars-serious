@@ -53,6 +53,12 @@ def diagnose_trajectory(state: GameState) -> TrajectoryDiagnosis:
         best_neutral_production=best_neutral_production,
     )
     production_gap_to_leader = max(0, leader_production - owned_production)
+    preservation_targets = _preservation_target_planets(
+        owned_production_planets,
+        second_source_secured=second_source_secured,
+        source_drain_risk=source_drain_risk,
+    )
+    denial_unlocked = second_source_secured and not source_drain_risk
     objectives = _recommended_objectives(
         turn=turn,
         owned=owned,
@@ -94,6 +100,10 @@ def diagnose_trajectory(state: GameState) -> TrajectoryDiagnosis:
         source_drain_risk=source_drain_risk,
         expansion_deficit=expansion_deficit,
         production_gap_to_leader=production_gap_to_leader,
+        preservation_target_planet_ids=tuple(
+            planet.planet_id for planet in preservation_targets
+        ),
+        denial_unlocked=denial_unlocked,
         recommended_objectives=objectives,
         labels=labels,
     )
@@ -173,6 +183,26 @@ def _turn_value(turn: int | None) -> int:
 
 def _source_reserve_floor(planet: Planet) -> int:
     return max(3, planet.production * 2 + 1)
+
+
+def _preservation_target_planets(
+    owned_production_planets: Sequence[Planet],
+    *,
+    second_source_secured: bool,
+    source_drain_risk: bool,
+) -> tuple[Planet, ...]:
+    if not second_source_secured or not source_drain_risk:
+        return ()
+    return tuple(
+        sorted(
+            (
+                planet
+                for planet in owned_production_planets
+                if planet.ships <= _source_reserve_floor(planet)
+            ),
+            key=lambda planet: (planet.ships, -planet.production, planet.planet_id),
+        )
+    )
 
 
 def _expansion_deficit(

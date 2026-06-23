@@ -7,7 +7,14 @@ from collections.abc import Sequence
 from ow_planner import MissionCandidate, MissionEvaluation
 
 from .missions import mission_family_for_candidate, mission_priority
-from .types import BoardDiagnosis, MissionFamily, MissionPlan, PlannerV2Config
+from .types import (
+    BoardDiagnosis,
+    MissionFamily,
+    MissionPlan,
+    PlannerV2Config,
+    TrajectoryDiagnosis,
+    TrajectoryObjective,
+)
 
 
 def generate_mission_plans(
@@ -15,6 +22,7 @@ def generate_mission_plans(
     candidates: Sequence[MissionCandidate],
     evaluations: Sequence[MissionEvaluation] = (),
     config: PlannerV2Config | None = None,
+    trajectory_diagnosis: TrajectoryDiagnosis | None = None,
 ) -> tuple[MissionPlan, ...]:
     """Generate bounded V2 missions from current candidates and diagnosis."""
 
@@ -35,6 +43,14 @@ def generate_mission_plans(
                 evaluation=evaluation,
                 target_planet_id=candidate.target_planet_id,
                 source_planet_ids=candidate.source_planet_ids,
+                trajectory_objectives=_trajectory_objectives_for_candidate(
+                    candidate,
+                    trajectory_diagnosis,
+                ),
+                trajectory_target_planet_ids=_trajectory_targets_for_candidate(
+                    candidate,
+                    trajectory_diagnosis,
+                ),
                 priority=mission_priority(family, diagnosis),
                 labels=_mission_labels(candidate, diagnosis),
             )
@@ -49,12 +65,62 @@ def generate_mission_plans(
     return _diagnostic_missions(diagnosis, effective_config)
 
 
+def _trajectory_objectives_for_candidate(
+    candidate: MissionCandidate,
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
+) -> tuple[TrajectoryObjective, ...]:
+    if trajectory_diagnosis is None:
+        return ()
+    if candidate.note == "planner_v2_surface:trajectory_preserve_source":
+        return tuple(
+            objective
+            for objective in (
+                TrajectoryObjective.PRESERVE_PRIMARY_SOURCE,
+                TrajectoryObjective.HOLD_RECENT_CAPTURE,
+            )
+            if objective in trajectory_diagnosis.recommended_objectives
+        )
+    if candidate.note == "planner_v2_surface:trajectory_second_source":
+        return tuple(
+            objective
+            for objective in (
+                TrajectoryObjective.SECURE_SECOND_SOURCE,
+                TrajectoryObjective.CAPTURE_NEAREST_PRODUCTIVE_NEUTRAL,
+            )
+            if objective in trajectory_diagnosis.recommended_objectives
+        )
+    return ()
+
+
+def _trajectory_targets_for_candidate(
+    candidate: MissionCandidate,
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
+) -> tuple[int, ...]:
+    if trajectory_diagnosis is None:
+        return ()
+    if (
+        candidate.note == "planner_v2_surface:trajectory_preserve_source"
+        and candidate.target_planet_id in trajectory_diagnosis.preservation_target_planet_ids
+    ):
+        return (candidate.target_planet_id,)
+    if (
+        candidate.note == "planner_v2_surface:trajectory_second_source"
+        and candidate.target_planet_id in trajectory_diagnosis.nearest_productive_neutral_ids
+    ):
+        return (candidate.target_planet_id,)
+    return ()
+
+
 def _mission_labels(candidate: MissionCandidate, diagnosis: BoardDiagnosis) -> tuple[str, ...]:
     labels = []
     if candidate.target_planet_id in diagnosis.vulnerable_owned_planet_ids:
         labels.append("targets_vulnerable_owned_planet")
     if candidate.target_planet_id in diagnosis.high_value_target_ids:
         labels.append("targets_high_value_planet")
+    if candidate.note == "planner_v2_surface:trajectory_preserve_source":
+        labels.append("trajectory_preserve_source")
+    if candidate.note == "planner_v2_surface:trajectory_second_source":
+        labels.append("trajectory_second_source")
     if len(candidate.launches) > 1:
         labels.append("multi_launch")
     return tuple(labels)

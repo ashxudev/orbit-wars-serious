@@ -28,36 +28,10 @@
     },
     "pruned_action_set_count": 4,
     "selected_family": "recapture",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": 0.8240705593685069,
-          "player_id": 1,
-          "ships": 22,
-          "source_planet_id": 7
-        }
-      ],
-      "missions": [
-        {
-          "family": "recapture",
-          "labels": [
-            "targets_high_value_planet"
-          ],
-          "mission_id": "mission-0000",
-          "mission_type": "capture_neutral",
-          "priority": 55.0,
-          "source_planet_ids": [
-            7
-          ],
-          "target_planet_id": 8
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": -7.775
-    },
     "selected_target_class": "neutral",
     "trajectory": {
       "best_neutral_production_available": 3,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "single_source_fragile",
@@ -80,6 +54,7 @@
       "owned_ships": 46,
       "phase": "opening",
       "player_id": 1,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 68,
       "recommended_objectives": [
         "secure_second_source",
@@ -118,36 +93,10 @@
     },
     "pruned_action_set_count": 4,
     "selected_family": "recapture",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": 0.8240705593685069,
-          "player_id": 1,
-          "ships": 22,
-          "source_planet_id": 7
-        }
-      ],
-      "missions": [
-        {
-          "family": "recapture",
-          "labels": [
-            "targets_high_value_planet"
-          ],
-          "mission_id": "mission-0000",
-          "mission_type": "capture_neutral",
-          "priority": 55.0,
-          "source_planet_ids": [
-            7
-          ],
-          "target_planet_id": 8
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": -7.775
-    },
     "selected_target_class": "neutral",
     "trajectory": {
       "best_neutral_production_available": 3,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "single_source_fragile",
@@ -170,6 +119,7 @@
       "owned_ships": 46,
       "phase": "opening",
       "player_id": 1,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 68,
       "recommended_objectives": [
         "secure_second_source",

@@ -70,6 +70,7 @@ class PlannerV2Config:
     endgame_horizon: int = 100
     minimum_plan_score: float = -100.0
     enable_trajectory_second_source: bool = True
+    enable_trajectory_continuation: bool = True
 
     def __post_init__(self) -> None:
         _validate_optional_nonnegative_int(self.max_missions, "max_missions")
@@ -102,6 +103,8 @@ class PlannerV2Config:
             raise ValueError("minimum_plan_score must be numeric")
         if not isinstance(self.enable_trajectory_second_source, bool):
             raise ValueError("enable_trajectory_second_source must be boolean")
+        if not isinstance(self.enable_trajectory_continuation, bool):
+            raise ValueError("enable_trajectory_continuation must be boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +178,8 @@ class TrajectoryDiagnosis:
     source_drain_risk: bool = False
     expansion_deficit: int = 0
     production_gap_to_leader: int = 0
+    preservation_target_planet_ids: tuple[int, ...] = ()
+    denial_unlocked: bool = False
     recommended_objectives: tuple[TrajectoryObjective, ...] = ()
     labels: tuple[str, ...] = ()
 
@@ -195,6 +200,8 @@ class TrajectoryDiagnosis:
             "phase": self.phase.value,
             "player_id": self.player_id,
             "production_gap_to_leader": self.production_gap_to_leader,
+            "preservation_target_planet_ids": list(self.preservation_target_planet_ids),
+            "denial_unlocked": self.denial_unlocked,
             "recommended_objectives": [
                 objective.value for objective in self.recommended_objectives
             ],
@@ -216,6 +223,8 @@ class MissionPlan:
     evaluation: MissionEvaluation | None = None
     target_planet_id: int | None = None
     source_planet_ids: tuple[int, ...] = ()
+    trajectory_objectives: tuple[TrajectoryObjective, ...] = ()
+    trajectory_target_planet_ids: tuple[int, ...] = ()
     priority: float = 0.0
     labels: tuple[str, ...] = ()
 
@@ -228,6 +237,10 @@ class MissionPlan:
             "priority": self.priority,
             "source_planet_ids": list(self.source_planet_ids),
             "target_planet_id": self.target_planet_id,
+            "trajectory_objectives": [
+                objective.value for objective in self.trajectory_objectives
+            ],
+            "trajectory_target_planet_ids": list(self.trajectory_target_planet_ids),
         }
 
 
@@ -322,6 +335,8 @@ class ScenarioOutcome:
     source_counterattack_lost_production: int = 0
     target_hold_failure_ids: tuple[int, ...] = ()
     target_hold_failure_production: int = 0
+    preservation_target_lost_ids: tuple[int, ...] = ()
+    preservation_target_lost_production: int = 0
     vulnerable_planet_lost_ids: tuple[int, ...] = ()
     vulnerable_planet_lost_production: int = 0
     eliminated: bool = False
@@ -351,6 +366,10 @@ class ScenarioOutcome:
             "source_planet_lost_production": self.source_planet_lost_production,
             "target_hold_failure_ids": list(self.target_hold_failure_ids),
             "target_hold_failure_production": self.target_hold_failure_production,
+            "preservation_target_lost_ids": list(self.preservation_target_lost_ids),
+            "preservation_target_lost_production": (
+                self.preservation_target_lost_production
+            ),
             "target_owned_by_player_count": self.target_owned_by_player_count,
             "target_planet_ids": list(self.target_planet_ids),
             "valid": self.valid,
@@ -390,6 +409,14 @@ class ScenarioEvaluation:
     def has_target_hold_failure(self) -> bool:
         return any(
             outcome.target_hold_failure_ids
+            for outcome in self.outcomes
+            if outcome.valid
+        )
+
+    @property
+    def has_preservation_target_loss(self) -> bool:
+        return any(
+            outcome.preservation_target_lost_ids
             for outcome in self.outcomes
             if outcome.valid
         )

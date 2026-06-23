@@ -17,6 +17,7 @@ from .types import (
     PlannerV2Config,
     ScenarioEvaluation,
     ScenarioOutcome,
+    TrajectoryDiagnosis,
 )
 
 
@@ -25,6 +26,8 @@ def evaluate_action_set_scenarios(
     action_sets: Sequence[ActionSetPlan],
     diagnosis: BoardDiagnosis,
     config: PlannerV2Config | None = None,
+    *,
+    trajectory_diagnosis: TrajectoryDiagnosis | None = None,
 ) -> tuple[ScenarioEvaluation, ...]:
     """Evaluate action sets against idle baselines for configured horizons."""
 
@@ -40,6 +43,7 @@ def evaluate_action_set_scenarios(
             diagnosis,
             horizons,
             idle_by_horizon,
+            trajectory_diagnosis,
         )
         for plan in action_sets
     )
@@ -51,6 +55,7 @@ def _evaluate_action_set(
     diagnosis: BoardDiagnosis,
     horizons: tuple[int, ...],
     idle_by_horizon: dict[int, GameState],
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
 ) -> ScenarioEvaluation:
     if not plan.launches:
         outcomes = tuple(
@@ -131,6 +136,7 @@ def _evaluate_action_set(
             action_by_horizon[horizon],
             response_by_horizon.get(horizon),
             horizon,
+            trajectory_diagnosis,
         )
         for horizon in horizons
     )
@@ -167,6 +173,7 @@ def _scenario_outcome(
     action_state: GameState,
     response_state: GameState | None,
     horizon: int,
+    trajectory_diagnosis: TrajectoryDiagnosis | None,
 ) -> ScenarioOutcome:
     player_id = state.player_id
     if player_id is None:
@@ -191,8 +198,22 @@ def _scenario_outcome(
     action_opponent_production = _opponent_production(action_state, player_id)
     source_lost_ids = _lost_planet_ids(action_state, source_ids, player_id)
     vulnerable_lost_ids = _lost_planet_ids(action_state, vulnerable_ids, player_id)
+    preservation_target_ids = (
+        ()
+        if trajectory_diagnosis is None
+        else trajectory_diagnosis.preservation_target_planet_ids
+    )
+    preservation_lost_ids = _lost_planet_ids(
+        action_state,
+        preservation_target_ids,
+        player_id,
+    )
     source_lost_production = _planet_production_sum(state, source_lost_ids)
     vulnerable_lost_production = _planet_production_sum(state, vulnerable_lost_ids)
+    preservation_lost_production = _planet_production_sum(
+        state,
+        preservation_lost_ids,
+    )
     source_counterattack_lost_ids = _response_lost_planet_ids(
         action_state,
         response_state,
@@ -235,6 +256,8 @@ def _scenario_outcome(
         source_counterattack_lost_production=source_counterattack_lost_production,
         target_hold_failure_count=len(target_hold_failure_ids),
         target_hold_failure_production=target_hold_failure_production,
+        preservation_lost_count=len(preservation_lost_ids),
+        preservation_lost_production=preservation_lost_production,
         vulnerable_lost_count=len(vulnerable_lost_ids),
         vulnerable_lost_production=vulnerable_lost_production,
         eliminated=eliminated,
@@ -260,6 +283,8 @@ def _scenario_outcome(
         source_counterattack_lost_production=source_counterattack_lost_production,
         target_hold_failure_ids=target_hold_failure_ids,
         target_hold_failure_production=target_hold_failure_production,
+        preservation_target_lost_ids=preservation_lost_ids,
+        preservation_target_lost_production=preservation_lost_production,
         vulnerable_planet_lost_ids=vulnerable_lost_ids,
         vulnerable_planet_lost_production=vulnerable_lost_production,
         eliminated=eliminated,
@@ -268,6 +293,7 @@ def _scenario_outcome(
             source_lost_ids=source_lost_ids,
             source_counterattack_lost_ids=source_counterattack_lost_ids,
             target_hold_failure_ids=target_hold_failure_ids,
+            preservation_lost_ids=preservation_lost_ids,
             vulnerable_lost_ids=vulnerable_lost_ids,
             own_production_delta=own_production_delta,
             own_planet_delta=own_planet_delta,
@@ -289,6 +315,8 @@ def _scenario_score(
     source_counterattack_lost_production: int,
     target_hold_failure_count: int,
     target_hold_failure_production: int,
+    preservation_lost_count: int,
+    preservation_lost_production: int,
     vulnerable_lost_count: int,
     vulnerable_lost_production: int,
     eliminated: bool,
@@ -306,6 +334,8 @@ def _scenario_score(
     score -= source_counterattack_lost_production * 55.0
     score -= target_hold_failure_count * 100.0
     score -= target_hold_failure_production * 35.0
+    score -= preservation_lost_count * 160.0
+    score -= preservation_lost_production * 50.0
     score -= vulnerable_lost_count * 180.0
     score -= vulnerable_lost_production * 45.0
     score -= ships_committed * 0.2
@@ -320,6 +350,7 @@ def _outcome_notes(
     source_lost_ids: tuple[int, ...],
     source_counterattack_lost_ids: tuple[int, ...],
     target_hold_failure_ids: tuple[int, ...],
+    preservation_lost_ids: tuple[int, ...],
     vulnerable_lost_ids: tuple[int, ...],
     own_production_delta: int,
     own_planet_delta: int,
@@ -334,6 +365,8 @@ def _outcome_notes(
         notes.append("source_counterattack_lost")
     if target_hold_failure_ids:
         notes.append("target_hold_failure")
+    if preservation_lost_ids:
+        notes.append("preservation_target_lost")
     if vulnerable_lost_ids:
         notes.append("vulnerable_planet_lost")
     if own_production_delta > 0:

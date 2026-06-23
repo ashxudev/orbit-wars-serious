@@ -29,34 +29,10 @@
     },
     "pruned_action_set_count": 6,
     "selected_family": "funnel_for_downstream_attack",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": 2.058170649783496,
-          "player_id": null,
-          "ships": 1,
-          "source_planet_id": 26
-        }
-      ],
-      "missions": [
-        {
-          "family": "funnel_for_downstream_attack",
-          "labels": [],
-          "mission_id": "mission-0000",
-          "mission_type": "reinforce",
-          "priority": 30.0,
-          "source_planet_ids": [
-            26
-          ],
-          "target_planet_id": 17
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": 42.0375
-    },
     "selected_target_class": "owned",
     "trajectory": {
       "best_neutral_production_available": 2,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -79,6 +55,10 @@
       "owned_ships": 3,
       "phase": "opening",
       "player_id": 2,
+      "preservation_target_planet_ids": [
+        17,
+        26
+      ],
       "production_gap_to_leader": 21,
       "recommended_objectives": [
         "preserve_primary_source",
@@ -117,34 +97,10 @@
     },
     "pruned_action_set_count": 6,
     "selected_family": "funnel_for_downstream_attack",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": 2.058170649783496,
-          "player_id": null,
-          "ships": 1,
-          "source_planet_id": 26
-        }
-      ],
-      "missions": [
-        {
-          "family": "funnel_for_downstream_attack",
-          "labels": [],
-          "mission_id": "mission-0000",
-          "mission_type": "reinforce",
-          "priority": 30.0,
-          "source_planet_ids": [
-            26
-          ],
-          "target_planet_id": 17
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": 42.0375
-    },
     "selected_target_class": "owned",
     "trajectory": {
       "best_neutral_production_available": 2,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -167,6 +123,10 @@
       "owned_ships": 3,
       "phase": "opening",
       "player_id": 2,
+      "preservation_target_planet_ids": [
+        17,
+        26
+      ],
       "production_gap_to_leader": 21,
       "recommended_objectives": [
         "preserve_primary_source",

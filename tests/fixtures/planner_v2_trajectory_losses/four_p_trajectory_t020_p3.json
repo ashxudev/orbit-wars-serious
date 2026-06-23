@@ -11,7 +11,7 @@
   "episode_steps": 500,
   "expected_current_v2_runtime": {
     "action_count": 0,
-    "candidate_count": 8,
+    "candidate_count": null,
     "kept_action_set_count": 4,
     "mission_family_counts": {
       "leader_pressure": 3,
@@ -33,6 +33,7 @@
     "selected_target_class": null,
     "trajectory": {
       "best_neutral_production_available": 5,
+      "denial_unlocked": false,
       "expansion_deficit": 1,
       "labels": [
         "under_expanded",
@@ -57,6 +58,7 @@
       "owned_ships": 2,
       "phase": "early_base",
       "player_id": 3,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 4,
       "recommended_objectives": [
         "secure_second_source",

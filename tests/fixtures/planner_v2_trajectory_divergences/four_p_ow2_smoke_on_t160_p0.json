@@ -23,10 +23,10 @@
     },
     "pruned_action_set_count": 4,
     "selected_family": null,
-    "selected_plan": null,
     "selected_target_class": null,
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -45,6 +45,9 @@
       "owned_ships": 336,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [
+        6
+      ],
       "production_gap_to_leader": 53,
       "recommended_objectives": [
         "preserve_primary_source",
@@ -77,10 +80,10 @@
     },
     "pruned_action_set_count": 4,
     "selected_family": null,
-    "selected_plan": null,
     "selected_target_class": null,
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -99,6 +102,9 @@
       "owned_ships": 336,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [
+        6
+      ],
       "production_gap_to_leader": 53,
       "recommended_objectives": [
         "preserve_primary_source",

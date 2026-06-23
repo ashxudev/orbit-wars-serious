@@ -11,7 +11,7 @@
   "episode_steps": 500,
   "expected_current_v2_runtime": {
     "action_count": 1,
-    "candidate_count": 8,
+    "candidate_count": null,
     "kept_action_set_count": 4,
     "mission_family_counts": {
       "leader_pressure": 3,
@@ -36,63 +36,39 @@
           "horizon": 10,
           "idle_own_planet_count": 1,
           "idle_own_production": 1,
-          "notes": [],
-          "opponent_production_delta": 0,
           "own_planet_count": 1,
-          "own_planet_delta": 0,
           "own_production": 1,
-          "own_production_delta": 0,
-          "own_ship_delta": 0,
           "score": -0.2,
-          "source_planet_lost_ids": [],
-          "target_owned_by_player_count": 0,
           "target_planet_ids": [
             1
           ],
-          "valid": true,
-          "vulnerable_planet_lost_ids": []
+          "valid": true
         },
         {
           "eliminated": false,
           "horizon": 25,
           "idle_own_planet_count": 1,
           "idle_own_production": 1,
-          "notes": [],
-          "opponent_production_delta": 0,
           "own_planet_count": 1,
-          "own_planet_delta": 0,
           "own_production": 1,
-          "own_production_delta": 0,
-          "own_ship_delta": 0,
           "score": -0.2,
-          "source_planet_lost_ids": [],
-          "target_owned_by_player_count": 0,
           "target_planet_ids": [
             1
           ],
-          "valid": true,
-          "vulnerable_planet_lost_ids": []
+          "valid": true
         },
         {
           "eliminated": false,
           "horizon": 50,
           "idle_own_planet_count": 1,
           "idle_own_production": 1,
-          "notes": [],
-          "opponent_production_delta": 0,
           "own_planet_count": 1,
-          "own_planet_delta": 0,
           "own_production": 1,
-          "own_production_delta": 0,
-          "own_ship_delta": 0,
           "score": -0.2,
-          "source_planet_lost_ids": [],
-          "target_owned_by_player_count": 0,
           "target_planet_ids": [
             1
           ],
-          "valid": true,
-          "vulnerable_planet_lost_ids": []
+          "valid": true
         }
       ],
       "selected_horizon": 10,
@@ -101,6 +77,7 @@
     "selected_target_class": "neutral",
     "trajectory": {
       "best_neutral_production_available": 5,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "single_source_fragile",
@@ -124,6 +101,7 @@
       "owned_ships": 2,
       "phase": "early_base",
       "player_id": 3,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 4,
       "recommended_objectives": [
         "secure_second_source",

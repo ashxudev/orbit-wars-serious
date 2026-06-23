@@ -69,6 +69,15 @@ def generate_surface_candidates(
         if _surface_limit_reached(candidates, effective_config):
             return tuple(candidates)
 
+    if (
+        effective_config.enable_trajectory_continuation
+        and effective_diagnosis.mode is PlannerV2Mode.FOUR_PLAYER
+    ):
+        for candidate in _trajectory_preservation_candidates(state, trajectory):
+            append(candidate)
+            if _surface_limit_reached(candidates, effective_config):
+                return tuple(candidates)
+
     for candidate in _safe_continuation_candidates(state, effective_diagnosis):
         append(candidate)
         if _surface_limit_reached(candidates, effective_config):
@@ -133,6 +142,51 @@ def _urgent_defense_candidates(
                 launches=(launch,),
                 outcome=CandidateOutcome.VALIDATED,
                 note="planner_v2_surface:urgent_defense",
+            )
+        )
+    return tuple(candidates)
+
+
+def _trajectory_preservation_candidates(
+    state: GameState,
+    trajectory,
+) -> tuple[MissionCandidate, ...]:
+    player_id = state.player_id
+    if player_id is None:
+        return ()
+    target_ids = tuple(trajectory.preservation_target_planet_ids)
+    if not target_ids:
+        return ()
+    owned = _owned_planets(state, player_id)
+    candidates: list[MissionCandidate] = []
+    for target_id in target_ids[:3]:
+        target = _planet_by_id(state, target_id)
+        if target is None or target.owner != player_id:
+            continue
+        source = _best_source_for_target(
+            owned,
+            target,
+            exclude_target=True,
+            prefer_production_safe=True,
+        )
+        if source is None:
+            continue
+        deficit = _source_reserve_floor(target) - target.ships
+        ships = _reserve_send_ships(
+            source,
+            desired=max(2, deficit, target.production * 2),
+        )
+        if ships <= 0:
+            continue
+        launch = _launch_between(source, target, ships, player_id)
+        candidates.append(
+            MissionCandidate(
+                mission_type=MissionType.REINFORCE,
+                target_planet_id=target.planet_id,
+                source_planet_ids=(source.planet_id,),
+                launches=(launch,),
+                outcome=CandidateOutcome.VALIDATED,
+                note="planner_v2_surface:trajectory_preserve_source",
             )
         )
     return tuple(candidates)
@@ -380,6 +434,10 @@ def _source_preserving_capture_ships(source: Planet, target: Planet) -> int:
     if source.ships - capture_need < reserve:
         return 0
     return capture_need
+
+
+def _source_reserve_floor(planet: Planet) -> int:
+    return max(3, planet.production * 2 + 1)
 
 
 def _launch_between(

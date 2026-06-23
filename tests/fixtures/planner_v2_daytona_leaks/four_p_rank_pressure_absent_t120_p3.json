@@ -20,9 +20,9 @@
   "episode_steps": 500,
   "expected_current_v2_runtime": {
     "action_count": 1,
-    "candidate_count": 15,
+    "candidate_count": 16,
     "diagnostic_status": "actions",
-    "evaluation_count": 15,
+    "evaluation_count": 16,
     "no_action_reason": "actions_emitted",
     "owned_planet_count": 6,
     "owned_production": 9,
@@ -30,7 +30,7 @@
     "player_id": 3,
     "selected_commitment_type": "reserve_preserving",
     "selected_mission_type": "",
-    "selection_notes": "planner_v2|funnel_for_downstream_attack|reserve_preserving",
+    "selection_notes": "planner_v2|hold_capture|reserve_preserving",
     "selection_status": "selected",
     "state_step": 120
   },

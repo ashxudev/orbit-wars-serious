@@ -9,6 +9,7 @@
     "candidate_count": null,
     "kept_action_set_count": 4,
     "mission_family_counts": {
+      "hold_capture": 1,
       "leader_pressure": 4,
       "recapture": 5,
       "urgent_defend": 2
@@ -19,14 +20,14 @@
     "owned_ships": 719,
     "pre_cap_action_set_count": null,
     "prune_reason_counts": {
-      "lower_family_priority": 7
+      "lower_family_priority": 8
     },
-    "pruned_action_set_count": 7,
+    "pruned_action_set_count": 8,
     "selected_family": null,
-    "selected_plan": null,
     "selected_target_class": null,
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -49,6 +50,9 @@
       "owned_ships": 719,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [
+        4
+      ],
       "production_gap_to_leader": 36,
       "recommended_objectives": [
         "preserve_primary_source",
@@ -67,6 +71,7 @@
     "candidate_count": null,
     "kept_action_set_count": 4,
     "mission_family_counts": {
+      "hold_capture": 1,
       "leader_pressure": 4,
       "recapture": 5,
       "urgent_defend": 2
@@ -77,14 +82,14 @@
     "owned_ships": 719,
     "pre_cap_action_set_count": null,
     "prune_reason_counts": {
-      "lower_family_priority": 7
+      "lower_family_priority": 8
     },
-    "pruned_action_set_count": 7,
+    "pruned_action_set_count": 8,
     "selected_family": null,
-    "selected_plan": null,
     "selected_target_class": null,
     "trajectory": {
       "best_neutral_production_available": 1,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "source_drained",
@@ -107,6 +112,9 @@
       "owned_ships": 719,
       "phase": "midgame",
       "player_id": 0,
+      "preservation_target_planet_ids": [
+        4
+      ],
       "production_gap_to_leader": 36,
       "recommended_objectives": [
         "preserve_primary_source",

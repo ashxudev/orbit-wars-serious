@@ -14,6 +14,8 @@ def mission_family_for_candidate(
 ) -> MissionFamily:
     """Classify a V1 candidate into a V2 mission family."""
 
+    if candidate.note == "planner_v2_surface:trajectory_preserve_source":
+        return MissionFamily.HOLD_CAPTURE
     if len(candidate.launches) > 1 or len(candidate.source_planet_ids) > 1:
         return MissionFamily.MULTI_SOURCE_CAPTURE
     if candidate.mission_type in (MissionType.DEFEND_OWN, MissionType.REINFORCE):

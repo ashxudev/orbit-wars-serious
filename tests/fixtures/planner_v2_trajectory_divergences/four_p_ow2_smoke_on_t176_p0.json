@@ -17,10 +17,10 @@
     "prune_reason_counts": {},
     "pruned_action_set_count": 0,
     "selected_family": null,
-    "selected_plan": null,
     "selected_target_class": null,
     "trajectory": {
       "best_neutral_production_available": 0,
+      "denial_unlocked": false,
       "expansion_deficit": 1,
       "labels": [
         "locally_unrecoverable_terminal",
@@ -35,6 +35,7 @@
       "owned_ships": 0,
       "phase": "terminal",
       "player_id": 0,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 68,
       "recommended_objectives": [
         "secure_second_source",
@@ -60,10 +61,10 @@
     "prune_reason_counts": {},
     "pruned_action_set_count": 0,
     "selected_family": null,
-    "selected_plan": null,
     "selected_target_class": null,
     "trajectory": {
       "best_neutral_production_available": 0,
+      "denial_unlocked": false,
       "expansion_deficit": 1,
       "labels": [
         "locally_unrecoverable_terminal",
@@ -78,6 +79,7 @@
       "owned_ships": 0,
       "phase": "terminal",
       "player_id": 0,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 68,
       "recommended_objectives": [
         "secure_second_source",

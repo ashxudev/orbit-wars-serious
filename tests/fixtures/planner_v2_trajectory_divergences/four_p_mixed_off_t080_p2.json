@@ -28,36 +28,10 @@
     },
     "pruned_action_set_count": 4,
     "selected_family": "safe_expand",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": -0.11322574365872694,
-          "player_id": 2,
-          "ships": 9,
-          "source_planet_id": 26
-        }
-      ],
-      "missions": [
-        {
-          "family": "safe_expand",
-          "labels": [
-            "targets_high_value_planet"
-          ],
-          "mission_id": "mission-0000",
-          "mission_type": "capture_neutral",
-          "priority": 80.0,
-          "source_planet_ids": [
-            26
-          ],
-          "target_planet_id": 4
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": 0.5374999999999999
-    },
     "selected_target_class": "neutral",
     "trajectory": {
       "best_neutral_production_available": 2,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "single_source_fragile",
@@ -80,6 +54,7 @@
       "owned_ships": 20,
       "phase": "opening",
       "player_id": 2,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 27,
       "recommended_objectives": [
         "secure_second_source",
@@ -118,36 +93,10 @@
     },
     "pruned_action_set_count": 4,
     "selected_family": "safe_expand",
-    "selected_plan": {
-      "launches": [
-        {
-          "angle": -0.11322574365872694,
-          "player_id": 2,
-          "ships": 9,
-          "source_planet_id": 26
-        }
-      ],
-      "missions": [
-        {
-          "family": "safe_expand",
-          "labels": [
-            "targets_high_value_planet"
-          ],
-          "mission_id": "mission-0000",
-          "mission_type": "capture_neutral",
-          "priority": 80.0,
-          "source_planet_ids": [
-            26
-          ],
-          "target_planet_id": 4
-        }
-      ],
-      "plan_id": "action-set-0000",
-      "score": 0.5374999999999999
-    },
     "selected_target_class": "neutral",
     "trajectory": {
       "best_neutral_production_available": 2,
+      "denial_unlocked": false,
       "expansion_deficit": 0,
       "labels": [
         "single_source_fragile",
@@ -170,6 +119,7 @@
       "owned_ships": 20,
       "phase": "opening",
       "player_id": 2,
+      "preservation_target_planet_ids": [],
       "production_gap_to_leader": 27,
       "recommended_objectives": [
         "secure_second_source",
