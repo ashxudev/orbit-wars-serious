@@ -169,3 +169,42 @@ Interpretation: the fallback remains the correct final choice versus serious V2
 because it is already outperforming the current serious submissions, but the
 first three live games are not enough to infer final leaderboard strength. Keep
 the remaining final submission in reserve and continue passive monitoring.
+
+Final live-result monitor check:
+
+- Checked at: `2026-06-24 05:00 AEST`.
+- Kaggle status: `SubmissionStatus.COMPLETE`.
+- Public score shown: `720.0`.
+- Public episodes available/analyzed: `12`.
+- Analysis root, kept out of git:
+  `/tmp/orbit-wars-final-53988022-live-analysis/`.
+- Live sample record: `6-6`.
+- 2P record: `5-4`.
+- 4P record: `1-2`.
+- Mean final rank: `1.50`.
+- Mean final production: `40.8`.
+- Mean final total ships: `2058.8`.
+
+Episode summary:
+
+| Episode | Mode | Result | Final rank | Final production | Peak production | First zero production after peak |
+|---:|---:|---:|---:|---:|---:|---:|
+| `81522954` | 2P | win | `1` | `64.0` | `64.0` | n/a |
+| `81522559` | 2P | loss | `2` | `0.0` | `26.0` | `92` |
+| `81522147` | 2P | win | `1` | `94.0` | `94.0` | n/a |
+| `81521761` | 2P | loss | `2` | `0.0` | `38.0` | `131` |
+| `81521396` | 2P | loss | `2` | `0.0` | `37.0` | `118` |
+| `81520939` | 2P | win | `1` | `88.0` | `88.0` | n/a |
+| `81520656` | 4P | loss | `2` | `0.0` | `27.0` | `210` |
+| `81520269` | 2P | win | `1` | `104.0` | `104.0` | n/a |
+| `81519902` | 2P | win | `1` | `64.0` | `64.0` | n/a |
+| `81519637` | 4P | loss | `2` | `0.0` | `17.0` | `60` |
+| `81519221` | 2P | loss | `2` | `0.0` | `32.0` | `92` |
+| `81518964` | 4P | win | `1` | `76.0` | `76.0` | n/a |
+
+Interpretation: the final fallback submission is materially better than the
+current serious V1/V2 live submissions and remains the correct use of the final
+slot, but it is not near the top-10 target. The reserve submission remains
+unused. Further work should continue from the opening-trajectory rewrite
+diagnosis rather than trying to patch V2 into the leaderboard with another
+late-cycle heuristic.
