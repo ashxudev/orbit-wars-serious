@@ -43,6 +43,7 @@ class PlannerV2Config:
     """Configuration for bounded Planner V2 mission/search execution."""
 
     max_missions: int | None = 32
+    max_surface_candidates: int | None = 12
     max_action_sets: int | None = 16
     max_missions_per_action_set: int = 2
     horizons: tuple[int, ...] = (10, 25, 50)
@@ -51,6 +52,10 @@ class PlannerV2Config:
 
     def __post_init__(self) -> None:
         _validate_optional_nonnegative_int(self.max_missions, "max_missions")
+        _validate_optional_nonnegative_int(
+            self.max_surface_candidates,
+            "max_surface_candidates",
+        )
         _validate_optional_nonnegative_int(self.max_action_sets, "max_action_sets")
         if (
             isinstance(self.max_missions_per_action_set, bool)

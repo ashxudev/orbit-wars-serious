@@ -47,6 +47,8 @@ from ow_sim.state import GameState
 
 from ow_planner_v2 import (
     PlannerV2Config,
+    diagnose_board,
+    generate_surface_candidates,
     planner_v2_result_to_strategy_selection,
     run_planner_v2_from_artifacts,
 )
@@ -108,6 +110,15 @@ def run_planner_pipeline(
     effective_config = RuntimePlannerConfig() if config is None else config
 
     candidates = generate_candidates(state, effective_config.candidate_config)
+    v2_diagnosis = None
+    if effective_config.planner_version == PLANNER_VERSION_V2:
+        v2_diagnosis = diagnose_board(state)
+        candidates = candidates + generate_surface_candidates(
+            state,
+            candidates,
+            effective_config.planner_v2_config,
+            v2_diagnosis,
+        )
     evaluations = evaluate_and_score_candidates(
         state,
         candidates,
@@ -152,6 +163,7 @@ def run_planner_pipeline(
             commitment_options=commitment_options,
             bundles=bundles,
             config=effective_config.planner_v2_config,
+            diagnosis=v2_diagnosis,
         )
         selection = planner_v2_result_to_strategy_selection(
             v2_result,

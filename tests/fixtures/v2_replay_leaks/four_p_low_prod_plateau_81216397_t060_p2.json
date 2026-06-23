@@ -20,9 +20,9 @@
   },
   "expected_planner_v2": {
     "action_count": 1,
-    "action_set_count": 2,
+    "action_set_count": 16,
     "action_summary": [
-      "10|0.8668853808699298|1"
+      "10|2.446827011859126|9"
     ],
     "diagnosis_labels": [
       "four_player",
@@ -32,11 +32,11 @@
       "enemy_denial_context_visible",
       "four_player_plateau_context_visible"
     ],
-    "evaluated_plan_count": 2,
-    "mission_count": 2,
+    "evaluated_plan_count": 16,
+    "mission_count": 8,
     "no_action_reason": null,
-    "selected_family": "funnel_for_downstream_attack",
-    "selected_horizon": 10
+    "selected_family": "leader_pressure",
+    "selected_horizon": 50
   },
   "leak_class": "four_player_plateau",
   "notes": "4P remains stuck around one captured planet and low production after early actions.",

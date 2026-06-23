@@ -33,6 +33,7 @@ from .action_sets import build_action_set_plans
 from .diagnosis import diagnose_board
 from .fallback import select_evaluated_plan
 from .mission_generation import generate_mission_plans
+from .mission_surfaces import generate_surface_candidates
 from .scoring import score_action_set_plans
 from .types import PlannerV2Config, PlannerV2Result
 
@@ -44,6 +45,14 @@ def run_planner_v2(
     """Run Planner V2 using the current planner primitives as its substrate."""
 
     candidates = generate_candidates(state, CandidateGenerationConfig())
+    effective_config = PlannerV2Config() if config is None else config
+    diagnosis = diagnose_board(state)
+    candidates = candidates + generate_surface_candidates(
+        state,
+        candidates,
+        effective_config,
+        diagnosis,
+    )
     evaluations = evaluate_and_score_candidates(
         state,
         candidates,
@@ -71,7 +80,8 @@ def run_planner_v2(
         response_evaluations=response_evaluations,
         commitment_options=commitment_options,
         bundles=bundles,
-        config=config,
+        config=effective_config,
+        diagnosis=diagnosis,
     )
 
 
@@ -84,12 +94,13 @@ def run_planner_v2_from_artifacts(
     commitment_options: Sequence[CandidateCommitmentOptions],
     bundles: Sequence[PlannerDecisionBundle],
     config: PlannerV2Config | None = None,
+    diagnosis=None,
 ) -> PlannerV2Result:
     """Run V2 diagnosis, mission, action-set, scoring, and fallback stages."""
 
     _ = response_evaluations, bundles
     effective_config = PlannerV2Config() if config is None else config
-    diagnosis = diagnose_board(state)
+    diagnosis = diagnose_board(state) if diagnosis is None else diagnosis
     missions = generate_mission_plans(
         diagnosis,
         candidates,

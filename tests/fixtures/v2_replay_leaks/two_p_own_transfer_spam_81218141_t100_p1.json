@@ -34,7 +34,7 @@
       "four_player_plateau_context_visible"
     ],
     "evaluated_plan_count": 16,
-    "mission_count": 30,
+    "mission_count": 32,
     "no_action_reason": null,
     "selected_family": "funnel_for_downstream_attack",
     "selected_horizon": 10

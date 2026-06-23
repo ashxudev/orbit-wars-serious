@@ -5,6 +5,7 @@ from .diagnosis import diagnose_board
 from .diagnostics import planner_v2_diagnostics
 from .fallback import select_evaluated_plan
 from .mission_generation import generate_mission_plans
+from .mission_surfaces import generate_surface_candidates
 from .missions import mission_family_for_candidate, mission_priority
 from .planner import (
     planner_v2_result_to_strategy_selection,
@@ -35,6 +36,7 @@ __all__ = (
     "build_action_set_plans",
     "diagnose_board",
     "generate_mission_plans",
+    "generate_surface_candidates",
     "mission_family_for_candidate",
     "mission_priority",
     "planner_v2_diagnostics",
