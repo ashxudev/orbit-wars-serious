@@ -229,6 +229,7 @@ def build_github_bootstrap_argv(
             'p=u.urlsplit(repo); print(u.urlunsplit((p.scheme, '
             '"x-access-token:"+u.quote(token)+"@"+p.netloc, p.path, p.query, p.fragment)))\' "$REPO_URL" "$TOKEN_ENV")"',
             "fi",
+            "cd /",
             'mkdir -p "$(dirname "$CHECKOUT_DIR")"',
             'if command -v git >/dev/null 2>&1; then',
             '  if [ -d "$CHECKOUT_DIR/.git" ]; then',
