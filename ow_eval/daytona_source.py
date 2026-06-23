@@ -285,7 +285,7 @@ def build_github_bootstrap_argv(
             '  "$PYTHON_BIN" -m pip install -r "$CHECKOUT_DIR/requirements.txt"',
             "fi",
             f"cd \"$CHECKOUT_DIR\"",
-            f"{_shell_quote(python_command)} {_shell_quote(runner_script)} {_shell_quote(job_path)}",
+            f"\"$PYTHON_BIN\" {_shell_quote(runner_script)} {_shell_quote(job_path)}",
         )
     )
     return ("bash", "-lc", script)
