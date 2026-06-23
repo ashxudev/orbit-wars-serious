@@ -603,3 +603,90 @@ Next safe options:
 
 Do not emit `GITHUB_DAYTONA_GAUNTLET_READY` until both the 2P and 4P GitHub-mode
 real probes complete end to end and produce shard artifacts.
+
+## GitHub-Mode Daytona Probe Completion
+
+The GitHub-backed Daytona migration is now complete for the historical gauntlet
+probe path. The repository was made publicly cloneable for the probe, the
+GitHub-mode bootstrap was hardened for the current Daytona sandbox, and both the
+2P and 4P real probes completed end to end from the exact pushed commit:
+
+```text
+696a1ac Use bootstrap Python for Daytona GitHub archive fetch
+```
+
+Bootstrap fixes proven by the final probes:
+
+- The sandbox can fetch the pushed GitHub commit without uploading repo source.
+- The no-`git` Daytona sandbox path can download the GitHub archive with
+  bootstrap `python3`.
+- The bootstrap changes out of the checkout directory before replacing it, so
+  the archive extraction path does not leave later commands in a deleted cwd.
+- The checkout installs the committed `requirements.txt`, including
+  `kaggle-environments==1.30.1`, before running the shard job.
+- Historical opponent source files are committed under `historical_opponents/`
+  and are not uploaded as package-local source in GitHub mode.
+
+### 2P Probe
+
+| Field | Value |
+| --- | --- |
+| Scenario | `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` |
+| Player count | `2` |
+| Episode steps | `500` |
+| Package root | `/tmp/ow-github-daytona-2p-probe-final/` |
+| Daytona plan | `/tmp/ow-github-daytona-2p-probe-final/daytona-shard-jobs.json` |
+| Real report | `/tmp/ow-github-daytona-2p-probe-final/daytona-real-report.json` |
+| Shard result | `/tmp/ow-github-daytona-2p-probe-final/package/historical-leak-2p-probe-final-0000.shard-result.json` |
+| Match result artifact | `/tmp/ow-github-daytona-2p-probe-final/package/historical-leak-2p-probe-final-0000.artifacts/historical-leak-2p-probe-final-0000-match-0000-result.json` |
+| Replay artifact | `/tmp/ow-github-daytona-2p-probe-final/package/historical-leak-2p-probe-final-0000.artifacts/historical-leak-2p-probe-final-0000-match-0000-replay.json` |
+| Daytona status | `passed=true`, `exit_code=0`, `jobs=1`, `operation_plans=1` |
+| Shard status | `matches=1`, `completed=1`, `errors=0` |
+| Match status | `completed` |
+| Final rank | `2` |
+| Final score | `-1.0` |
+| Turns survived | `189` |
+| No-action count | `121` |
+| Invalid actions / timeouts / errors | `0 / 0 / 0` |
+
+The fixed early compact 2P deterministic leaks did not block execution or
+artifact capture, but the full-horizon champion probe remains a competitive
+loss with substantial no-action volume. That is future leak/strategy evidence,
+not a Daytona infrastructure failure.
+
+### 4P Probe
+
+| Field | Value |
+| --- | --- |
+| Scenario | `historical-gauntlet-4p-500-top-score-seat-3` |
+| Player count | `4` |
+| Episode steps | `500` |
+| Package root | `/tmp/ow-github-daytona-4p-probe-final/` |
+| Daytona plan | `/tmp/ow-github-daytona-4p-probe-final/daytona-shard-jobs.json` |
+| Real report | `/tmp/ow-github-daytona-4p-probe-final/daytona-real-report.json` |
+| Shard result | `/tmp/ow-github-daytona-4p-probe-final/package/historical-leak-4p-probe-final-0000.shard-result.json` |
+| Match result artifact | `/tmp/ow-github-daytona-4p-probe-final/package/historical-leak-4p-probe-final-0000.artifacts/historical-leak-4p-probe-final-0000-match-0000-result.json` |
+| Replay artifact | `/tmp/ow-github-daytona-4p-probe-final/package/historical-leak-4p-probe-final-0000.artifacts/historical-leak-4p-probe-final-0000-match-0000-replay.json` |
+| Daytona status | `passed=true`, `exit_code=0`, `jobs=1`, `operation_plans=1` |
+| Shard status | `matches=1`, `completed=1`, `errors=0` |
+| Match status | `completed` |
+| Final rank | `2` |
+| Final score | `-1.0` |
+| Turns survived | `225` |
+| No-action count | `108` |
+| Invalid actions / timeouts / errors | `0 / 0 / 0` |
+
+The fixed compact 4P selector leaks did not block execution or artifact capture,
+but the full-horizon top-score probe remains a competitive loss with meaningful
+no-action volume. Use the replay/result artifacts above as inputs for later
+fixture extraction or broader strategy work if needed.
+
+No Kaggle command or live submission was run. Generated packages, Daytona plans,
+client reports, shard results, match result artifacts, and replay artifacts
+remain under `/tmp` and are not source-controlled.
+
+Segment completion sentinel:
+
+```text
+GITHUB_DAYTONA_GAUNTLET_READY
+```
