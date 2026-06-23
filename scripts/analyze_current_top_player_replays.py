@@ -332,6 +332,8 @@ def analyze_replay(
     target: dict[str, Any],
     submission: dict[str, Any],
     episode: dict[str, Any],
+    *,
+    include_action_rows: bool = False,
 ) -> dict[str, Any]:
     replay = json.loads(replay_path.read_text(encoding="utf-8"))
     steps = replay.get("steps") or []
@@ -496,7 +498,7 @@ def analyze_replay(
         reverse=True,
     )[:8]
     capture_summary = summarize_capture_events(capture_events, player_index)
-    return {
+    result = {
         "episode_id": int(episode["id"]),
         "episode_end_time": episode["end_time"],
         "episode_type": episode["type"],
@@ -530,6 +532,9 @@ def analyze_replay(
         "curves_sample": sample_curve(curves),
         "replay_path": str(replay_path),
     }
+    if include_action_rows:
+        result["action_rows"] = action_rows
+    return result
 
 
 def _group_by_turn(rows: list[dict[str, Any]]) -> dict[int, list[dict[str, Any]]]:

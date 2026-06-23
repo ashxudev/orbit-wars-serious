@@ -296,3 +296,24 @@ Interpretation: source-guard is only weakly better than fallback in the matched
 Daytona A/B. It is not proven top-10 quality, but it is directionally aligned
 with the observed live-loss source-drain/short-hold failure class and is now
 live for empirical feedback.
+
+First source-guard live check:
+
+- Checked at: `2026-06-24 08:24 AEST`.
+- Kaggle status: `SubmissionStatus.COMPLETE`.
+- Public score shown: `600.0`.
+- Public episodes available/analyzed: `1`.
+- Analysis root, kept out of git:
+  `/tmp/orbit-wars-source-guard-53992217-live-analysis-test/`.
+- Episode `81538434`: 2P win against `Runlin zhang`, final production `48.0`,
+  final total `2080.0`, peak production `48.0`.
+- Source-loss-after-launch diagnostic: `within_5=0`, `within_10=0`,
+  `within_20=0`.
+
+Follow-up analyzer fix:
+
+- `scripts/analyze_latest_submission_replays.py` now accepts submission-specific
+  metadata for non-default submissions.
+- `scripts/analyze_current_top_player_replays.py` can return compact action rows
+  when requested, allowing latest-submission reports to compute
+  source-loss-after-launch diagnostics directly from replay actions.

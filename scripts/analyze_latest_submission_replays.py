@@ -35,22 +35,36 @@ DEFAULT_AGENT_NAME = "ashxudev_orbit_wars_v2_submission"
 DEFAULT_OUTPUT_ROOT = Path("docs/submission_replay_analyses")
 
 
-def latest_submission_metadata() -> dict[str, Any]:
+def latest_submission_metadata(
+    *,
+    submission_id: int = DEFAULT_SUBMISSION_ID,
+    agent_name: str = DEFAULT_AGENT_NAME,
+    file_name: str | None = None,
+    date_submitted: str | None = None,
+    description: str | None = None,
+    public_score: float | None = None,
+) -> dict[str, Any]:
     return {
-        "id": DEFAULT_SUBMISSION_ID,
-        "file_name": "orbit_wars_v2_submission.py",
-        "date_submitted": "2026-06-21 22:34:06.907000",
-        "description": "serious-v2 deterministic readiness passed 75867e3",
-        "public_score": 381.1,
+        "agent_name": agent_name,
+        "id": submission_id,
+        "file_name": file_name or f"{agent_name}.py",
+        "date_submitted": date_submitted or "unknown",
+        "description": description or "",
+        "public_score": public_score,
     }
 
 
-def target_metadata() -> dict[str, Any]:
+def target_metadata(
+    submission: dict[str, Any],
+    *,
+    team_name: str = DEFAULT_TEAM_NAME,
+    team_id: int = DEFAULT_TEAM_ID,
+) -> dict[str, Any]:
     return {
         "rank": -1,
-        "score": latest_submission_metadata()["public_score"],
-        "team_id": DEFAULT_TEAM_ID,
-        "team_name": DEFAULT_TEAM_NAME,
+        "score": submission["public_score"] or -1.0,
+        "team_id": team_id,
+        "team_name": team_name,
     }
 
 
@@ -208,7 +222,7 @@ def write_report(
         "# Latest Submission Replay Analysis",
         "",
         f"- Competition: `{COMPETITION}`",
-        f"- Submitted agent: `{DEFAULT_AGENT_NAME}`",
+        f"- Submitted agent: `{submission.get('agent_name', DEFAULT_AGENT_NAME)}`",
         f"- Submission: `{submission['id']}` / `{submission['file_name']}`",
         f"- Submitted: `{submission['date_submitted']}`",
         f"- Public score: `{submission['public_score']}`",
@@ -301,6 +315,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--submission-id", type=int, default=DEFAULT_SUBMISSION_ID)
     parser.add_argument("--agent-name", default=DEFAULT_AGENT_NAME)
+    parser.add_argument("--team-name", default=DEFAULT_TEAM_NAME)
+    parser.add_argument("--team-id", type=int, default=DEFAULT_TEAM_ID)
+    parser.add_argument("--file-name")
+    parser.add_argument("--date-submitted")
+    parser.add_argument("--description")
+    parser.add_argument("--public-score", type=float)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--sleep", type=float, default=0.2)
@@ -313,15 +333,32 @@ def main() -> int:
     replay_dir = output_dir / "replay_episodes"
     output_dir.mkdir(parents=True, exist_ok=True)
     replay_dir.mkdir(parents=True, exist_ok=True)
-    submission = latest_submission_metadata()
-    target = target_metadata()
+    submission = latest_submission_metadata(
+        submission_id=args.submission_id,
+        agent_name=args.agent_name,
+        file_name=args.file_name,
+        date_submitted=args.date_submitted,
+        description=args.description,
+        public_score=args.public_score,
+    )
+    target = target_metadata(
+        submission,
+        team_name=args.team_name,
+        team_id=args.team_id,
+    )
     episodes = list_submission_episodes(args.submission_id)[: args.limit]
     rows = []
     diagnostics = []
     for episode in episodes:
         replay_path = replay_dir / f"episode-{int(episode['id'])}-replay.json"
         download_replay(int(episode["id"]), replay_path, args.sleep)
-        row = analyze_replay(replay_path, target, submission, episode)
+        row = analyze_replay(
+            replay_path,
+            target,
+            submission,
+            episode,
+            include_action_rows=True,
+        )
         row = add_action_rows(row, replay_path, episode, args.submission_id)
         rows.append(row)
         diagnostics.append(loss_diagnostics(replay_path, episode, row, args.submission_id))
