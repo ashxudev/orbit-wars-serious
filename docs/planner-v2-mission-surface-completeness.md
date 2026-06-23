@@ -101,20 +101,67 @@ evaluation gate reported `gate=PASS`, and submission preflight reported
 
 ## Remaining Promotion Work
 
-Planner V2 is still not default. The next promotion step is to rerun the two
-full-500 historical Daytona probes with this commit after it is committed and
-pushed:
+Planner V2 is still not default. The two post-fix full-500 historical Daytona
+probes were rerun from pushed commit `a4d7c85 Add planner v2 mission surface
+recovery` using GitHub source mode.
+
+| Probe | Package root | Real report | Match result | Replay |
+|---|---|---|---|---|
+| 2P `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness` | `/tmp/ow-planner-v2-surface-daytona-2p/` | `/tmp/ow-planner-v2-surface-daytona-2p/daytona-real-report.json` | `/tmp/ow-planner-v2-surface-daytona-2p/package/planner-v2-surface-2p-probe-0000.artifacts/planner-v2-surface-2p-probe-0000-match-0000-result.json` | `/tmp/ow-planner-v2-surface-daytona-2p/package/planner-v2-surface-2p-probe-0000.artifacts/planner-v2-surface-2p-probe-0000-match-0000-replay.json` |
+| 4P `historical-gauntlet-4p-500-top-score-seat-3` | `/tmp/ow-planner-v2-surface-daytona-4p/` | `/tmp/ow-planner-v2-surface-daytona-4p/daytona-real-report.json` | `/tmp/ow-planner-v2-surface-daytona-4p/package/planner-v2-surface-4p-probe-0000.artifacts/planner-v2-surface-4p-probe-0000-match-0000-result.json` | `/tmp/ow-planner-v2-surface-daytona-4p/package/planner-v2-surface-4p-probe-0000.artifacts/planner-v2-surface-4p-probe-0000-match-0000-replay.json` |
+
+Both Daytona commands completed successfully:
+
+- 2P: `jobs=1`, `operation_plans=1`, `exit_code=0`, shard
+  `matches=1 completed=1 errors=0`.
+- 4P: `jobs=1`, `operation_plans=1`, `exit_code=0`, shard
+  `matches=1 completed=1 errors=0`.
+
+The post-fix probes show infrastructure success and deterministic progress on
+the no-action leak, but not promotion readiness.
+
+| Metric | Old 2P V2 probe | Post-fix 2P probe | Old 4P V2 probe | Post-fix 4P probe |
+|---|---:|---:|---:|---:|
+| Final rank | `2` | `2` | `2` | `2` |
+| Turns survived | `109` | `130` | `244` | `186` |
+| Production collapse | `true` | `true` | `true` | `true` |
+| First zero-owned turn | `99` | `54` | `184` | `80` |
+| No-action count | `47` | `50` | `107` | `106` |
+| No-action with owned production | `38` | `2` | `47` | `1` |
+| Primary no-action reason | `no_candidates_generated` | `no_owned_planets` | `no_owned_planets` | `no_owned_planets` |
+| Enemy-target actions | `5` | `63` | `22` | `80` |
+| Neutral-target actions | `39` | `16` | `59` | `0` |
+| Own-transfer actions | `20` | `0` | `56` | `0` |
+
+Interpretation:
+
+- The deterministic candidate-starvation/no-action-with-owned-production leak is
+  largely closed in these full-horizon probes. The old 2P probe had `38`
+  no-actions with owned production; the post-fix probe has `2`. The old 4P
+  probe had `47`; the post-fix probe has `1`.
+- The failure mode changed rather than disappeared. V2 now acts, but the action
+  mix is too aggressive and one-dimensional: enemy-target actions dominate,
+  neutral expansion disappears in 4P, and both probes still lose by production
+  collapse.
+- This is now a deterministic policy/search quality leak, not a runtime
+  artifact, Daytona infrastructure, or Kaggle issue. The next fix should tune
+  V2 mission-surface selection/search to prioritize safe expansion, hold, and
+  source preservation before repeated enemy/leader pressure in fragile early
+  positions.
+
+Do not promote V2 yet. The next deterministic segment should extract compact
+fixtures from the new post-fix Daytona artifacts around the early collapse
+windows:
 
 1. 2P `historical-gauntlet-2p-500-seat-1-vs-claude-v31-race-awareness`.
 2. 4P `historical-gauntlet-4p-500-top-score-seat-3`.
 
-Success requires more than nonzero candidates: the full-horizon probes need to
-show reduced production-collapse behavior, lower no-action-with-owned-production
-counts, and no new own-transfer spam or unsafe source-drain pattern. If the
-probes still lose from repeated collapse, the next deterministic segment should
-extract the remaining failure windows and refine V2 search/scoring; if V2 emits
-reasonable plans but loses on relative strength, that becomes an
-autoresearch/tuning surface.
+Priority fixture targets:
+
+- 2P: turns near `20`, `40`, `54`, and `60`, where the post-fix probe has only
+  one owned planet and then loses all ownership despite continuous actions.
+- 4P: turns near `20`, `40`, `60`, and `80`, where the post-fix probe remains on
+  one low-production planet and then collapses.
 
 Segment sentinel remains pending until the post-fix probes pass:
 `PLANNER_V2_MISSION_SURFACE_COMPLETENESS_COMPLETE`.
