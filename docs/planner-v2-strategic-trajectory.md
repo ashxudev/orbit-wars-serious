@@ -288,7 +288,7 @@ serious submissions remained far below the historical archive:
 | Ref | File | Public score |
 |---:|---|---:|
 | `53925932` | `orbit_wars_v2_submission.py` | `423.2` |
-| `53894832` | `orbit_wars_v1_submission.py` | `407.3` |
+| `53894832` | `orbit_wars_v1_submission.py` | `415.1` |
 | `53555669` | historical `claude-v3-wide-search-forecast` | `912.2` |
 
 Read-only top-player replay analysis was run to `/tmp/ow-top-player-analysis`.

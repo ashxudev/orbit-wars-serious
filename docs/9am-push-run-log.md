@@ -5,7 +5,7 @@
 - Active workspace: `/Users/user/dev/hackathons/orbit-wars-serious`.
 - Current serious live submissions remain far below the historical fallback:
   - `53925932` / `orbit_wars_v2_submission.py`: public score `423.2`.
-  - `53894832` / `orbit_wars_v1_submission.py`: public score `407.3`.
+  - `53894832` / `orbit_wars_v1_submission.py`: public score `415.1`.
   - Historical fallback `53555669` / `claude-v3-wide-search-forecast`:
     public score `912.2`.
 - Known fallback file:
@@ -42,6 +42,28 @@ Aggregate:
 
 Decision: not promotable, no live submission.
 
+Current-commit trajectory-continuation probe:
+
+- Commit: `e4b30a3`.
+- Root: `/tmp/ow-9am-v2-continuation-probe/`.
+- Plan: `/tmp/ow-9am-v2-continuation-probe/daytona-shard-jobs-004-005.json`.
+- Shard results:
+  - `/tmp/ow-9am-v2-continuation-probe/package/historical-gauntlet-shard-004/historical-gauntlet-shard-004.shard-result.json`.
+  - `/tmp/ow-9am-v2-continuation-probe/package/historical-gauntlet-shard-005/historical-gauntlet-shard-005.shard-result.json`.
+- Result: completed shard artifacts, `10` full-500 historical matches, `0`
+  match execution errors.
+
+Aggregate:
+
+| Mode | Matches | Mean survived | Mean final rank | Mean final production | Collapse rate | Mean no-action with owned production |
+|---|---:|---:|---:|---:|---:|---:|
+| 2P | `6` | `106.5` | `2.0` | `0.0` | `1.0` | `57.5` |
+| 4P | `4` | `245.25` | `2.0` | `1.25` | `0.75` | `236.75` |
+
+Decision: not promotable, no live submission. The continuation bridge did not
+close the trajectory gap; it still loses every 2P historical match and mostly
+collapses in 4P.
+
 ## Current Source Change
 
 Added a V2-only, 4P-scoped trajectory continuation bridge:
@@ -70,10 +92,8 @@ Ran 71 tests in 162.416s
 OK
 ```
 
-Pending before any promotion decision:
-
-- fresh current-commit Daytona probe if this bridge is considered for further
-  evidence.
+The current-commit Daytona probe completed after these checks and rejected V2
+promotion; see the Daytona evidence section above.
 
 Completed validation:
 
@@ -98,7 +118,29 @@ PASS
 ## Submission Status
 
 - Exploratory live submissions used in this push: `0`.
-- Final submissions used in this push: `0`.
+- Final submissions used in this push before fallback submit: `0`.
 - Current serious V2 path is not promotable on evidence.
+- Current serious bundle candidate:
+  `/tmp/orbit_wars_serious_e4b30a3_submission.py`,
+  SHA256 `76fc642e337797a7415c565bf23878e081a02f22a9a0d57a4dfc071199a3f474`.
 - Next-best fallback candidate remains
   `/tmp/orbit_wars_claude_v3_wide_search_forecast_submission.py`.
+
+Final submission decision:
+
+- Submitted fallback file:
+  `/tmp/orbit_wars_claude_v3_wide_search_forecast_submission.py`.
+- SHA256:
+  `cd547e3f8f9d93be8c8e2441cb3cc9f52050222114279cbe1192dbcc99a33875`.
+- Verification:
+  - byte-identical to
+    `historical_opponents/agents/claude_v3_wide_search_forecast.py`;
+  - `py_compile` passed.
+- Kaggle ref: `53988022`.
+- Submitted at: `2026-06-24 03:57 AEST`.
+- Submission message:
+  `final fallback claude-v3-wide-search-forecast; serious-v2 423.2 and 0/10 Daytona, fallback historical public 912.2, leaving one reserve`.
+- Status immediately after submit: `SubmissionStatus.PENDING`.
+- Exploratory live submissions used in this push: `0`.
+- Final submissions used in this push: `1`.
+- Final submissions held in reserve: `1`.
