@@ -28,6 +28,7 @@ class FallbackSourceGuardCandidateTests(unittest.TestCase):
         self.assertIn("SOURCE_LOSS_GUARD_TICKS = 24", first)
         self.assertIn("SHORT_HOLD_GUARD_TICKS = 28", first)
         self.assertIn("newly_lost_source", first)
+        self.assertIn("already_doomed_source", first)
         self.assertIn("held_for = fl2 - fg2", first)
 
     def test_candidate_agent_returns_legal_shape_for_seed_fixture(self) -> None:
@@ -90,6 +91,28 @@ class FallbackSourceGuardCandidateTests(unittest.TestCase):
             self.assertEqual(result.stdout, "")
             self.assertEqual(result.stderr, "")
             self.assertTrue(output_path.is_file())
+
+    def test_already_doomed_productive_source_attack_is_rejected(self) -> None:
+        observation = {
+            "step": 0,
+            "player": 0,
+            "remainingOverageTime": 60,
+            "angular_velocity": 0.0,
+            "comet_planet_ids": [],
+            "comets": [],
+            "next_fleet_id": 2,
+            "initial_planets": [],
+            "planets": [
+                [0, 0, 60.0, 20.0, 3.0, 80, 4],
+                [1, 1, 85.0, 20.0, 3.0, 10, 5],
+                [2, 1, 10.0, 70.0, 3.0, 10, 1],
+            ],
+            "fleets": [
+                [0, 1, 22.0, 20.0, 0.0, 1, 150],
+            ],
+        }
+
+        self.assertEqual(fallback_source_guard.agent(observation, {}), [])
 
 
 if __name__ == "__main__":

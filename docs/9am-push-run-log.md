@@ -317,3 +317,34 @@ Follow-up analyzer fix:
 - `scripts/analyze_current_top_player_replays.py` can return compact action rows
   when requested, allowing latest-submission reports to compute
   source-loss-after-launch diagnostics directly from replay actions.
+
+Already-doomed source-guard follow-up:
+
+- No live Kaggle submission was made.
+- Investigated whether `agents.fallback_source_guard` only catches launches
+  that newly doom a source. The current guard compared post-launch source loss
+  against baseline loss, so sources already forecast to fall inside the guard
+  window were treated as if their ships were free unless they fell in the
+  existing very-short evacuation window.
+- Added a deterministic `already_doomed_source` branch in the isolated fallback
+  source-guard candidate. Non-funnel launches from sources already forecast to
+  fall inside `SOURCE_LOSS_GUARD_TICKS` now receive an additional penalty, with
+  high-production sources rejected only inside the tighter 12-tick danger
+  window.
+- Added an inline synthetic regression fixture in
+  `tests/test_fallback_source_guard_candidate.py`: one productive source is
+  forecast to fall to an incoming fleet at tick `9`, and the previous candidate
+  would attack with `50` ships. The patched candidate returns no launch.
+- Matched local pressure check:
+  `/tmp/ow-main-impact-sweep/tracked_source_guard_doomed_penalty-report.json`.
+  The tracked patched source-guard candidate went `2/6` on the six historical
+  pressure scenarios versus `1/6` for the prior source-guard candidate, with no
+  errors. The added win was
+  `historical-gauntlet-2p-500-seat-0-vs-ow2-current-main` (`rank=1`,
+  final production `47`), while the existing `claude-v9-hold-aware-capture`
+  2P win remained stable (`rank=1`, final production `84`).
+- Live source-guard submission `53992217` later exposed three public wins and a
+  public score above the fallback (`804.1` at the latest check here versus
+  fallback `718.1`). No new live submission was made for this patch.
+- Focused validation command:
+  `python3 -m unittest tests.test_fallback_source_guard_candidate -v`.
