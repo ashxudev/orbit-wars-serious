@@ -11,9 +11,12 @@ from __future__ import annotations
 import argparse
 import sys
 import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Callable
 
 from scripts.build_submission import write_submission
 
@@ -21,7 +24,11 @@ from .experiment_suite import (
     default_manifest_paths,
     run_evaluation_suite,
 )
-from .parity import SubmissionParityConfig, run_submission_parity_check
+from .parity import (
+    SubmissionParityConfig,
+    SubmissionParityResult,
+    run_submission_parity_check,
+)
 from .regression_gate import RegressionGateConfig, run_regression_gate
 
 
@@ -29,6 +36,15 @@ CHECK_SUBMISSION_BUILD = "submission_build"
 CHECK_SUBMISSION_PARITY = "submission_parity"
 CHECK_REGRESSION_GATE = "regression_gate"
 CHECK_EXPERIMENT_SUITE = "experiment_suite"
+PREFLIGHT_LEVEL_FAST = "fast"
+PREFLIGHT_LEVEL_STANDARD = "standard"
+PREFLIGHT_LEVEL_FULL = "full"
+PREFLIGHT_LEVELS = (
+    PREFLIGHT_LEVEL_FAST,
+    PREFLIGHT_LEVEL_STANDARD,
+    PREFLIGHT_LEVEL_FULL,
+)
+ProgressCallback = Callable[[str, str, float | None], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +56,7 @@ class SubmissionPreflightCheck:
     exit_code: int
     summary_text: str
     failure_reasons: tuple[str, ...] = ()
+    duration_seconds: float | None = None
 
     def __post_init__(self) -> None:
         _validate_nonempty_string(self.name, "name")
@@ -52,6 +69,8 @@ class SubmissionPreflightCheck:
             raise ValueError("failure_reasons must be a tuple")
         for reason in self.failure_reasons:
             _validate_nonempty_string(reason, "failure reason")
+        if self.duration_seconds is not None:
+            _validate_nonnegative_number(self.duration_seconds, "duration_seconds")
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-safe dictionary."""
@@ -62,6 +81,7 @@ class SubmissionPreflightCheck:
             "exit_code": self.exit_code,
             "summary_text": self.summary_text,
             "failure_reasons": list(self.failure_reasons),
+            "duration_seconds": self.duration_seconds,
         }
 
 
@@ -104,43 +124,47 @@ def run_submission_preflight(
     *,
     manifest_paths: Sequence[str | Path] | None = None,
     suite_report_dir: str | Path | None = None,
+    level: str = PREFLIGHT_LEVEL_STANDARD,
     skip_parity: bool = False,
     skip_regression_gate: bool = False,
     skip_experiment_suite: bool = False,
+    progress_callback: ProgressCallback | None = None,
 ) -> SubmissionPreflightResult:
     """Run the deterministic local submission-readiness checklist."""
 
+    _validate_preflight_level(level)
     checks: list[SubmissionPreflightCheck] = []
     with tempfile.TemporaryDirectory(prefix="ow-submission-preflight-") as tmp:
         submission_path = Path(tmp) / "orbit_wars_submission.py"
-        build_check = _submission_build_check(submission_path)
+        build_check = _timed_check(
+            CHECK_SUBMISSION_BUILD,
+            lambda: _submission_build_check(submission_path),
+            progress_callback=progress_callback,
+        )
         checks.append(build_check)
 
-        if skip_parity:
-            checks.append(_skipped_check(CHECK_SUBMISSION_PARITY))
-        elif build_check.passed:
-            checks.append(_submission_parity_check(submission_path))
-        else:
-            checks.append(
-                _failed_check(
-                    CHECK_SUBMISSION_PARITY,
-                    "submission build unavailable",
+        if build_check.passed:
+            checks.extend(
+                _run_expensive_checks(
+                    submission_path=submission_path,
+                    manifest_paths=manifest_paths,
+                    suite_report_dir=suite_report_dir,
+                    level=level,
+                    skip_parity=skip_parity,
+                    skip_regression_gate=skip_regression_gate,
+                    skip_experiment_suite=skip_experiment_suite,
+                    progress_callback=progress_callback,
                 )
             )
-
-        checks.append(
-            _skipped_check(CHECK_REGRESSION_GATE)
-            if skip_regression_gate
-            else _regression_gate_check(submission_path if build_check.passed else None)
-        )
-        checks.append(
-            _skipped_check(CHECK_EXPERIMENT_SUITE)
-            if skip_experiment_suite
-            else _experiment_suite_check(
-                manifest_paths=manifest_paths,
-                suite_report_dir=suite_report_dir,
+        else:
+            checks.extend(
+                _checks_for_unavailable_submission(
+                    level=level,
+                    skip_parity=skip_parity,
+                    skip_regression_gate=skip_regression_gate,
+                    skip_experiment_suite=skip_experiment_suite,
+                )
             )
-        )
 
     check_tuple = tuple(checks)
     passed = all(check.passed for check in check_tuple)
@@ -169,6 +193,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Optional directory for experiment suite report JSON files.",
     )
     parser.add_argument(
+        "--level",
+        choices=PREFLIGHT_LEVELS,
+        default=PREFLIGHT_LEVEL_STANDARD,
+        help=(
+            "Preflight scope: fast=build plus one parity match; "
+            "standard=build, parity, regression gate; "
+            "full=standard plus experiment suite."
+        ),
+    )
+    parser.add_argument(
+        "--quiet-progress",
+        action="store_true",
+        help="Do not print per-check progress and timing lines to stderr.",
+    )
+    parser.add_argument(
         "--skip-parity",
         action="store_true",
         help="Skip generated-submission parity check.",
@@ -188,9 +227,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     result = run_submission_preflight(
         manifest_paths=tuple(args.manifests) if args.manifests else None,
         suite_report_dir=args.suite_report_dir,
+        level=args.level,
         skip_parity=args.skip_parity,
         skip_regression_gate=args.skip_regression_gate,
         skip_experiment_suite=args.skip_experiment_suite,
+        progress_callback=None if args.quiet_progress else _print_progress,
     )
     print(result.summary_text)
     for check in result.checks:
@@ -217,12 +258,25 @@ def _submission_build_check(submission_path: Path) -> SubmissionPreflightCheck:
         return _exception_check(CHECK_SUBMISSION_BUILD, exc)
 
 
-def _submission_parity_check(submission_path: Path) -> SubmissionPreflightCheck:
+def _submission_parity_check(
+    submission_path: Path,
+    *,
+    fast: bool = False,
+) -> SubmissionPreflightCheck:
+    return _submission_parity_attempt(submission_path, fast=fast)[0]
+
+
+def _submission_parity_attempt(
+    submission_path: Path,
+    *,
+    fast: bool = False,
+) -> tuple[SubmissionPreflightCheck, SubmissionParityResult | None]:
     try:
         config = RegressionGateConfig()
+        matches = config.matches[:1] if fast else config.matches
         parity_result = run_submission_parity_check(
             SubmissionParityConfig(
-                matches=config.matches,
+                matches=matches,
                 submission_path=submission_path,
             )
         )
@@ -240,17 +294,20 @@ def _submission_parity_check(submission_path: Path) -> SubmissionPreflightCheck:
                 f"exit_code={0 if parity_result.passed else 1}"
             ),
             failure_reasons=reasons,
-        )
+        ), parity_result
     except Exception as exc:  # noqa: BLE001 - preflight records failures.
-        return _exception_check(CHECK_SUBMISSION_PARITY, exc)
+        return _exception_check(CHECK_SUBMISSION_PARITY, exc), None
 
 
 def _regression_gate_check(
     submission_path: Path | None,
+    *,
+    parity_result=None,
 ) -> SubmissionPreflightCheck:
     try:
         gate_result = run_regression_gate(
-            RegressionGateConfig(submission_path=submission_path)
+            RegressionGateConfig(submission_path=submission_path),
+            parity_result=parity_result,
         )
         reasons = tuple(
             f"{failure.code}: {failure.message}"
@@ -298,6 +355,153 @@ def _experiment_suite_check(
         )
     except Exception as exc:  # noqa: BLE001 - preflight records failures.
         return _exception_check(CHECK_EXPERIMENT_SUITE, exc)
+
+
+def _run_expensive_checks(
+    *,
+    submission_path: Path,
+    manifest_paths: Sequence[str | Path] | None,
+    suite_report_dir: str | Path | None,
+    level: str,
+    skip_parity: bool,
+    skip_regression_gate: bool,
+    skip_experiment_suite: bool,
+    progress_callback: ProgressCallback | None,
+) -> tuple[SubmissionPreflightCheck, ...]:
+    include_parity = level in (PREFLIGHT_LEVEL_FAST, PREFLIGHT_LEVEL_STANDARD, PREFLIGHT_LEVEL_FULL)
+    include_gate = level in (PREFLIGHT_LEVEL_STANDARD, PREFLIGHT_LEVEL_FULL)
+    include_suite = (
+        level == PREFLIGHT_LEVEL_FULL
+        or manifest_paths is not None
+        or suite_report_dir is not None
+    )
+
+    def parity_and_gate() -> tuple[SubmissionPreflightCheck, ...]:
+        checks: list[SubmissionPreflightCheck] = []
+        precomputed_parity: SubmissionParityResult | None = None
+        if include_parity:
+            if skip_parity:
+                checks.append(_skipped_check(CHECK_SUBMISSION_PARITY))
+            else:
+                parity_check, precomputed_parity = _timed_parity_attempt(
+                    submission_path,
+                    fast=level == PREFLIGHT_LEVEL_FAST,
+                    progress_callback=progress_callback,
+                )
+                checks.append(parity_check)
+        if include_gate:
+            if skip_regression_gate:
+                checks.append(_skipped_check(CHECK_REGRESSION_GATE))
+            else:
+                checks.append(
+                    _timed_check(
+                        CHECK_REGRESSION_GATE,
+                        lambda: _regression_gate_check(
+                            submission_path,
+                            parity_result=precomputed_parity,
+                        ),
+                        progress_callback=progress_callback,
+                    )
+                )
+        return tuple(checks)
+
+    def suite() -> tuple[SubmissionPreflightCheck, ...]:
+        if not include_suite:
+            return ()
+        if skip_experiment_suite:
+            return (_skipped_check(CHECK_EXPERIMENT_SUITE),)
+        return (
+            _timed_check(
+                CHECK_EXPERIMENT_SUITE,
+                lambda: _experiment_suite_check(
+                    manifest_paths=manifest_paths,
+                    suite_report_dir=suite_report_dir,
+                ),
+                progress_callback=progress_callback,
+            ),
+        )
+
+    if include_suite and include_gate:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            parity_and_gate_future = executor.submit(parity_and_gate)
+            suite_future = executor.submit(suite)
+            return parity_and_gate_future.result() + suite_future.result()
+    return parity_and_gate() + suite()
+
+
+def _checks_for_unavailable_submission(
+    *,
+    level: str,
+    skip_parity: bool,
+    skip_regression_gate: bool,
+    skip_experiment_suite: bool,
+) -> tuple[SubmissionPreflightCheck, ...]:
+    checks: list[SubmissionPreflightCheck] = []
+    if level in (PREFLIGHT_LEVEL_FAST, PREFLIGHT_LEVEL_STANDARD, PREFLIGHT_LEVEL_FULL):
+        checks.append(
+            _skipped_check(CHECK_SUBMISSION_PARITY)
+            if skip_parity
+            else _failed_check(CHECK_SUBMISSION_PARITY, "submission build unavailable")
+        )
+    if level in (PREFLIGHT_LEVEL_STANDARD, PREFLIGHT_LEVEL_FULL):
+        checks.append(
+            _skipped_check(CHECK_REGRESSION_GATE)
+            if skip_regression_gate
+            else _failed_check(CHECK_REGRESSION_GATE, "submission build unavailable")
+        )
+    if level == PREFLIGHT_LEVEL_FULL:
+        checks.append(
+            _skipped_check(CHECK_EXPERIMENT_SUITE)
+            if skip_experiment_suite
+            else _failed_check(CHECK_EXPERIMENT_SUITE, "submission build unavailable")
+        )
+    return tuple(checks)
+
+
+def _timed_check(
+    name: str,
+    func: Callable[[], SubmissionPreflightCheck],
+    *,
+    progress_callback: ProgressCallback | None,
+) -> SubmissionPreflightCheck:
+    if progress_callback is not None:
+        progress_callback("start", name, None)
+    started = time.perf_counter()
+    check = func()
+    duration = time.perf_counter() - started
+    timed_check = replace(check, duration_seconds=duration)
+    if progress_callback is not None:
+        progress_callback("done", name, duration)
+    return timed_check
+
+
+def _timed_parity_attempt(
+    submission_path: Path,
+    *,
+    fast: bool,
+    progress_callback: ProgressCallback | None,
+) -> tuple[SubmissionPreflightCheck, SubmissionParityResult | None]:
+    if progress_callback is not None:
+        progress_callback("start", CHECK_SUBMISSION_PARITY, None)
+    started = time.perf_counter()
+    check, parity_result = _submission_parity_attempt(submission_path, fast=fast)
+    duration = time.perf_counter() - started
+    timed_check = replace(check, duration_seconds=duration)
+    if progress_callback is not None:
+        progress_callback("done", CHECK_SUBMISSION_PARITY, duration)
+    return timed_check, parity_result
+
+
+def _print_progress(event: str, name: str, duration_seconds: float | None) -> None:
+    if event == "start":
+        print(f"preflight_start check={name}", file=sys.stderr, flush=True)
+        return
+    duration = 0.0 if duration_seconds is None else duration_seconds
+    print(
+        f"preflight_done check={name} duration_s={duration:.3f}",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 def _parity_failure_reasons(parity_result: object) -> tuple[str, ...]:
@@ -359,9 +563,19 @@ def _summary_text(
     )
 
 
+def _validate_preflight_level(value: object) -> None:
+    if value not in PREFLIGHT_LEVELS:
+        raise ValueError(f"level must be one of {', '.join(PREFLIGHT_LEVELS)}")
+
+
 def _validate_nonempty_string(value: object, name: str) -> None:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{name} must be a non-empty string")
+
+
+def _validate_nonnegative_number(value: object, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        raise ValueError(f"{name} must be a non-negative number")
 
 
 __all__ = (
@@ -369,6 +583,10 @@ __all__ = (
     "CHECK_REGRESSION_GATE",
     "CHECK_SUBMISSION_BUILD",
     "CHECK_SUBMISSION_PARITY",
+    "PREFLIGHT_LEVEL_FAST",
+    "PREFLIGHT_LEVEL_FULL",
+    "PREFLIGHT_LEVEL_STANDARD",
+    "PREFLIGHT_LEVELS",
     "SubmissionPreflightCheck",
     "SubmissionPreflightResult",
     "main",

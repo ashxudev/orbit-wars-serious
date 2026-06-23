@@ -200,6 +200,15 @@ class MatchMetrics:
     error_count: int | None = None
     invalid_action_count: int | None = None
     timeout_count: int | None = None
+    action_count_after_t20: int | None = None
+    no_action_with_owned_production_count: int | None = None
+    enemy_target_action_count: int | None = None
+    own_transfer_action_count: int | None = None
+    neutral_target_action_count: int | None = None
+    production_collapse: bool | None = None
+    defense_coverage_count: int | None = None
+    four_player_rank_pressure_count: int | None = None
+    early_elimination: bool | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic plain dictionary representation."""
@@ -215,6 +224,17 @@ class MatchMetrics:
             "error_count": self.error_count,
             "invalid_action_count": self.invalid_action_count,
             "timeout_count": self.timeout_count,
+            "action_count_after_t20": self.action_count_after_t20,
+            "no_action_with_owned_production_count": (
+                self.no_action_with_owned_production_count
+            ),
+            "enemy_target_action_count": self.enemy_target_action_count,
+            "own_transfer_action_count": self.own_transfer_action_count,
+            "neutral_target_action_count": self.neutral_target_action_count,
+            "production_collapse": self.production_collapse,
+            "defense_coverage_count": self.defense_coverage_count,
+            "four_player_rank_pressure_count": self.four_player_rank_pressure_count,
+            "early_elimination": self.early_elimination,
         }
 
     @classmethod
@@ -244,6 +264,42 @@ class MatchMetrics:
                 "invalid_action_count",
             ),
             timeout_count=_optional_int(data.get("timeout_count"), "timeout_count"),
+            action_count_after_t20=_optional_int(
+                data.get("action_count_after_t20"),
+                "action_count_after_t20",
+            ),
+            no_action_with_owned_production_count=_optional_int(
+                data.get("no_action_with_owned_production_count"),
+                "no_action_with_owned_production_count",
+            ),
+            enemy_target_action_count=_optional_int(
+                data.get("enemy_target_action_count"),
+                "enemy_target_action_count",
+            ),
+            own_transfer_action_count=_optional_int(
+                data.get("own_transfer_action_count"),
+                "own_transfer_action_count",
+            ),
+            neutral_target_action_count=_optional_int(
+                data.get("neutral_target_action_count"),
+                "neutral_target_action_count",
+            ),
+            production_collapse=_optional_bool(
+                data.get("production_collapse"),
+                "production_collapse",
+            ),
+            defense_coverage_count=_optional_int(
+                data.get("defense_coverage_count"),
+                "defense_coverage_count",
+            ),
+            four_player_rank_pressure_count=_optional_int(
+                data.get("four_player_rank_pressure_count"),
+                "four_player_rank_pressure_count",
+            ),
+            early_elimination=_optional_bool(
+                data.get("early_elimination"),
+                "early_elimination",
+            ),
         )
 
 
@@ -354,6 +410,14 @@ def _optional_int(value: object, name: str) -> int | None:
     if value is None:
         return None
     return _int_or_raise(value, name)
+
+
+def _optional_bool(value: object, name: str) -> bool | None:
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be a boolean or None")
+    return value
 
 
 def _optional_float(value: object, name: str) -> float | None:

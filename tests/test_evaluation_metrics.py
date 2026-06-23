@@ -130,6 +130,41 @@ class EvaluationMetricTests(unittest.TestCase):
         self.assertEqual(metrics.error_count, 0)
         self.assertEqual(metrics.invalid_action_count, 0)
         self.assertEqual(metrics.timeout_count, 0)
+        self.assertEqual(metrics.action_count_after_t20, 0)
+        self.assertEqual(metrics.no_action_with_owned_production_count, 2)
+        self.assertEqual(metrics.neutral_target_action_count, 0)
+        self.assertEqual(metrics.own_transfer_action_count, 1)
+        self.assertEqual(metrics.enemy_target_action_count, 0)
+        self.assertFalse(metrics.production_collapse)
+        self.assertFalse(metrics.early_elimination)
+
+    def test_extracts_v2_promotion_metrics_from_replay(self) -> None:
+        records = tuple(
+            step_record(
+                status="ACTIVE",
+                action=[] if turn != 21 else [[2, 0.0, 1]],
+                observation=metric_observation(
+                    planets=[
+                        [1, 0, 0.0, 0.0, 0.5, 10, 5 if turn < 3 else 0],
+                        [2, 0, 1.0, 0.0, 0.5, 5, 0],
+                        [3, 1, 2.0, 0.0, 0.5, 8, 4],
+                        [4, -1, 3.0, 0.0, 0.5, 4, 1],
+                    ],
+                ),
+            )
+            for turn in range(25)
+        )
+
+        metrics = extract_match_metrics(
+            replay_payload(rewards=(0, 1), controlled_records=records),
+            controlled_seat=0,
+        )
+
+        self.assertEqual(metrics.action_count_after_t20, 1)
+        self.assertGreater(metrics.no_action_with_owned_production_count, 0)
+        self.assertEqual(metrics.enemy_target_action_count, 1)
+        self.assertTrue(metrics.production_collapse)
+        self.assertTrue(metrics.early_elimination)
 
     def test_tied_rewards_share_rank(self) -> None:
         metrics = extract_match_metrics(
@@ -179,6 +214,15 @@ class EvaluationMetricTests(unittest.TestCase):
                 error_count=0,
                 invalid_action_count=0,
                 timeout_count=0,
+                action_count_after_t20=0,
+                no_action_with_owned_production_count=0,
+                enemy_target_action_count=0,
+                own_transfer_action_count=0,
+                neutral_target_action_count=0,
+                production_collapse=False,
+                defense_coverage_count=0,
+                four_player_rank_pressure_count=0,
+                early_elimination=False,
             ),
         )
 

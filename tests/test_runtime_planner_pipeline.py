@@ -8,6 +8,8 @@ import unittest
 from unittest.mock import patch
 
 from agents import (
+    PLANNER_VERSION_V1,
+    PLANNER_VERSION_V2,
     RuntimePlannerConfig,
     RuntimePlannerResult,
     agent,
@@ -39,6 +41,7 @@ from ow_planner import (
     StrategySelectionStatus,
     TwoPlayerSelectionConfig,
 )
+from ow_planner_v2 import PlannerV2Result
 from ow_sim.state import GameState, Planet
 
 
@@ -122,6 +125,8 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
     def test_runtime_planner_module_imports_and_exports_are_available(self) -> None:
         module = importlib.import_module("agents.runtime_planner")
 
+        self.assertEqual(module.PLANNER_VERSION_V1, PLANNER_VERSION_V1)
+        self.assertEqual(module.PLANNER_VERSION_V2, PLANNER_VERSION_V2)
         self.assertIs(module.RuntimePlannerConfig, RuntimePlannerConfig)
         self.assertIs(module.RuntimePlannerResult, RuntimePlannerResult)
         self.assertIs(module.run_planner_pipeline, run_planner_pipeline)
@@ -139,11 +144,30 @@ class RuntimePlannerPipelineTests(unittest.TestCase):
         self.assertIsInstance(result.commitment_options, tuple)
         self.assertIsInstance(result.bundles, tuple)
         self.assertIsInstance(result.selection, StrategySelectionResult)
+        self.assertIsNone(result.v2_result)
         candidate_ids = {id(candidate) for candidate in result.candidates}
         self.assertTrue(candidate_ids)
         self.assertTrue(
             all(id(bundle.candidate) in candidate_ids for bundle in result.bundles)
         )
+
+    def test_planner_v2_dispatch_is_explicit_and_returns_v2_result(self) -> None:
+        state = two_player_pipeline_state()
+
+        result = run_planner_pipeline(
+            state,
+            RuntimePlannerConfig(planner_version=PLANNER_VERSION_V2),
+        )
+
+        self.assertIsInstance(result.v2_result, PlannerV2Result)
+        self.assertEqual(result.v2_result.diagnosis.mode.value, "two_player")
+        self.assertIsInstance(result.selection, StrategySelectionResult)
+        if result.selection.status is StrategySelectionStatus.SELECTED:
+            self.assertIn("planner_v2", result.selection.notes)
+
+    def test_planner_version_rejects_unknown_value(self) -> None:
+        with self.assertRaisesRegex(ValueError, "planner_version"):
+            RuntimePlannerConfig(planner_version="future")
 
     def test_pipeline_does_not_mutate_input_state(self) -> None:
         state = two_player_pipeline_state()

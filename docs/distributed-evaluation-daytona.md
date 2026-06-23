@@ -193,7 +193,7 @@ also loads a local `.env` file through `python-dotenv` with `override=False`.
 That lets shell-provided values win over `.env` values.
 
 The default real-run source mode is GitHub. The local launcher records an exact
-commit SHA in the Daytona job plan, then the sandbox clones
+commit SHA in the Daytona job plan, then the sandbox clone-bootstrap clones
 `DAYTONA_GITHUB_REPO`, checks out that SHA, verifies `git rev-parse HEAD`, and
 runs the shard command from that checkout. Historical opponent agents used by
 the gauntlet are committed under `historical_opponents/`, so GitHub mode does

@@ -21,7 +21,7 @@ class SubmissionBundlerTests(unittest.TestCase):
     def test_build_submission_module_imports_and_exports_are_available(self) -> None:
         self.assertEqual(
             build_submission.BUNDLE_PACKAGES,
-            ("ow_sim", "ow_planner", "agents"),
+            ("ow_sim", "ow_planner", "ow_planner_v2", "agents"),
         )
         self.assertTrue(callable(build_submission.discover_bundle_modules))
         self.assertTrue(callable(build_submission.build_submission_source))
@@ -38,6 +38,8 @@ class SubmissionBundlerTests(unittest.TestCase):
         self.assertIn("ow_planner", module_names)
         self.assertIn("ow_planner.actions", module_names)
         self.assertIn("ow_planner.two_player_pressure", module_names)
+        self.assertIn("ow_planner_v2", module_names)
+        self.assertIn("ow_planner_v2.planner", module_names)
         self.assertIn("ow_sim", module_names)
         self.assertIn("ow_sim.state", module_names)
         self.assertTrue(all(not name.startswith("tests") for name in module_names))
@@ -53,6 +55,7 @@ class SubmissionBundlerTests(unittest.TestCase):
         self.assertIn("'agents.orbit_wars_agent'", first)
         self.assertIn("'ow_planner.actions'", first)
         self.assertIn("'ow_planner.two_player_pressure'", first)
+        self.assertIn("'ow_planner_v2.planner'", first)
         self.assertIn("'ow_sim.state'", first)
 
     def test_write_submission_twice_produces_identical_bytes(self) -> None:

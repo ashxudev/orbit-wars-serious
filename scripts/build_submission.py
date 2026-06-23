@@ -1,8 +1,9 @@
 """Build a deterministic single-file Kaggle submission.
 
-The generated file embeds the current ``ow_sim``, ``ow_planner``, and
-``agents`` modules and exposes ``agent`` at top level. It intentionally avoids
-tests, docs, scripts, caches, and non-stdlib build dependencies.
+The generated file embeds the current ``ow_sim``, ``ow_planner``,
+``ow_planner_v2``, and ``agents`` modules and exposes ``agent`` at top level. It
+intentionally avoids tests, docs, scripts, caches, and non-stdlib build
+dependencies.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from typing import Iterable, Sequence
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-BUNDLE_PACKAGES = ("ow_sim", "ow_planner", "agents")
+BUNDLE_PACKAGES = ("ow_sim", "ow_planner", "ow_planner_v2", "agents")
 
 
 @dataclass(frozen=True, slots=True)

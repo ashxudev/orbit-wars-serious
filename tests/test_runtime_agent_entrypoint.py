@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agents import RuntimeTurnConfig, agent
+from agents import PLANNER_VERSION_V2, RuntimeTurnConfig, agent
 
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -25,6 +25,30 @@ class RuntimeAgentEntrypointTests(unittest.TestCase):
         module = importlib.import_module("agents.orbit_wars_agent")
 
         self.assertIs(module.agent, agent)
+
+    def test_planner_v2_agent_module_imports_without_changing_default_agent(self) -> None:
+        module = importlib.import_module("agents.orbit_wars_agent_v2")
+
+        self.assertIsNot(module.agent, agent)
+
+    def test_planner_v2_agent_enables_v2_on_top_of_runtime_defaults(self) -> None:
+        module = importlib.import_module("agents.orbit_wars_agent_v2")
+        observation = load_fixture("kaggle_seed7_2p_step0.json")
+
+        with patch(
+            "agents.orbit_wars_agent_v2.safe_actions_for_observation",
+            return_value=[],
+        ) as safe_actions:
+            result = module.agent(observation, {})
+
+        self.assertEqual(result, [])
+        safe_actions.assert_called_once()
+        config = safe_actions.call_args.args[2]
+        self.assertIsInstance(config, RuntimeTurnConfig)
+        self.assertIsNotNone(config.budget_config)
+        self.assertIsNotNone(config.planner_config)
+        self.assertEqual(config.planner_config.planner_version, PLANNER_VERSION_V2)
+        self.assertEqual(config.planner_config.candidate_config.max_candidates, 8)
 
     def test_agent_delegates_standard_call_shape_to_safe_runtime_turn(self) -> None:
         turn_config = RuntimeTurnConfig()

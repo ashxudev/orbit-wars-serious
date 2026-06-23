@@ -167,6 +167,8 @@ class RegressionGateResult:
 
 def run_regression_gate(
     config: RegressionGateConfig | None = None,
+    *,
+    parity_result: SubmissionParityResult | None = None,
 ) -> RegressionGateResult:
     """Run the deterministic quick local regression gate."""
 
@@ -189,10 +191,14 @@ def run_regression_gate(
                 artifact_prefix="regression-candidate",
             )
         )
-        parity_result = run_submission_parity_check(
-            SubmissionParityConfig(
-                matches=effective_config.matches,
-                submission_path=effective_config.submission_path,
+        effective_parity_result = (
+            parity_result
+            if parity_result is not None
+            else run_submission_parity_check(
+                SubmissionParityConfig(
+                    matches=effective_config.matches,
+                    submission_path=effective_config.submission_path,
+                )
             )
         )
     except Exception as exc:
@@ -220,7 +226,7 @@ def run_regression_gate(
         _gate_failures(
             config=effective_config,
             candidate_batch=candidate_batch,
-            parity_result=parity_result,
+            parity_result=effective_parity_result,
             triage_report=triage_report,
             scoreboard_record=scoreboard_record,
         )
@@ -231,12 +237,12 @@ def run_regression_gate(
         failures=failures,
         scoreboard_record=scoreboard_record,
         triage_report=triage_report,
-        parity_result=parity_result,
+        parity_result=effective_parity_result,
         summary_text=_summary_text(
             passed,
             scoreboard_record,
             failures,
-            parity_result,
+            effective_parity_result,
         ),
     )
 

@@ -62,21 +62,36 @@ coverage or moving ordinary tests to Daytona.
 .venv/bin/python scripts/run_evaluation_suite.py
 ```
 
-6. Run the submission-readiness preflight. This composes submission build,
-   generated-submission parity, the quick regression gate, and the experiment
-   suite.
+6. Run the standard submission-readiness preflight. This composes submission
+   build, generated-submission parity, and the quick regression gate. The
+   regression gate reuses the parity result computed by preflight instead of
+   running generated-submission parity a second time. The CLI prints
+   per-check start/done timing lines to stderr so long local official-environment
+   phases are visible while they run.
 
 ```bash
 .venv/bin/python scripts/submission_preflight.py
 ```
 
-The default smoke suite used by `scripts/run_evaluation_suite.py` and
-`scripts/submission_preflight.py` is intentionally bounded for local readiness:
-each default-suite scenario sets `metadata.episode_steps` to `5`. This keeps the
-preflight practical while still exercising local official-environment execution,
-generated-submission parity, regression-gate checks, and manifest expansion.
-Slower or larger evaluation runs should use explicit manifests or explicitly
-edited scenario metadata instead of relying on the default preflight suite.
+Use `--level fast` during tight planner/debug loops when a build plus one
+generated-submission parity match is enough. Use `--level full` before
+live-submission readiness or broad release checks; it adds the experiment suite
+and runs that suite concurrently with the parity/regression sequence when
+possible.
+
+```bash
+.venv/bin/python scripts/submission_preflight.py --level fast
+.venv/bin/python scripts/submission_preflight.py --level full
+```
+
+The default smoke suite used by `scripts/run_evaluation_suite.py` is
+intentionally bounded for local readiness: each default-suite scenario sets
+`metadata.episode_steps` to `5`. Full preflight keeps the suite opt-in for
+ordinary development while still exercising local official-environment
+execution, generated-submission parity, regression-gate checks, and manifest
+expansion when requested. Slower or larger evaluation runs should use explicit
+manifests or explicitly edited scenario metadata instead of relying on the
+default suite.
 
 ## Modules And Scripts
 
@@ -98,7 +113,7 @@ edited scenario metadata instead of relying on the default preflight suite.
 - `ow_eval/experiment_report.py`: local report records and explicit JSON report persistence.
 - `ow_eval/experiment_cli.py` and `scripts/run_evaluation_experiment.py`: one-manifest local experiment workflow.
 - `ow_eval/experiment_suite.py` and `scripts/run_evaluation_suite.py`: ordered multi-manifest local experiment workflow.
-- `ow_eval/submission_preflight.py` and `scripts/submission_preflight.py`: local pre-submission checklist over build, parity, gate, and suite checks.
+- `ow_eval/submission_preflight.py` and `scripts/submission_preflight.py`: local pre-submission checklist over build, parity, gate, and optional suite checks.
 - `ow_eval/local_tests.py`, `scripts/run_tests_parallel.py`, and
   `scripts/profile_tests.py`: local unittest module discovery, per-module
   timing, and parallel subprocess execution for faster developer confidence
@@ -154,5 +169,6 @@ part of routine local evaluation.
   meet the configured local criteria.
 - Submission preflight failures identify which readiness check failed:
   submission build, generated-submission parity, quick regression gate, or
-  experiment suite. Any failed preflight check should be resolved before asking
-  to spend a live Kaggle submission.
+  experiment suite when `--level full` or explicit manifests are used. Any
+  failed preflight check should be resolved before asking to spend a live Kaggle
+  submission.

@@ -9,6 +9,7 @@ pipeline into the runtime ``agent`` entrypoint.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from ow_planner import (
     CandidateCommitmentOptions,
@@ -44,17 +45,42 @@ from ow_planner import (
 )
 from ow_sim.state import GameState
 
+from ow_planner_v2 import (
+    PlannerV2Config,
+    planner_v2_result_to_strategy_selection,
+    run_planner_v2_from_artifacts,
+)
+
+if TYPE_CHECKING:
+    from ow_planner_v2 import PlannerV2Result
+
+
+PLANNER_VERSION_V1 = "v1"
+PLANNER_VERSION_V2 = "v2"
+PLANNER_VERSIONS = (PLANNER_VERSION_V1, PLANNER_VERSION_V2)
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimePlannerConfig:
     """Configuration pass-through for runtime planner composition."""
 
+    planner_version: str = PLANNER_VERSION_V1
     candidate_config: CandidateGenerationConfig | None = None
     evaluation_config: EvaluationConfig | None = None
     scoring_config: MissionScoringConfig | None = None
     response_config: ResponseConfig | None = None
     commitment_config: CommitmentPolicyConfig | None = None
     strategy_dispatch_config: StrategyDispatchConfig | None = None
+    planner_v2_config: PlannerV2Config | None = None
+
+    def __post_init__(self) -> None:
+        if self.planner_version not in PLANNER_VERSIONS:
+            raise ValueError("planner_version must be 'v1' or 'v2'")
+        if self.planner_v2_config is not None and not isinstance(
+            self.planner_v2_config,
+            PlannerV2Config,
+        ):
+            raise ValueError("planner_v2_config must be None or PlannerV2Config")
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +96,7 @@ class RuntimePlannerResult:
     four_player_board_facts: FourPlayerBoardFacts | None
     bundles: tuple[PlannerDecisionBundle, ...]
     selection: StrategySelectionResult
+    v2_result: "PlannerV2Result | None" = None
 
 
 def run_planner_pipeline(
@@ -115,12 +142,29 @@ def run_planner_pipeline(
         response_evaluations=response_evaluations,
         commitment_options=commitment_options,
     )
-    selection = select_strategy_for_mode(
-        bundles,
-        strategy_mode_facts=mode_facts,
-        four_player_board_facts=board_facts,
-        config=dispatch_config,
-    )
+    v2_result = None
+    if effective_config.planner_version == PLANNER_VERSION_V2:
+        v2_result = run_planner_v2_from_artifacts(
+            state,
+            candidates=candidates,
+            evaluations=evaluations,
+            response_evaluations=response_evaluations,
+            commitment_options=commitment_options,
+            bundles=bundles,
+            config=effective_config.planner_v2_config,
+        )
+        selection = planner_v2_result_to_strategy_selection(
+            v2_result,
+            strategy_mode_facts=mode_facts,
+            bundles=bundles,
+        )
+    else:
+        selection = select_strategy_for_mode(
+            bundles,
+            strategy_mode_facts=mode_facts,
+            four_player_board_facts=board_facts,
+            config=dispatch_config,
+        )
 
     return RuntimePlannerResult(
         state=state,
@@ -132,6 +176,7 @@ def run_planner_pipeline(
         four_player_board_facts=board_facts,
         bundles=bundles,
         selection=selection,
+        v2_result=v2_result,
     )
 
 
@@ -214,5 +259,8 @@ def _dispatch_config_with_runtime_facts(
 __all__ = (
     "RuntimePlannerConfig",
     "RuntimePlannerResult",
+    "PLANNER_VERSION_V1",
+    "PLANNER_VERSION_V2",
+    "PLANNER_VERSIONS",
     "run_planner_pipeline",
 )

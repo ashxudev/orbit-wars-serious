@@ -136,14 +136,13 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
                 "submission_build",
                 "submission_parity",
                 "regression_gate",
-                "experiment_suite",
             ),
         )
         self.assertTrue(all(check.passed for check in result.checks))
         self.assertEqual(
             result.summary_text,
             (
-                "submission_preflight=PASS total=4 passed=4 failed=0 "
+                "submission_preflight=PASS total=3 passed=3 failed=0 "
                 "failed_checks=none exit_code=0"
             ),
         )
@@ -153,7 +152,8 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
         self.assertTrue(Path(parity_config.submission_path).name.endswith(".py"))
         gate_config = gate_mock.call_args.args[0]
         self.assertTrue(Path(gate_config.submission_path).name.endswith(".py"))
-        suite_mock.assert_called_once_with(default_manifest_paths(), report_dir=None)
+        self.assertIs(gate_mock.call_args.kwargs["parity_result"], parity_mock.return_value)
+        suite_mock.assert_not_called()
 
     def test_parity_failure_makes_preflight_fail(self) -> None:
         result = self.run_mocked_preflight(
@@ -165,7 +165,7 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
         self.assertEqual(
             result.summary_text,
             (
-                "submission_preflight=FAIL total=4 passed=3 failed=1 "
+                "submission_preflight=FAIL total=3 passed=2 failed=1 "
                 "failed_checks=submission_parity exit_code=1"
             ),
         )
@@ -184,7 +184,10 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
         )
 
     def test_experiment_suite_failure_is_reported(self) -> None:
-        result = self.run_mocked_preflight(suite=suite_result(exit_code=1))
+        result = self.run_mocked_preflight(
+            suite=suite_result(exit_code=1),
+            level="full",
+        )
 
         self.assertFalse(result.passed)
         self.assertEqual(result.checks[3].name, "experiment_suite")
@@ -243,6 +246,7 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
             "ow_eval.submission_preflight.run_evaluation_suite",
         ) as suite_mock:
             result = run_submission_preflight(
+                level="full",
                 skip_parity=True,
                 skip_regression_gate=True,
                 skip_experiment_suite=True,
@@ -328,6 +332,7 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
         ) as runner, contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             exit_code = run_submission_preflight_main(
                 [
+                    "--quiet-progress",
                     "--skip-parity",
                     "--skip-regression-gate",
                     "--skip-experiment-suite",
@@ -342,9 +347,11 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
         runner.assert_called_once_with(
             manifest_paths=("/tmp/a.json", "/tmp/b.json"),
             suite_report_dir="/tmp/reports",
+            level="standard",
             skip_parity=True,
             skip_regression_gate=True,
             skip_experiment_suite=True,
+            progress_callback=None,
         )
         self.assertEqual(
             stdout.getvalue(),
@@ -362,6 +369,50 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
             "submission_parity: generated submission parity failed\n",
         )
 
+    def test_fast_level_runs_one_parity_match_without_gate_or_suite(self) -> None:
+        with patch(
+            "ow_eval.submission_preflight.write_submission",
+            side_effect=fake_write_submission,
+        ), patch(
+            "ow_eval.submission_preflight.run_submission_parity_check",
+            return_value=parity_result(),
+        ) as parity_mock, patch(
+            "ow_eval.submission_preflight.run_regression_gate",
+        ) as gate_mock, patch(
+            "ow_eval.submission_preflight.run_evaluation_suite",
+        ) as suite_mock:
+            result = run_submission_preflight(level="fast")
+
+        self.assertTrue(result.passed)
+        self.assertEqual(
+            tuple(check.name for check in result.checks),
+            ("submission_build", "submission_parity"),
+        )
+        parity_config = parity_mock.call_args.args[0]
+        self.assertEqual(len(parity_config.matches), 1)
+        gate_mock.assert_not_called()
+        suite_mock.assert_not_called()
+
+    def test_full_level_runs_experiment_suite(self) -> None:
+        with patch(
+            "ow_eval.submission_preflight.write_submission",
+            side_effect=fake_write_submission,
+        ), patch(
+            "ow_eval.submission_preflight.run_submission_parity_check",
+            return_value=parity_result(),
+        ), patch(
+            "ow_eval.submission_preflight.run_regression_gate",
+            return_value=regression_result(),
+        ), patch(
+            "ow_eval.submission_preflight.run_evaluation_suite",
+            return_value=suite_result(),
+        ) as suite_mock:
+            result = run_submission_preflight(level="full")
+
+        self.assertTrue(result.passed)
+        self.assertEqual(result.checks[3].name, "experiment_suite")
+        suite_mock.assert_called_once_with(default_manifest_paths(), report_dir=None)
+
     def test_script_help_parser_works(self) -> None:
         stdout = io.StringIO()
         with self.assertRaises(SystemExit) as raised, contextlib.redirect_stdout(stdout):
@@ -376,6 +427,7 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
         parity: SubmissionParityResult | None = None,
         gate: RegressionGateResult | None = None,
         suite: ExperimentSuiteResult | None = None,
+        level: str = "standard",
     ) -> SubmissionPreflightResult:
         with patch(
             "ow_eval.submission_preflight.write_submission",
@@ -390,7 +442,7 @@ class EvaluationSubmissionPreflightTests(unittest.TestCase):
             "ow_eval.submission_preflight.run_evaluation_suite",
             return_value=suite or suite_result(),
         ):
-            return run_submission_preflight()
+            return run_submission_preflight(level=level)
 
 
 if __name__ == "__main__":

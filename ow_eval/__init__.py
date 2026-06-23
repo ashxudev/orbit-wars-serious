@@ -308,6 +308,10 @@ from .shard_cli import (
     run_evaluation_shards,
 )
 from .submission_preflight import (
+    PREFLIGHT_LEVEL_FAST,
+    PREFLIGHT_LEVEL_FULL,
+    PREFLIGHT_LEVEL_STANDARD,
+    PREFLIGHT_LEVELS,
     SubmissionPreflightCheck,
     SubmissionPreflightResult,
     main as run_submission_preflight_main,
@@ -444,6 +448,10 @@ __all__ = (
     "PromotionGateDecision",
     "PromotionGateFailure",
     "PromotionThresholds",
+    "PREFLIGHT_LEVEL_FAST",
+    "PREFLIGHT_LEVEL_FULL",
+    "PREFLIGHT_LEVEL_STANDARD",
+    "PREFLIGHT_LEVELS",
     "RegressionGateConfig",
     "RegressionGateFailure",
     "RegressionGateResult",

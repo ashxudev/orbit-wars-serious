@@ -12,6 +12,9 @@ from .runtime_budget import (
 )
 from .runtime_config import RuntimeDefaultConfig, runtime_turn_config_for_observation
 from .runtime_planner import (
+    PLANNER_VERSION_V1,
+    PLANNER_VERSION_V2,
+    PLANNER_VERSIONS,
     RuntimePlannerConfig,
     RuntimePlannerResult,
     run_planner_pipeline,
@@ -32,6 +35,9 @@ __all__ = (
     "RuntimeBudgetConfig",
     "RuntimeBudgetStatus",
     "RuntimeDefaultConfig",
+    "PLANNER_VERSION_V1",
+    "PLANNER_VERSION_V2",
+    "PLANNER_VERSIONS",
     "RuntimePlannerConfig",
     "RuntimePlannerResult",
     "RuntimeTurnConfig",

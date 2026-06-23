@@ -211,6 +211,24 @@ class RegressionGateTests(unittest.TestCase):
         self.assertIs(parity_config.submission_path, config.submission_path)
         self.assertEqual(parity_config.matches, matches)
 
+    def test_gate_reuses_precomputed_parity_result(self) -> None:
+        matches = (gate_match_config(7),)
+        candidate_batch = batch_result(match_result(matches[0], final_rank=1))
+        parity = parity_result(matches)
+        config = RegressionGateConfig(matches=matches)
+
+        with patch(
+            "ow_eval.regression_gate.run_evaluation_batch",
+            return_value=candidate_batch,
+        ), patch(
+            "ow_eval.regression_gate.run_submission_parity_check",
+        ) as parity_mock:
+            result = run_regression_gate(config, parity_result=parity)
+
+        self.assertTrue(result.passed)
+        self.assertIs(result.parity_result, parity)
+        parity_mock.assert_not_called()
+
     def test_parity_mismatch_fails_gate(self) -> None:
         matches = (gate_match_config(),)
         result = self.run_mocked_gate(
