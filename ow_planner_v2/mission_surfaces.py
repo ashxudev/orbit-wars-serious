@@ -58,10 +58,11 @@ def generate_surface_candidates(
             return
         candidates.append(candidate)
 
-    for candidate in _trajectory_second_source_candidates(state, trajectory):
-        append(candidate)
-        if _surface_limit_reached(candidates, effective_config):
-            return tuple(candidates)
+    if effective_config.enable_trajectory_second_source:
+        for candidate in _trajectory_second_source_candidates(state, trajectory):
+            append(candidate)
+            if _surface_limit_reached(candidates, effective_config):
+                return tuple(candidates)
 
     for candidate in _urgent_defense_candidates(state, effective_diagnosis):
         append(candidate)

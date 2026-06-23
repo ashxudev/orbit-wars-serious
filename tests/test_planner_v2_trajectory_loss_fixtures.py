@@ -7,6 +7,9 @@ import unittest
 from pathlib import Path
 
 from agents.runtime_actions import planner_result_to_actions
+from agents.orbit_wars_agent_v2_trajectory_off import (
+    runtime_turn_config_for_observation as trajectory_off_runtime_config,
+)
 from agents.runtime_planner import (
     PLANNER_VERSION_V2,
     RuntimePlannerConfig,
@@ -14,8 +17,9 @@ from agents.runtime_planner import (
 )
 from agents.runtime_state import observation_to_game_state
 from ow_planner import CandidateGenerationConfig
-from ow_planner_v2 import PlannerV2Config, diagnose_trajectory
+from ow_planner_v2 import PlannerV2Config, diagnose_trajectory, generate_surface_candidates
 from ow_planner_v2.diagnostics import planner_v2_diagnostics
+from ow_sim.state import GameState, Planet
 
 
 FIXTURE_DIR = (
@@ -209,6 +213,85 @@ class PlannerV2TrajectoryLossFixtureTests(unittest.TestCase):
                 objectives = set(payload["trajectory_objectives"])
                 self.assertIn("secure_second_source", objectives)
                 self.assertIn("preserve_primary_source", objectives)
+
+    def test_trajectory_second_source_surface_can_be_disabled_for_ab_tests(self) -> None:
+        state = GameState(
+            tick=20,
+            player_id=0,
+            planets=(
+                Planet(1, 0, 0.0, 0.0, 1.0, 20, 5),
+                Planet(2, -1, 5.0, 0.0, 1.0, 3, 4),
+                Planet(3, 1, 30.0, 0.0, 1.0, 20, 5),
+            ),
+        )
+
+        enabled = generate_surface_candidates(
+            state,
+            (),
+            config=PlannerV2Config(max_surface_candidates=8),
+        )
+        disabled = generate_surface_candidates(
+            state,
+            (),
+            config=PlannerV2Config(
+                max_surface_candidates=8,
+                enable_trajectory_second_source=False,
+            ),
+        )
+
+        self.assertTrue(
+            any(
+                candidate.note == "planner_v2_surface:trajectory_second_source"
+                for candidate in enabled
+            )
+        )
+        self.assertFalse(
+            any(
+                candidate.note == "planner_v2_surface:trajectory_second_source"
+                for candidate in disabled
+            )
+        )
+
+    def test_trajectory_diagnostics_remain_when_surface_is_disabled(self) -> None:
+        payload = load_case(FIXTURE_DIR / "two_p_trajectory_t020_p1.json")
+        state = observation_to_game_state(payload["observation"])
+        result = run_planner_pipeline(
+            state,
+            RuntimePlannerConfig(
+                planner_version=PLANNER_VERSION_V2,
+                candidate_config=CandidateGenerationConfig(
+                    max_candidates=8,
+                    max_validation_attempts=8,
+                ),
+                planner_v2_config=PlannerV2Config(
+                    max_action_sets=4,
+                    enable_trajectory_second_source=False,
+                ),
+            ),
+        )
+
+        self.assertIsNotNone(result.v2_result)
+        diagnostics = planner_v2_diagnostics(result.v2_result)
+        self.assertEqual(
+            diagnostics["planner_v2_trajectory_labels"],
+            payload["trajectory_labels"],
+        )
+        self.assertEqual(
+            diagnostics["planner_v2_trajectory_objectives"],
+            payload["trajectory_objectives"],
+        )
+
+    def test_trajectory_off_agent_entrypoint_uses_v2_with_surface_disabled(self) -> None:
+        payload = load_case(FIXTURE_DIR / "two_p_trajectory_t020_p1.json")
+
+        config = trajectory_off_runtime_config(payload["observation"])
+
+        self.assertIsNotNone(config.planner_config)
+        self.assertEqual(config.planner_config.planner_version, PLANNER_VERSION_V2)
+        self.assertIsNotNone(config.planner_config.planner_v2_config)
+        self.assertFalse(
+            config.planner_config.planner_v2_config.enable_trajectory_second_source
+        )
 
 
 if __name__ == "__main__":

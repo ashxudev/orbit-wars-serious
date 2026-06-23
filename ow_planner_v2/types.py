@@ -69,6 +69,7 @@ class PlannerV2Config:
     horizons: tuple[int, ...] = (10, 25, 50)
     endgame_horizon: int = 100
     minimum_plan_score: float = -100.0
+    enable_trajectory_second_source: bool = True
 
     def __post_init__(self) -> None:
         _validate_optional_nonnegative_int(self.max_missions, "max_missions")
@@ -99,6 +100,8 @@ class PlannerV2Config:
             (int, float),
         ):
             raise ValueError("minimum_plan_score must be numeric")
+        if not isinstance(self.enable_trajectory_second_source, bool):
+            raise ValueError("enable_trajectory_second_source must be boolean")
 
 
 @dataclass(frozen=True, slots=True)
