@@ -369,3 +369,21 @@ Mode-split reserve candidate follow-up:
 - Remaining pressure losses:
   `2p seat-1 vs claude-v31` and `4p mixed-style seat-2`, both still collapsing
   to zero production.
+- Daytona validation for the pushed mode-split candidate used commit
+  `f0e622a` and artifacts under `/tmp/ow-mode-split-daytona`.
+  The first generated plans had a mistyped full SHA and failed with a GitHub
+  `404`; regenerated plans used the exact pushed SHA
+  `f0e622a953f2815e8e045c5fe0e4f55587203862`.
+- Completed Daytona mode-split shards:
+  `job-0002-mode-split-ab-0002` (2P) and
+  `job-0003-mode-split-ab-0003` (4P). Combined result:
+  `4/6`, mean rank `1.333`, mean survived `190.667`, mean final production
+  `45.833`, and `2` collapses.
+- Daytona wins matched local evidence: `claude-v9` 2P, `ow2-current-main` 2P,
+  `top-score` 4P, and `ow2-smoke-reference` 4P. Losses remained
+  `claude-v31` 2P and `mixed-style` 4P.
+- The older live source-guard submission `53992217` had fallen to public score
+  `696.5` with `9` accessible public episodes by this check. Sample record was
+  `4-5`; all `5/5` losses ended at zero production, reinforcing that source
+  guard alone is not stable enough and that 4P retention/pressure behavior is
+  the primary leak.
