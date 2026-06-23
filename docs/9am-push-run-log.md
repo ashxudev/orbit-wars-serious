@@ -387,3 +387,30 @@ Mode-split reserve candidate follow-up:
   `4-5`; all `5/5` losses ended at zero production, reinforcing that source
   guard alone is not stable enough and that 4P retention/pressure behavior is
   the primary leak.
+
+Retention mode-split follow-up:
+
+- No live Kaggle submission was made.
+- Artifact review of the two mode-split Daytona losses classified both as
+  production-retention failures rather than candidate starvation. The
+  `claude-v31` 2P loss peaked around `39` production near turn `63`, then lost
+  the production curve as the opponent compounded. The `mixed-style` 4P loss
+  reached `27` production around turn `100`, then declined to zero by turn
+  `239`.
+- Top-player replay review pointed to the same gap. Current rank-1 2P samples
+  were materially steeper by turns `40`/`60`/`80`, and strong 4P samples kept
+  production rising into turn `200`.
+- Two isolated non-promoted probes were rejected locally:
+  `fallback_mode_split_v2` stayed `4/6` and did not improve either loss;
+  `fallback_mode_split_prod_area` also stayed `4/6` with the same two losses.
+- Added the opt-in `agents.fallback_mode_split_retention` candidate. It keeps
+  the current 2P/4P mode split but adds a bounded `DEFENSE_MARGIN = 18` when
+  defending owned production that the forecast says will fall.
+- Local pressure-six result:
+  `/tmp/ow-mode-split-retention-local/mode_split_retention.report.json`.
+  The retention candidate went `5/6`, mean rank `1.167`, mean score `0.667`,
+  with no errors. It converted the prior `4p mixed-style seat-2` collapse into
+  a win; the only remaining loss was `2p seat-1 vs claude-v31`.
+- Focused validation:
+  `.venv/bin/python -m unittest tests.test_fallback_mode_split_retention_candidate tests.test_fallback_mode_split_candidate tests.test_fallback_source_guard_candidate -v`
+  and `git diff --check`.
